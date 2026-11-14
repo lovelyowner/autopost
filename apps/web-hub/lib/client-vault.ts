@@ -1,3 +1,4 @@
+/** Browser localStorage persistence for per-visitor credentials, presets, schedules, and history. */
 import type { CampaignHistoryEntry, CampaignStateSnapshot } from "@polypost/node-api-worker";
 import type { PresetProfile, ScheduledItem } from "@/lib/config-store";
 
