@@ -1,0 +1,30 @@
+{
+  "name": "polypost",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/platform-registry",
+    "packages/media-reconciler",
+    "packages/ai-caption-spinner",
+    "apps/node-api-worker",
+    "apps/web-hub"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm --workspace @polypost/web-hub run build",
+    "test": "vitest run",
+    "test:py": "cd apps/stealth-browser-worker && PYTHONPATH=. ../../.venv/bin/pytest -q",
+    "login": "cd apps/stealth-browser-worker && PYTHONPATH=. ../../.venv/bin/python -m src.login_cli",
+    "typecheck": "tsc -p tsconfig.base.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

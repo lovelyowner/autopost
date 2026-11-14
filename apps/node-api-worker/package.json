@@ -1,0 +1,22 @@
+{
+  "name": "@polypost/node-api-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "node ../../node_modules/vite/node_modules/esbuild/bin/esbuild src/server.ts --bundle --platform=node --format=esm --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --external:bullmq --external:ioredis --external:onnxruntime-node --outfile=dist/server.mjs",
+    "start": "node dist/server.mjs"
+  },
+  "dependencies": {
+    "@polypost/ai-caption-spinner": "0.1.0",
+    "@polypost/media-reconciler": "0.1.0",
+    "@polypost/platform-registry": "0.1.0",
+    "bullmq": "^5.25.0",
+    "ioredis": "^5.4.1"
+  }
+}

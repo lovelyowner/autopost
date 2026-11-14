@@ -1,0 +1,64 @@
+services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: polypost-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: polypost-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+
+  stealth-browser-worker:
+    build:
+      context: ./apps/stealth-browser-worker
+      dockerfile: Dockerfile
+    container_name: polypost-stealth-browser-worker
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - BASE_DIR=/app
+    volumes:
+      - ./profiles:/app/profiles
+      - ./config:/app/config
+    restart: unless-stopped
+
+  node-api-worker:
+    build:
+      context: .
+      dockerfile: apps/node-api-worker/Dockerfile
+    container_name: polypost-node-api-worker
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - STEALTH_WORKER_URL=http://stealth-browser-worker:8001
+      - OLLAMA_URL=http://ollama:11434
+    restart: unless-stopped
+
+  web-hub:
+    build:
+      context: .
+      dockerfile: apps/web-hub/Dockerfile
+    container_name: polypost-web-hub
+    ports:
+      - "3000:3000"
+    depends_on:
+      - node-api-worker
+    environment:
+      - NEXT_PUBLIC_STEALTH_WORKER_URL=http://localhost:8001
+      - REDIS_URL=redis://redis:6379
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  ollama_models:

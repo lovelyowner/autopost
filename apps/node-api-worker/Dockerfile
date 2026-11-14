@@ -1,0 +1,12 @@
+FROM node:22-slim
+
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+
+COPY package.json tsconfig.base.json ./
+COPY scripts ./scripts
+COPY packages ./packages
+COPY apps/node-api-worker ./apps/node-api-worker
+RUN npm install --workspaces --if-present && npm --workspace=@polypost/node-api-worker run build
+
+CMD ["node", "apps/node-api-worker/dist/server.mjs"]

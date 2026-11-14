@@ -1,0 +1,120 @@
+[
+  {
+    "id": "preset_studio_core",
+    "name": "Studio Nova - Standard 4K Solo",
+    "recordsId2257": "REC-2257-VAULT-NOVA-2026",
+    "custodianContact": "compliance@studionova.example.com",
+    "ppvPriceUsd": 14.99,
+    "watermarkPngPath": "/watermarks/nova_corner_white.png",
+    "watermarkPosition": "bottom-right",
+    "seoTags": [
+      "amateur",
+      "solo",
+      "studio",
+      "4k",
+      "neon",
+      "cyberpunk",
+      "lifestyle",
+      "cinematic",
+      "behind the scenes",
+      "exclusive",
+      "verified",
+      "aesthetic",
+      "high contrast",
+      "color grading",
+      "indie creator",
+      "vault release"
+    ]
+  },
+  {
+    "id": "preset_collab_pair",
+    "name": "Verified Co-Performer Collab Tier",
+    "recordsId2257": "REC-2257-COLLAB-DUAL-77A",
+    "custodianContact": "records@creatorpartners.example.com",
+    "ppvPriceUsd": 24.99,
+    "watermarkPngPath": "/watermarks/collab_badge.png",
+    "watermarkPosition": "top-right",
+    "seoTags": [
+      "collab",
+      "duo",
+      "verified",
+      "full length",
+      "4k 60fps",
+      "ppv",
+      "members exclusive",
+      "club release",
+      "amateur couple",
+      "indie",
+      "lifestyle",
+      "bts",
+      "deluxe edition",
+      "dual angle",
+      "raw master",
+      "co-star"
+    ]
+  },
+  {
+    "id": "preset_adult_clip_matrix",
+    "name": "VIP Clip Stores + Multi-X Roster (OF + C4S + MV + MYM + JFF)",
+    "recordsId2257": "REC-2257-VAULT-NOVA-2026",
+    "custodianContact": "compliance@studionova.example.com",
+    "ppvPriceUsd": 19.99,
+    "watermarkPngPath": "/watermarks/nova_corner_white.png",
+    "watermarkPosition": "bottom-right",
+    "masterPlatformId": "manyvids_store",
+    "targetPlatforms": [
+      "manyvids_store",
+      "onlyfans_feed",
+      "clips4sale",
+      "mym_fans",
+      "justforfans",
+      "fansly_wall",
+      "x"
+    ],
+    "accountId": "main_creator",
+    "accountOverrides": {
+      "x": "x_acc_1, x_acc_2, x_acc_3"
+    },
+    "staggerSec": 15,
+    "seoTags": [
+      "exclusive",
+      "4k",
+      "full release",
+      "clip store",
+      "vip",
+      "new drop",
+      "behind the scenes",
+      "verified",
+      "solo",
+      "studio"
+    ]
+  },
+  {
+    "id": "preset_alt_video_trio",
+    "name": "Alt-Tech Video Matrix (Rumble + BitChute + Odysee + X)",
+    "recordsId2257": "REC-2257-VAULT-NOVA-2026",
+    "custodianContact": "compliance@studionova.example.com",
+    "ppvPriceUsd": 9.99,
+    "watermarkPngPath": "/watermarks/nova_corner_white.png",
+    "watermarkPosition": "bottom-left",
+    "masterPlatformId": "rumble",
+    "targetPlatforms": [
+      "rumble",
+      "bitchute",
+      "odysee",
+      "x",
+      "telegram",
+      "bluesky"
+    ],
+    "accountId": "main_creator",
+    "staggerSec": 5,
+    "seoTags": [
+      "uncensored",
+      "4k",
+      "vlog",
+      "commentary",
+      "creator",
+      "exclusive"
+    ]
+  }
+]

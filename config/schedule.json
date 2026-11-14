@@ -1,0 +1,32 @@
+[
+  {
+    "id": "post_001",
+    "title": "Cyberpunk Studio 4K Solo",
+    "date": "2026-11-13",
+    "time": "18:00 UTC",
+    "platforms": [
+      "youtube",
+      "fansly_wall",
+      "bluesky",
+      "x",
+      "discord"
+    ],
+    "masterPlatformId": "youtube",
+    "status": "scheduled",
+    "createdAt": 1794500000000
+  },
+  {
+    "id": "post_002",
+    "title": "Neon Lighting BTS Teaser",
+    "date": "2026-11-14",
+    "time": "20:30 UTC",
+    "platforms": [
+      "pornhub_video",
+      "manyvids_store",
+      "telegram"
+    ],
+    "masterPlatformId": "pornhub_video",
+    "status": "scheduled",
+    "createdAt": 1794500001000
+  }
+]
