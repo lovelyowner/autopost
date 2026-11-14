@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname, join, resolve } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { resolveMonorepoRoot } from "@polypost/node-api-worker";
+import { getStealthWorkerUrl } from "@/lib/stealth-client";
 
 interface SelectorRecipeOverride {
   upload_url?: string;
@@ -18,6 +19,22 @@ function resolveOverridesFile(): string {
   if (process.env.POLYPOST_SELECTOR_OVERRIDES) {
     return resolve(process.env.POLYPOST_SELECTOR_OVERRIDES);
   }
+  if (process.env.VERCEL) {
+    const tmpFile = "/tmp/polypost/config/selector-overrides.json";
+    if (existsSync(tmpFile)) return tmpFile;
+    const bundledFile = join(resolveMonorepoRoot(), "config", "selector-overrides.json");
+    return existsSync(bundledFile) ? bundledFile : tmpFile;
+  }
+  return join(resolveMonorepoRoot(), "config", "selector-overrides.json");
+}
+
+function resolveOverridesWriteFile(): string {
+  if (process.env.POLYPOST_SELECTOR_OVERRIDES) {
+    return resolve(process.env.POLYPOST_SELECTOR_OVERRIDES);
+  }
+  if (process.env.VERCEL) {
+    return "/tmp/polypost/config/selector-overrides.json";
+  }
   return join(resolveMonorepoRoot(), "config", "selector-overrides.json");
 }
 
@@ -33,7 +50,7 @@ function readOverridesMap(): Record<string, SelectorRecipeOverride> {
 }
 
 function writeOverridesMap(map: Record<string, SelectorRecipeOverride>): void {
-  const filePath = resolveOverridesFile();
+  const filePath = resolveOverridesWriteFile();
   mkdirSync(dirname(filePath), { recursive: true });
   const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
   writeFileSync(tmpPath, JSON.stringify(map, null, 2), "utf-8");
@@ -54,17 +71,19 @@ export async function GET(req: NextRequest) {
   }
 
   let workerRecipe: Record<string, any> | null = null;
-  try {
-    const stealthUrl = process.env.STEALTH_WORKER_URL || "http://localhost:8001";
-    const res = await fetch(`${stealthUrl}/api/selectors/${encodeURIComponent(platformId)}`, {
-      signal: AbortSignal.timeout(4000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      workerRecipe = data.recipe || null;
+  const stealthUrl = getStealthWorkerUrl();
+  if (stealthUrl) {
+    try {
+      const res = await fetch(`${stealthUrl}/api/selectors/${encodeURIComponent(platformId)}`, {
+        signal: AbortSignal.timeout(4000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        workerRecipe = data.recipe || null;
+      }
+    } catch {
+      // Fallback to local overrides when worker is offline
     }
-  } catch {
-    // Fallback to local overrides when worker is offline
   }
 
   return NextResponse.json({

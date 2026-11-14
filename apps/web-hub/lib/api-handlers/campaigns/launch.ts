@@ -10,7 +10,7 @@ import {
   varyCaptionForAccountSibling,
   type CampaignStateSnapshot,
 } from "@polypost/node-api-worker";
-import { getSharedFunnelEngine, getSharedRedis } from "@/lib/redis-singleton";
+import { getSharedFunnelEngine, getSharedRedis, hasConfiguredRedis } from "@/lib/redis-singleton";
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     const campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const masterPlatform = getPlatform(masterPlatformId);
-    const redis = getSharedRedis();
+    const redis = hasConfiguredRedis() ? getSharedRedis() : null;
     const overridesMap: Record<string, string> =
       accountOverrides && typeof accountOverrides === "object" ? accountOverrides : {};
 
@@ -202,6 +202,9 @@ export async function POST(req: NextRequest) {
 
     let queuedInRedis = false;
     try {
+      if (!redis) {
+        throw new Error("REDIS_URL is not configured on this Vercel deployment.");
+      }
       const engine = getSharedFunnelEngine();
       const flow = buildFunnelFlow({
         campaignId,

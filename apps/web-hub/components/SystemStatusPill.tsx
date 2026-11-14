@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 
 interface HealthResponse {
   ok: boolean;
+  cloudMode?: boolean;
   redis: boolean;
   stealthWorker: boolean;
   ffmpeg: boolean;
@@ -47,11 +48,27 @@ export function SystemStatusPill() {
   }
 
   const allOk = health.ok;
+  const allWorkersOffline = !health.redis && !health.stealthWorker && !health.ffmpeg;
+  const offlineLabel =
+    health.cloudMode && allWorkersOffline
+      ? "Cloud UI (Companion worker offline)"
+      : `Degraded (${[
+          !health.redis && "Redis",
+          !health.stealthWorker && "Stealth",
+          !health.ffmpeg && "FFmpeg",
+        ]
+          .filter(Boolean)
+          .join(", ")} offline)`;
+
   return (
     <button
       type="button"
       onClick={() => void fetchHealth()}
-      title="Click to re-check Redis, Stealth Browser Worker, and FFmpeg health"
+      title={
+        health.cloudMode && !allOk
+          ? "Vercel hosts the Web Hub only. Set REDIS_URL and STEALTH_WORKER_URL in Vercel Environment Variables to connect your companion worker host, or run node scripts/dev.mjs locally."
+          : "Click to re-check Redis, Stealth Browser Worker, and FFmpeg health"
+      }
       className={`text-[11px] px-2.5 py-0.5 rounded border font-mono flex items-center gap-1.5 cursor-pointer transition-colors ${
         allOk
           ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/80 hover:bg-emerald-900/70"
@@ -68,13 +85,7 @@ export function SystemStatusPill() {
           ? "Refreshing..."
           : allOk
           ? `Stack Online · ${health.vaultProfilesCount} Vault / ${health.apiProvidersConfigured} API`
-          : `Degraded (${[
-              !health.redis && "Redis",
-              !health.stealthWorker && "Stealth",
-              !health.ffmpeg && "FFmpeg",
-            ]
-              .filter(Boolean)
-              .join(", ")} offline)`}
+          : offlineLabel}
       </span>
     </button>
   );

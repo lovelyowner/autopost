@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadPresets, upsertPreset } from "@/lib/config-store";
-
-const STEALTH_WORKER_URL = process.env.STEALTH_WORKER_URL || "http://127.0.0.1:8001";
+import { getStealthWorkerUrl } from "@/lib/stealth-client";
 
 export async function GET() {
+  const stealthUrl = getStealthWorkerUrl();
   try {
     const presets = loadPresets();
-    let vaultBundle: Record<string, any> = { profiles: [], proxies: {} };
-    try {
-      const res = await fetch(`${STEALTH_WORKER_URL}/api/vault/bundle`, { cache: "no-store" });
-      if (res.ok) {
-        vaultBundle = await res.json();
-      }
-    } catch {}
+    let vaultBundle: Record<string, any> = { profiles: [], proxies: {}, offline: !stealthUrl };
+    if (stealthUrl) {
+      try {
+        const res = await fetch(`${stealthUrl}/api/vault/bundle`, { cache: "no-store" });
+        if (res.ok) {
+          vaultBundle = await res.json();
+        }
+      } catch {}
+    }
     return NextResponse.json({
       version: 1,
       exportedAt: Math.floor(Date.now() / 1000),
@@ -25,6 +27,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const stealthUrl = getStealthWorkerUrl();
   try {
     const body = await req.json();
     let restoredPresets = 0;
@@ -40,8 +43,8 @@ export async function POST(req: NextRequest) {
     let restoredProfiles = 0;
     let restoredProxies = 0;
     const vaultPayload = body?.vault || (Array.isArray(body?.profiles) ? body : null);
-    if (vaultPayload) {
-      const res = await fetch(`${STEALTH_WORKER_URL}/api/vault/bundle`, {
+    if (vaultPayload && stealthUrl) {
+      const res = await fetch(`${stealthUrl}/api/vault/bundle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(vaultPayload),
@@ -58,6 +61,7 @@ export async function POST(req: NextRequest) {
       restoredPresets,
       restoredProfiles,
       restoredProxies,
+      stealthOffline: !stealthUrl,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Failed to import bundle" }, { status: 400 });

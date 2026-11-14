@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { reloadRootEnvToProcessEnv } from "@polypost/node-api-worker";
 import { pingRedisFast } from "@/lib/redis-singleton";
+import { getStealthWorkerUrl } from "@/lib/stealth-client";
 
 export async function GET() {
   reloadRootEnvToProcessEnv();
-  const stealthUrl =
-    process.env.STEALTH_WORKER_URL || (process.env.VERCEL ? "" : "http://localhost:8001");
+  const stealthUrl = getStealthWorkerUrl();
   const ollamaUrl =
     process.env.OLLAMA_URL || (process.env.VERCEL ? "" : "http://localhost:11434");
 

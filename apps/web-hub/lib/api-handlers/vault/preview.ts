@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getStealthWorkerUrl, stealthWorkerOfflineJson } from "@/lib/stealth-client";
 
 const SAFE_PNG_NAME = /^[a-zA-Z0-9._-]+\.png$/;
 
@@ -11,7 +12,10 @@ export async function GET(
     return NextResponse.json({ error: "Invalid preview filename" }, { status: 400 });
   }
 
-  const stealthUrl = process.env.STEALTH_WORKER_URL || "http://localhost:8001";
+  const stealthUrl = getStealthWorkerUrl();
+  if (!stealthUrl) {
+    return stealthWorkerOfflineJson();
+  }
   try {
     const res = await fetch(`${stealthUrl}/api/previews/${encodeURIComponent(filename)}`, {
       signal: AbortSignal.timeout(10_000),

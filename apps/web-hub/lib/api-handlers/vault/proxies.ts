@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const STEALTH_WORKER_URL = process.env.STEALTH_WORKER_URL ?? "http://localhost:8001";
+import { getStealthWorkerUrl, stealthWorkerOfflineJson } from "@/lib/stealth-client";
 
 export async function GET() {
+  const stealthUrl = getStealthWorkerUrl();
+  if (!stealthUrl) {
+    return NextResponse.json({ accounts: {}, offline: true });
+  }
   try {
-    const res = await fetch(`${STEALTH_WORKER_URL}/api/proxies`, {
+    const res = await fetch(`${stealthUrl}/api/proxies`, {
       signal: AbortSignal.timeout(4000),
       cache: "no-store",
     });
@@ -19,9 +22,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const stealthUrl = getStealthWorkerUrl();
+  if (!stealthUrl) {
+    return stealthWorkerOfflineJson();
+  }
   try {
     const body = await req.json();
-    const res = await fetch(`${STEALTH_WORKER_URL}/api/proxies`, {
+    const res = await fetch(`${stealthUrl}/api/proxies`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

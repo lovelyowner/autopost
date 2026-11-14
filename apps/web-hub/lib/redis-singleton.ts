@@ -23,9 +23,14 @@ export function getSharedRedis(): Redis {
   return globalForPolyPost.__polypostRedis;
 }
 
+/** Return true when Redis should be queried (configured URL or local non-Vercel host). */
+export function hasConfiguredRedis(): boolean {
+  return Boolean(process.env.REDIS_URL) || !process.env.VERCEL;
+}
+
 /** Ping Redis with a hard deadline so serverless health checks never block on an offline queue. */
 export async function pingRedisFast(timeoutMs = 1500): Promise<boolean> {
-  if (Boolean(process.env.VERCEL) && !process.env.REDIS_URL) {
+  if (!hasConfiguredRedis()) {
     return false;
   }
 

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCampaignState } from "@polypost/node-api-worker";
-import { getSharedRedis } from "@/lib/redis-singleton";
+import { getSharedRedis, hasConfiguredRedis } from "@/lib/redis-singleton";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
-  const redis = getSharedRedis();
+  const redis = hasConfiguredRedis() ? getSharedRedis() : null;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({

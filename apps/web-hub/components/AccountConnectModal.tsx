@@ -94,6 +94,7 @@ export function ApiCredentialsManager({
   onChanged?: () => void;
 }) {
   const [providers, setProviders] = useState<CredentialProvider[]>([]);
+  const [cloudMode, setCloudMode] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, Record<string, string>>>({});
   const [expandedId, setExpandedId] = useState<string | null>(focusProviderId || "bluesky");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -104,6 +105,7 @@ export function ApiCredentialsManager({
       const res = await fetch("/api/credentials/manage");
       if (!res.ok) return;
       const data = await res.json();
+      setCloudMode(Boolean(data.cloudMode));
       const list: CredentialProvider[] = data.providers || [];
       setProviders(list);
       const nextDrafts: Record<string, Record<string, string>> = {};
@@ -208,6 +210,11 @@ export function ApiCredentialsManager({
 
   return (
     <div className="space-y-2">
+      {cloudMode && (
+        <div className="p-3 rounded-lg bg-indigo-950/50 border border-indigo-700/70 text-[11px] text-indigo-200 leading-relaxed">
+          <strong>Cloud Mode (Vercel):</strong> Serverless deployments have a read-only filesystem. Add platform API keys (Bluesky, Nostr, Telegram, Discord, OpenRouter, etc.) in <strong>Vercel Project Settings -&gt; Environment Variables</strong> and redeploy, then use <strong>Verify / Test Connection</strong> below.
+        </div>
+      )}
       {providers.map((p) => {
         const isOpen = expandedId === p.id;
         const msg = statusMsg?.providerId === p.id ? statusMsg : null;
@@ -321,6 +328,7 @@ export function BrowserSessionConnector({
   initialPlatformId,
   initialAlias = "main_creator",
   vaultAliases = [],
+  stealthOnline,
   showConnectedAliases = true,
   onPlatformChange,
   onAliasChange,
@@ -331,6 +339,7 @@ export function BrowserSessionConnector({
   initialPlatformId?: string | null;
   initialAlias?: string;
   vaultAliases?: string[];
+  stealthOnline?: boolean;
   showConnectedAliases?: boolean;
   onPlatformChange?: (platformId: string) => void;
   onAliasChange?: (alias: string) => void;
@@ -341,6 +350,7 @@ export function BrowserSessionConnector({
   const [alias, setAlias] = useState(initialAlias || "main_creator");
   const [proxyUrl, setProxyUrl] = useState("");
   const [proxyMap, setProxyMap] = useState<Record<string, string | null>>({});
+  const [workerOffline, setWorkerOffline] = useState(false);
   const [savingProxy, setSavingProxy] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -351,10 +361,16 @@ export function BrowserSessionConnector({
   const loadProxies = async () => {
     try {
       const res = await fetch("/api/vault/proxies");
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.status === 503 || res.status === 502) setWorkerOffline(true);
+        return;
+      }
       const data = await res.json();
+      setWorkerOffline(Boolean(data.offline));
       setProxyMap(data.accounts || {});
-    } catch {}
+    } catch {
+      setWorkerOffline(true);
+    }
   };
 
   useEffect(() => {
@@ -556,8 +572,28 @@ export function BrowserSessionConnector({
     }
   };
 
+  const isStealthOffline = stealthOnline === false || workerOffline;
+
   return (
     <div className="space-y-4 text-xs">
+      {isStealthOffline && (
+        <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-700/80 text-amber-100 space-y-1.5">
+          <div className="font-semibold text-amber-300">
+            Companion Stealth Worker Required for Chrome Login &amp; Cookie Vault
+          </div>
+          <p className="text-[11px] text-amber-100/90 leading-relaxed">
+            Vercel serverless functions cannot open a Chrome window on your computer or keep encrypted browser vaults on disk. To enable browser sessions here:
+          </p>
+          <ul className="list-disc list-inside text-[11px] text-amber-100/85 space-y-0.5">
+            <li>
+              <strong>Full local automation:</strong> Run <code className="px-1 py-0.5 rounded bg-slate-950 text-indigo-300 font-mono">node scripts/dev.mjs</code> on your machine (<code className="text-slate-200">http://localhost:3000/vault</code>), or expose port <code className="font-mono">8001</code> via Cloudflare Tunnel / ngrok and set <code className="font-mono text-indigo-300">STEALTH_WORKER_URL</code> in Vercel.
+            </li>
+            <li>
+              <strong>Cloud / VPS deployment:</strong> Deploy <code className="font-mono">docker-compose.yml</code> (<code className="font-mono">apps/stealth-browser-worker</code> + Redis) on a VPS and configure <code className="font-mono text-indigo-300">STEALTH_WORKER_URL</code> &amp; <code className="font-mono text-indigo-300">REDIS_URL</code> in Vercel Environment Variables.
+            </li>
+          </ul>
+        </div>
+      )}
       <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
         {!hideModeSwitch && (
           <div className="flex flex-wrap items-center justify-between gap-2 pb-1">

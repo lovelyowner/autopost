@@ -8,11 +8,20 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const VERCEL_ENV_READONLY_MSG =
+  "Vercel cloud deployments use a read-only filesystem and cannot edit .env files from the browser. Add your platform API keys in Vercel Project Settings -> Environment Variables and redeploy, or run PolyPost locally (node scripts/dev.mjs).";
+
 export async function GET() {
-  return NextResponse.json(readMaskedCredentialSummary());
+  return NextResponse.json({
+    cloudMode: Boolean(process.env.VERCEL),
+    ...readMaskedCredentialSummary(),
+  });
 }
 
 export async function POST(req: NextRequest) {
+  if (process.env.VERCEL) {
+    return NextResponse.json({ success: false, error: VERCEL_ENV_READONLY_MSG }, { status: 400 });
+  }
   try {
     const body = await req.json();
     const values = body?.values && typeof body.values === "object" ? body.values : {};
@@ -29,6 +38,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  if (process.env.VERCEL) {
+    return NextResponse.json({ success: false, error: VERCEL_ENV_READONLY_MSG }, { status: 400 });
+  }
   try {
     const providerId = req.nextUrl.searchParams.get("provider")?.trim() || "";
     const spec = CREDENTIAL_PROVIDERS.find((p) => p.id === providerId);

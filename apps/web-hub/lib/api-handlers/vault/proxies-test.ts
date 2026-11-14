@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const STEALTH_WORKER_URL = process.env.STEALTH_WORKER_URL ?? "http://localhost:8001";
+import { getStealthWorkerUrl, stealthWorkerOfflineJson } from "@/lib/stealth-client";
 
 export async function POST(req: NextRequest) {
+  const stealthUrl = getStealthWorkerUrl();
+  if (!stealthUrl) {
+    return stealthWorkerOfflineJson({ ok: false });
+  }
   try {
     const body = await req.json();
-    const res = await fetch(`${STEALTH_WORKER_URL}/api/proxies/test`, {
+    const res = await fetch(`${stealthUrl}/api/proxies/test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

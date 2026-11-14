@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ACTIVE_PLATFORMS, calculateUploadConstraints, type ScalingMode } from "@polypost/platform-registry";
 
+import { getStealthWorkerUrl, STEALTH_WORKER_OFFLINE_REASON } from "@/lib/stealth-client";
+
 export async function POST(req: NextRequest) {
-  const stealthUrl = process.env.STEALTH_WORKER_URL || "http://localhost:8001";
+  const stealthUrl = getStealthWorkerUrl();
 
   try {
     const body = await req.json();
@@ -82,6 +84,15 @@ export async function POST(req: NextRequest) {
       }
 
       if (toolName === "list_vault_profiles") {
+        if (!stealthUrl) {
+          return NextResponse.json({
+            jsonrpc: "2.0",
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify({ error: STEALTH_WORKER_OFFLINE_REASON, profiles: [] }) }],
+            },
+          });
+        }
         try {
           const res = await fetch(`${stealthUrl}/api/profiles`, { signal: AbortSignal.timeout(3000) });
           const data = await res.json();
@@ -102,6 +113,25 @@ export async function POST(req: NextRequest) {
       }
 
       if (toolName === "get_session_health") {
+        if (!stealthUrl) {
+          return NextResponse.json({
+            jsonrpc: "2.0",
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    account_id: args.accountId,
+                    platform: args.platform,
+                    healthy: false,
+                    reason: STEALTH_WORKER_OFFLINE_REASON,
+                  }),
+                },
+              ],
+            },
+          });
+        }
         try {
           const res = await fetch(`${stealthUrl}/api/sessions/health`, {
             method: "POST",

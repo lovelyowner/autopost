@@ -2,20 +2,19 @@ import { execFileSync } from "node:child_process";
 import { NextResponse } from "next/server";
 import { readMaskedCredentialSummary } from "@polypost/node-api-worker";
 import { pingRedisFast } from "@/lib/redis-singleton";
+import { getStealthWorkerUrl } from "@/lib/stealth-client";
 
 export const dynamic = "force-dynamic";
 
-const STEALTH_WORKER_URL =
-  process.env.STEALTH_WORKER_URL || (process.env.VERCEL ? "" : "http://127.0.0.1:8001");
-
 export async function GET() {
   const redisOk = await pingRedisFast(1500);
+  const stealthUrl = getStealthWorkerUrl();
 
   let stealthOk = false;
   let vaultProfilesCount = 0;
-  if (STEALTH_WORKER_URL) {
+  if (stealthUrl) {
     try {
-      const res = await fetch(`${STEALTH_WORKER_URL}/api/profiles`, {
+      const res = await fetch(`${stealthUrl}/api/profiles`, {
         cache: "no-store",
         signal: AbortSignal.timeout(2000),
       });
@@ -49,6 +48,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: redisOk && stealthOk && ffmpegOk,
+    cloudMode: Boolean(process.env.VERCEL),
     redis: redisOk,
     stealthWorker: stealthOk,
     ffmpeg: ffmpegOk,

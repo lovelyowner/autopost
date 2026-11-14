@@ -534,6 +534,7 @@ export default function AccountVaultPage() {
           initialPlatformId={selectedPlatform}
           initialAlias={newAccountId}
           vaultAliases={profiles.map((p) => p.account_id)}
+          stealthOnline={readiness ? readiness.services.stealthWorker : undefined}
           showConnectedAliases={false}
           onPlatformChange={setSelectedPlatform}
           onAliasChange={setNewAccountId}
