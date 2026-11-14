@@ -9,11 +9,22 @@ export async function POST(req: NextRequest) {
     reloadRootEnvToProcessEnv();
     const body = await req.json();
     const provider = String(body.provider || "").trim().toLowerCase();
+    const rawCreds =
+      body.credentials && typeof body.credentials === "object"
+        ? (body.credentials as Record<string, unknown>)
+        : {};
+    const cred = (key: string): string | undefined => {
+      const val = rawCreds[key];
+      if (typeof val === "string" && val.trim()) {
+        return val.trim();
+      }
+      return process.env[key];
+    };
 
     if (provider === "bluesky") {
-      const identifier = process.env.BLUESKY_IDENTIFIER;
-      const password = process.env.BLUESKY_PASSWORD;
-      const host = process.env.BLUESKY_HOST || "bsky.social";
+      const identifier = cred("BLUESKY_IDENTIFIER");
+      const password = cred("BLUESKY_PASSWORD");
+      const host = (cred("BLUESKY_HOST") || "bsky.social").replace(/^https?:\/\//i, "").replace(/\/+$/, "");
       if (!identifier || !password) {
         return NextResponse.json({ ok: false, message: "Enter Bluesky Handle + App Password first." }, { status: 400 });
       }
@@ -31,8 +42,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "mastodon") {
-      const token = process.env.MASTODON_ACCESS_TOKEN;
-      const host = process.env.MASTODON_HOST || "mastodon.social";
+      const token = cred("MASTODON_ACCESS_TOKEN");
+      const host = (cred("MASTODON_HOST") || "mastodon.social").replace(/^https?:\/\//i, "").replace(/\/+$/, "");
       if (!token) {
         return NextResponse.json({ ok: false, message: "Enter Mastodon Access Token first." }, { status: 400 });
       }
@@ -48,9 +59,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "telegram") {
-      const token = process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = process.env.TELEGRAM_CHAT_ID;
-      const apiBase = (process.env.TELEGRAM_API_BASE || "https://api.telegram.org").replace(/\/$/, "");
+      const token = cred("TELEGRAM_BOT_TOKEN");
+      const chatId = cred("TELEGRAM_CHAT_ID");
+      const apiBase = (cred("TELEGRAM_API_BASE") || "https://api.telegram.org").replace(/\/$/, "");
       if (!token || !chatId) {
         return NextResponse.json({ ok: false, message: "Enter Telegram Bot Token and Chat ID first." }, { status: 400 });
       }
@@ -66,7 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "discord") {
-      const url = process.env.WEBHOOK_DISCORD_WEBHOOK || process.env.WEBHOOK_DISCORD || process.env.DISCORD_WEBHOOK_URL;
+      const url = cred("WEBHOOK_DISCORD_WEBHOOK") || cred("WEBHOOK_DISCORD") || cred("DISCORD_WEBHOOK_URL");
       if (!url) {
         return NextResponse.json({ ok: false, message: "Enter Discord Webhook URL first." }, { status: 400 });
       }
@@ -79,7 +90,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "slack") {
-      const url = process.env.WEBHOOK_SLACK_WEBHOOK || process.env.WEBHOOK_SLACK || process.env.SLACK_WEBHOOK_URL;
+      const url = cred("WEBHOOK_SLACK_WEBHOOK") || cred("WEBHOOK_SLACK") || cred("SLACK_WEBHOOK_URL");
       if (!url) {
         return NextResponse.json({ ok: false, message: "Enter Slack Webhook URL first." }, { status: 400 });
       }
@@ -93,11 +104,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "reddit") {
-      const cid = process.env.REDDIT_CLIENT_ID;
-      const csec = process.env.REDDIT_CLIENT_SECRET;
-      const user = process.env.REDDIT_USERNAME;
-      const pass = process.env.REDDIT_PASSWORD;
-      const token = process.env.REDDIT_ACCESS_TOKEN;
+      const cid = cred("REDDIT_CLIENT_ID");
+      const csec = cred("REDDIT_CLIENT_SECRET");
+      const user = cred("REDDIT_USERNAME");
+      const pass = cred("REDDIT_PASSWORD");
+      const token = cred("REDDIT_ACCESS_TOKEN");
+      const userAgent = cred("REDDIT_USER_AGENT") || "PolyPost/0.1.0";
       if (!token && (!cid || !csec || !user || !pass)) {
         return NextResponse.json({ ok: false, message: "Enter Reddit OAuth fields first." }, { status: 400 });
       }
@@ -109,7 +121,7 @@ export async function POST(req: NextRequest) {
           headers: {
             Authorization: `Basic ${auth}`,
             "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": process.env.REDDIT_USER_AGENT || "PolyPost/0.1.0",
+            "User-Agent": userAgent,
           },
           body: new URLSearchParams({ grant_type: "password", username: user!, password: pass! }),
           signal: AbortSignal.timeout(10_000),
@@ -123,7 +135,7 @@ export async function POST(req: NextRequest) {
       const meRes = await fetch("https://oauth.reddit.com/api/v1/me", {
         headers: {
           Authorization: `Bearer ${bearer}`,
-          "User-Agent": process.env.REDDIT_USER_AGENT || "PolyPost/0.1.0",
+          "User-Agent": userAgent,
         },
         signal: AbortSignal.timeout(10_000),
       });
@@ -135,8 +147,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "e621") {
-      const user = process.env.E621_USERNAME;
-      const apiKey = process.env.E621_API_KEY;
+      const user = cred("E621_USERNAME");
+      const apiKey = cred("E621_API_KEY");
       if (!user || !apiKey) {
         return NextResponse.json({ ok: false, message: "Enter e621 Username and API Key first." }, { status: 400 });
       }
@@ -144,7 +156,7 @@ export async function POST(req: NextRequest) {
       const res = await fetch(`https://e621.net/users/${encodeURIComponent(user)}.json`, {
         headers: {
           Authorization: `Basic ${auth}`,
-          "User-Agent": process.env.E621_USER_AGENT || `PolyPost/0.1.0 (by ${user})`,
+          "User-Agent": cred("E621_USER_AGENT") || `PolyPost/0.1.0 (by ${user})`,
         },
         signal: AbortSignal.timeout(10_000),
       });
@@ -155,7 +167,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "deviantart") {
-      const token = process.env.DEVIANTART_ACCESS_TOKEN;
+      const token = cred("DEVIANTART_ACCESS_TOKEN");
       if (!token) {
         return NextResponse.json({ ok: false, message: "Enter DeviantArt OAuth2 Access Token first." }, { status: 400 });
       }
@@ -170,8 +182,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "inkbunny") {
-      const user = process.env.INKBUNNY_USERNAME;
-      const pass = process.env.INKBUNNY_PASSWORD;
+      const user = cred("INKBUNNY_USERNAME");
+      const pass = cred("INKBUNNY_PASSWORD");
       if (!user || !pass) {
         return NextResponse.json({ ok: false, message: "Enter Inkbunny Username + Password first." }, { status: 400 });
       }
@@ -189,8 +201,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "misskey") {
-      const token = process.env.MISSKEY_TOKEN;
-      const host = (process.env.MISSKEY_HOST || "misskey.io").replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+      const token = cred("MISSKEY_TOKEN");
+      const host = (cred("MISSKEY_HOST") || "misskey.io").replace(/^https?:\/\//i, "").replace(/\/+$/, "");
       if (!token) {
         return NextResponse.json({ ok: false, message: "Enter Misskey API Token first." }, { status: 400 });
       }
@@ -208,9 +220,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "lemmy") {
-      const host = (process.env.LEMMY_HOST || "lemmy.world").replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-      const user = process.env.LEMMY_USERNAME;
-      const pass = process.env.LEMMY_PASSWORD;
+      const host = (cred("LEMMY_HOST") || "lemmy.world").replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+      const user = cred("LEMMY_USERNAME");
+      const pass = cred("LEMMY_PASSWORD");
       if (!user || !pass) {
         return NextResponse.json({ ok: false, message: "Enter Lemmy Username + Password first." }, { status: 400 });
       }
@@ -228,8 +240,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "tumblr") {
-      const token = process.env.TUMBLR_ACCESS_TOKEN;
-      const blog = process.env.TUMBLR_BLOG;
+      const token = cred("TUMBLR_ACCESS_TOKEN");
+      const blog = cred("TUMBLR_BLOG");
       if (!token || !blog) {
         return NextResponse.json({ ok: false, message: "Enter Tumblr Blog + OAuth2 Access Token first." }, { status: 400 });
       }
@@ -247,13 +259,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "nostr") {
-      const priv = process.env.NOSTR_PRIVATE_KEY;
+      const priv = cred("NOSTR_PRIVATE_KEY");
       if (!priv) {
         return NextResponse.json({ ok: false, message: "Enter NOSTR_PRIVATE_KEY (64-char hex or nsec1...) first." }, { status: 400 });
       }
       const { deriveNostrPubkeyHex } = await import("@polypost/node-api-worker");
       const pubkey = deriveNostrPubkeyHex(priv);
-      const relays = (process.env.NOSTR_RELAYS ?? "wss://relay.damus.io,wss://nos.lol").split(",").map((r) => r.trim()).filter(Boolean);
+      const relays = (cred("NOSTR_RELAYS") ?? "wss://relay.damus.io,wss://nos.lol").split(",").map((r) => r.trim()).filter(Boolean);
       return NextResponse.json({
         ok: true,
         message: `Valid Nostr keypair! Derived schnorr pubkey: ${pubkey.slice(0, 16)}... (${relays.length} relays configured).`,
@@ -261,8 +273,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "matrix") {
-      const hs = (process.env.MATRIX_HOMESERVER_URL ?? "https://matrix-client.matrix.org").replace(/\/$/, "");
-      const token = process.env.MATRIX_ACCESS_TOKEN;
+      const hs = (cred("MATRIX_HOMESERVER_URL") ?? "https://matrix-client.matrix.org").replace(/\/$/, "");
+      const token = cred("MATRIX_ACCESS_TOKEN");
       if (!token) {
         return NextResponse.json({ ok: false, message: "Enter MATRIX_ACCESS_TOKEN first." }, { status: 400 });
       }
@@ -280,8 +292,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "farcaster") {
-      const apiKey = process.env.FARCASTER_NEYNAR_API_KEY;
-      const signer = process.env.FARCASTER_SIGNER_UUID;
+      const apiKey = cred("FARCASTER_NEYNAR_API_KEY");
+      const signer = cred("FARCASTER_SIGNER_UUID");
       if (!apiKey || !signer) {
         return NextResponse.json({ ok: false, message: "Enter FARCASTER_NEYNAR_API_KEY and FARCASTER_SIGNER_UUID first." }, { status: 400 });
       }
@@ -299,9 +311,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "wordpress") {
-      const site = (process.env.WORDPRESS_SITE_URL ?? "").replace(/\/$/, "");
-      const user = process.env.WORDPRESS_USERNAME;
-      const pass = process.env.WORDPRESS_APP_PASSWORD;
+      const site = (cred("WORDPRESS_SITE_URL") ?? "").replace(/\/$/, "");
+      const user = cred("WORDPRESS_USERNAME");
+      const pass = cred("WORDPRESS_APP_PASSWORD");
       if (!site || !user || !pass) {
         return NextResponse.json({ ok: false, message: "Enter WordPress Site URL, Username, and Application Password first." }, { status: 400 });
       }
@@ -320,7 +332,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "devto") {
-      const apiKey = process.env.DEVTO_API_KEY;
+      const apiKey = cred("DEVTO_API_KEY");
       if (!apiKey) {
         return NextResponse.json({ ok: false, message: "Enter DEVTO_API_KEY first." }, { status: 400 });
       }
@@ -338,8 +350,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "revolt") {
-      const apiUrl = (process.env.REVOLT_API_URL ?? "https://api.revolt.chat").replace(/\/$/, "");
-      const token = process.env.REVOLT_BOT_TOKEN;
+      const apiUrl = (cred("REVOLT_API_URL") ?? "https://api.revolt.chat").replace(/\/$/, "");
+      const token = cred("REVOLT_BOT_TOKEN");
       if (!token) {
         return NextResponse.json({ ok: false, message: "Enter REVOLT_BOT_TOKEN first." }, { status: 400 });
       }
@@ -357,7 +369,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "vk") {
-      const token = process.env.VK_ACCESS_TOKEN;
+      const token = cred("VK_ACCESS_TOKEN");
       if (!token) {
         return NextResponse.json({ ok: false, message: "Enter VK_ACCESS_TOKEN first." }, { status: 400 });
       }

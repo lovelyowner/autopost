@@ -6,6 +6,14 @@ import {
   BrowserSessionConnector,
   VAULT_BROWSER_PLATFORMS,
 } from "../../components/AccountConnectModal";
+import { getClientCredentials, getSavedCompanionUrl } from "@/lib/client-vault";
+import {
+  COMPANION_CHANGED_EVENT,
+  CREDENTIALS_CHANGED_EVENT,
+  detectActiveCompanion,
+  vaultApiFetch,
+} from "@/lib/companion-bridge";
+import { buildClientApiFlags } from "@/lib/credential-mapping";
 
 interface ProfileItem {
   account_id: string;
@@ -89,12 +97,28 @@ export default function AccountVaultPage() {
 
   const loadVaultState = async () => {
     try {
-      const res = await fetch("/api/credentials/status");
+      const [res, companion] = await Promise.all([
+        fetch("/api/credentials/status"),
+        detectActiveCompanion(),
+      ]);
       if (res.ok) {
         const data: ReadinessStatus = await res.json();
-        setReadiness(data);
+        const mergedApiCreds = buildClientApiFlags(
+          getClientCredentials(),
+          data.apiCredentials || {},
+        );
+        const rawProfiles = companion ? companion.profiles : data.vaultedProfiles || [];
+        setReadiness({
+          ...data,
+          services: {
+            ...data.services,
+            stealthWorker: Boolean(data.services?.stealthWorker || companion),
+          },
+          apiCredentials: mergedApiCreds,
+          vaultedProfiles: rawProfiles,
+        });
         setProfiles(
-          (data.vaultedProfiles || []).map((p: any) => ({
+          rawProfiles.map((p: any) => ({
             account_id: p.account_id,
             platform: p.platform || "browser_session",
             platforms: Array.isArray(p.platforms)
@@ -117,6 +141,13 @@ export default function AccountVaultPage() {
 
   useEffect(() => {
     void loadVaultState();
+    const onRefresh = () => void loadVaultState();
+    window.addEventListener(COMPANION_CHANGED_EVENT, onRefresh);
+    window.addEventListener(CREDENTIALS_CHANGED_EVENT, onRefresh);
+    return () => {
+      window.removeEventListener(COMPANION_CHANGED_EVENT, onRefresh);
+      window.removeEventListener(CREDENTIALS_CHANGED_EVENT, onRefresh);
+    };
   }, []);
 
   const launchConnectWindow = async (accountAlias: string, platformId: string) => {
@@ -131,7 +162,7 @@ export default function AccountVaultPage() {
     });
 
     try {
-      const res = await fetch("/api/vault/login", {
+      const res = await vaultApiFetch("/api/vault/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -143,7 +174,7 @@ export default function AccountVaultPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || "Stealth worker failed to launch login browser.");
+        throw new Error(data.detail || data.error || "Stealth worker failed to launch login browser.");
       }
 
       if (data.success) {
@@ -171,7 +202,7 @@ export default function AccountVaultPage() {
   const finishReauthNow = async () => {
     if (!reauthAlias) return;
     try {
-      await fetch("/api/vault/login/complete", {
+      await vaultApiFetch("/api/vault/login/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ account_id: reauthAlias }),
@@ -183,7 +214,7 @@ export default function AccountVaultPage() {
     if (profiles.length === 0) return;
     setCheckingHealth(true);
     try {
-      const batchRes = await fetch("/api/vault/audit-all", { method: "POST" });
+      const batchRes = await vaultApiFetch("/api/vault/audit-all", { method: "POST" });
       if (batchRes.ok) {
         const batchData = await batchRes.json();
         const auditedList: any[] = Array.isArray(batchData.profiles) ? batchData.profiles : [];
@@ -214,7 +245,7 @@ export default function AccountVaultPage() {
       const updated = await Promise.all(
         profiles.map(async (prof) => {
           try {
-            const res = await fetch("/api/vault/health", {
+            const res = await vaultApiFetch("/api/vault/health", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -239,7 +270,7 @@ export default function AccountVaultPage() {
 
   const handleExportBundle = async () => {
     try {
-      const res = await fetch("/api/vault/bundle");
+      const res = await vaultApiFetch("/api/vault/bundle");
       if (!res.ok) throw new Error("Failed to export vault bundle");
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -251,7 +282,7 @@ export default function AccountVaultPage() {
       URL.revokeObjectURL(url);
       setBanner({
         kind: "ok",
-        text: `Exported portable backup (${data.vault?.profiles?.length ?? 0} account profiles + ${data.presets?.length ?? 0} presets).`,
+        text: `Exported portable backup (${data.vault?.profiles?.length ?? data.profiles?.length ?? 0} account profiles + ${data.presets?.length ?? 0} presets).`,
       });
     } catch (err: any) {
       setBanner({ kind: "err", text: err.message || "Export failed" });
@@ -264,16 +295,16 @@ export default function AccountVaultPage() {
     try {
       const rawText = await file.text();
       const parsed = JSON.parse(rawText);
-      const res = await fetch("/api/vault/bundle", {
+      const res = await vaultApiFetch("/api/vault/bundle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Import failed");
+      if (!res.ok) throw new Error(data.error || data.detail || "Import failed");
       setBanner({
         kind: "ok",
-        text: `Restored ${data.restoredProfiles} profile(s), ${data.restoredProxies} proxy rule(s), and ${data.restoredPresets} preset(s).`,
+        text: `Restored ${data.restoredProfiles ?? data.restored ?? 0} profile(s), ${data.restoredProxies ?? 0} proxy rule(s), and ${data.restoredPresets ?? 0} preset(s).`,
       });
       await loadVaultState();
     } catch (err: any) {
@@ -285,7 +316,7 @@ export default function AccountVaultPage() {
 
   const handleDeleteProfile = async (accountAlias: string) => {
     try {
-      const res = await fetch(`/api/vault/profiles/${encodeURIComponent(accountAlias)}`, {
+      const res = await vaultApiFetch(`/api/vault/profiles/${encodeURIComponent(accountAlias)}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to remove profile");
@@ -316,7 +347,7 @@ export default function AccountVaultPage() {
 
   const openSelectorEditor = async (platformId: string) => {
     try {
-      const res = await fetch(`/api/vault/selectors?platform=${encodeURIComponent(platformId)}`);
+      const res = await vaultApiFetch(`/api/vault/selectors?platform=${encodeURIComponent(platformId)}`);
       const data = await res.json();
       const base = data.override || data.recipe || {};
       setEditorPlatform(platformId);
@@ -393,7 +424,7 @@ export default function AccountVaultPage() {
       text: `Running live Playwright selector inspection for '${accountAlias}' on '${platformId}'...`,
     });
     try {
-      const res = await fetch("/api/vault/inspect", {
+      const res = await vaultApiFetch("/api/vault/inspect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -497,7 +528,7 @@ export default function AccountVaultPage() {
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Direct .env API Credentials</h2>
+            <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Direct API Credentials (.env &amp; Browser Vault)</h2>
             <div className="grid grid-cols-2 gap-2 text-xs">
               {Object.entries(readiness.apiCredentials).map(([key, configured]) => (
                 <div key={key} className="flex items-center justify-between p-2 rounded bg-slate-950 border border-slate-800">
@@ -719,7 +750,11 @@ export default function AccountVaultPage() {
                   <div className="space-y-1">
                     <span className="text-slate-400 font-mono text-[11px] block">Rendered Page Preview:</span>
                     <img
-                      src={`/api/vault/preview/${encodeURIComponent(inspectReport.preview_screenshot)}`}
+                      src={
+                        getSavedCompanionUrl()
+                          ? `${getSavedCompanionUrl()}/api/previews/${encodeURIComponent(inspectReport.preview_screenshot)}`
+                          : `/api/vault/preview/${encodeURIComponent(inspectReport.preview_screenshot)}`
+                      }
                       alt="DOM Inspector preview screenshot"
                       className="w-full rounded border border-slate-800 bg-black"
                     />

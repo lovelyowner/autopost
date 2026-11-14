@@ -33,6 +33,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    cloudMode: Boolean(process.env.VERCEL),
     services: {
       redis: redisOk,
       stealthWorker: stealthWorkerOk,

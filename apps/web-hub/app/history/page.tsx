@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import type { CampaignHistoryEntry } from "@polypost/node-api-worker";
+import { deleteClientHistory, mergeHistoryWithClient } from "@/lib/client-vault";
 
 interface HistorySummary {
   total: number;
@@ -27,14 +28,39 @@ export default function CampaignHistoryPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "failed" | "live" | "simulated">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const computeSummary = (entries: CampaignHistoryEntry[]): HistorySummary => {
+    let completed = 0;
+    let failed = 0;
+    let simulatedRuns = 0;
+    let liveRuns = 0;
+    for (const item of entries) {
+      if (item.step === "completed") completed++;
+      if (item.step === "failed") failed++;
+      if (item.masterSimulated === true) simulatedRuns++;
+      else liveRuns++;
+    }
+    return {
+      total: entries.length,
+      completed,
+      failed,
+      liveRuns,
+      simulatedRuns,
+    };
+  };
+
   const loadHistory = async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/campaigns/history");
       if (res.ok) {
         const data = await res.json();
-        setHistory(data.history || []);
-        if (data.summary) setSummary(data.summary);
+        const merged = mergeHistoryWithClient(data.history || []);
+        setHistory(merged);
+        setSummary(computeSummary(merged));
+      } else {
+        const localOnly = mergeHistoryWithClient([]);
+        setHistory(localOnly);
+        setSummary(computeSummary(localOnly));
       }
     } finally {
       setLoading(false);
@@ -46,23 +72,29 @@ export default function CampaignHistoryPage() {
   }, []);
 
   const handleDelete = async (campaignId?: string) => {
+    deleteClientHistory(campaignId, false);
     const query = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
-    const res = await fetch(`/api/campaigns/history${query}`, { method: "DELETE" });
-    if (res.ok) {
-      setBanner(campaignId ? `Removed '${campaignId}' from history.` : "Cleared campaign history.");
-      await loadHistory();
+    try {
+      await fetch(`/api/campaigns/history${query}`, { method: "DELETE" });
+    } catch {
+      // Ignore server errors in stateless cloud mode
     }
+    setBanner(campaignId ? `Removed '${campaignId}' from history.` : "Cleared campaign history.");
+    await loadHistory();
   };
 
   const handleDeleteSimulated = async () => {
+    deleteClientHistory(undefined, true);
     const res = await fetch("/api/campaigns/history?mode=simulated", { method: "DELETE" });
     if (res.ok) {
       const data = await res.json();
       setBanner(
-        `Pruned ${data.deleted ?? 0} simulated demo run(s); preserved ${data.kept ?? 0} live campaign record(s).`,
+        `Pruned simulated demo run(s); preserved live campaign records (server deleted ${data.deleted ?? 0}).`,
       );
-      await loadHistory();
+    } else {
+      setBanner("Pruned simulated demo runs from browser history.");
     }
+    await loadHistory();
   };
 
   const handleExportJson = () => {

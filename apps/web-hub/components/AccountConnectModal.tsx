@@ -1,6 +1,24 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import {
+  clearClientCredentialKeys,
+  getClientCredentials,
+  getSavedCompanionUrl,
+  maskClientPreview,
+  saveClientCredentials,
+  setSavedCompanionUrl,
+} from "@/lib/client-vault";
+import {
+  COMPANION_CHANGED_EVENT,
+  DEFAULT_LOCAL_COMPANION_URL,
+  detectActiveCompanion,
+  notifyCompanionChanged,
+  notifyCredentialsChanged,
+  probeCompanionUrl,
+  vaultApiFetch,
+} from "@/lib/companion-bridge";
+import { buildClientApiFlags } from "@/lib/credential-mapping";
 
 interface CredentialField {
   key: string;
@@ -100,22 +118,56 @@ export function ApiCredentialsManager({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ providerId: string; ok: boolean; text: string } | null>(null);
 
+  const mergeProvidersForDisplay = (
+    rawList: CredentialProvider[],
+    isCloud: boolean,
+  ): CredentialProvider[] => {
+    if (!isCloud) return rawList;
+    const clientCreds = getClientCredentials();
+    const clientFlags = buildClientApiFlags(clientCreds, {});
+    return rawList.map((p) => {
+      const updatedFields = p.fields.map((f) => {
+        const localVal = clientCreds[f.key];
+        if (localVal?.trim()) {
+          return {
+            ...f,
+            isSet: true,
+            preview: maskClientPreview(localVal.trim(), f.secret),
+          };
+        }
+        return f;
+      });
+      const hasAnyLocal = p.fields.some((f) => Boolean(clientCreds[f.key]?.trim()));
+      const configured = Boolean(p.configured || clientFlags[p.id] || hasAnyLocal);
+      return {
+        ...p,
+        configured,
+        fields: updatedFields,
+      };
+    });
+  };
+
+  const applyProvidersState = (list: CredentialProvider[]) => {
+    setProviders(list);
+    const nextDrafts: Record<string, Record<string, string>> = {};
+    for (const p of list) {
+      nextDrafts[p.id] = {};
+      for (const f of p.fields) {
+        nextDrafts[p.id][f.key] = f.preview || "";
+      }
+    }
+    setDrafts(nextDrafts);
+  };
+
   const loadProviders = async () => {
     try {
       const res = await fetch("/api/credentials/manage");
       if (!res.ok) return;
       const data = await res.json();
-      setCloudMode(Boolean(data.cloudMode));
-      const list: CredentialProvider[] = data.providers || [];
-      setProviders(list);
-      const nextDrafts: Record<string, Record<string, string>> = {};
-      for (const p of list) {
-        nextDrafts[p.id] = {};
-        for (const f of p.fields) {
-          nextDrafts[p.id][f.key] = f.preview || "";
-        }
-      }
-      setDrafts(nextDrafts);
+      const isCloud = Boolean(data.cloudMode);
+      setCloudMode(isCloud);
+      const merged = mergeProvidersForDisplay(data.providers || [], isCloud);
+      applyProvidersState(merged);
     } catch {}
   };
 
@@ -132,6 +184,22 @@ export function ApiCredentialsManager({
     setStatusMsg(null);
     try {
       const values = drafts[providerId] || {};
+      if (cloudMode) {
+        const { updatedKeys } = saveClientCredentials(values);
+        notifyCredentialsChanged();
+        await loadProviders();
+        setStatusMsg({
+          providerId,
+          ok: true,
+          text:
+            updatedKeys.length > 0
+              ? `Saved ${updatedKeys.length} key(s) privately in your browser vault (localStorage) — ready to test & publish immediately.`
+              : "No new values to update. Enter or paste a key first.",
+        });
+        onChanged?.();
+        return;
+      }
+
       const res = await fetch("/api/credentials/manage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -140,10 +208,11 @@ export function ApiCredentialsManager({
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Failed to save credentials");
       if (Array.isArray(data.providers)) {
-        setProviders(data.providers);
+        applyProvidersState(data.providers);
       } else {
         await loadProviders();
       }
+      notifyCredentialsChanged();
       setStatusMsg({
         providerId,
         ok: true,
@@ -161,18 +230,26 @@ export function ApiCredentialsManager({
     setBusyId(providerId);
     setStatusMsg(null);
     try {
-      // Save any typed unsaved fields first so clicking Test works in one click
       const values = drafts[providerId] || {};
-      await fetch("/api/credentials/manage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ values }),
-      });
+      let clientCredentials: Record<string, string> | undefined;
+      if (cloudMode) {
+        clientCredentials = saveClientCredentials(values).all;
+        notifyCredentialsChanged();
+      } else {
+        await fetch("/api/credentials/manage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ values }),
+        });
+      }
 
       const res = await fetch("/api/credentials/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: providerId }),
+        body: JSON.stringify({
+          provider: providerId,
+          credentials: clientCredentials,
+        }),
       });
       const data = await res.json();
       setStatusMsg({
@@ -193,11 +270,27 @@ export function ApiCredentialsManager({
     setBusyId(providerId);
     setStatusMsg(null);
     try {
+      if (cloudMode) {
+        const providerDef = providers.find((p) => p.id === providerId);
+        const keys = providerDef ? providerDef.fields.map((f) => f.key) : [];
+        clearClientCredentialKeys(keys);
+        notifyCredentialsChanged();
+        await loadProviders();
+        setStatusMsg({
+          providerId,
+          ok: true,
+          text: "Cleared saved credentials from your browser storage.",
+        });
+        onChanged?.();
+        return;
+      }
+
       const res = await fetch(`/api/credentials/manage?provider=${encodeURIComponent(providerId)}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Failed to clear keys");
+      notifyCredentialsChanged();
       await loadProviders();
       setStatusMsg({ providerId, ok: true, text: "Credentials cleared from .env." });
       onChanged?.();
@@ -212,7 +305,7 @@ export function ApiCredentialsManager({
     <div className="space-y-2">
       {cloudMode && (
         <div className="p-3 rounded-lg bg-indigo-950/50 border border-indigo-700/70 text-[11px] text-indigo-200 leading-relaxed">
-          <strong>Cloud Mode (Vercel):</strong> Serverless deployments have a read-only filesystem. Add platform API keys (Bluesky, Nostr, Telegram, Discord, OpenRouter, etc.) in <strong>Vercel Project Settings -&gt; Environment Variables</strong> and redeploy, then use <strong>Verify / Test Connection</strong> below.
+          <strong>Private Browser Key Vault (Cloud Mode):</strong> Keys entered below stay isolated in your own browser (<code className="font-mono">localStorage</code>) per user — never written to shared server files. Enter your API tokens and click <strong>Save &amp; Test Live Connection</strong> or launch campaigns directly.
         </div>
       )}
       {providers.map((p) => {
@@ -357,10 +450,13 @@ export function BrowserSessionConnector({
   const [importing, setImporting] = useState(false);
   const [cookiesText, setCookiesText] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [companionUrl, setCompanionUrl] = useState("");
+  const [companionInput, setCompanionInput] = useState(DEFAULT_LOCAL_COMPANION_URL);
+  const [probingCompanion, setProbingCompanion] = useState(false);
 
-  const loadProxies = async () => {
+  const loadProxies = async (directUrlOverride?: string) => {
     try {
-      const res = await fetch("/api/vault/proxies");
+      const res = await vaultApiFetch("/api/vault/proxies", undefined, directUrlOverride);
       if (!res.ok) {
         if (res.status === 503 || res.status === 502) setWorkerOffline(true);
         return;
@@ -373,9 +469,62 @@ export function BrowserSessionConnector({
     }
   };
 
+  const syncCompanionAndProxies = async () => {
+    const saved = getSavedCompanionUrl();
+    if (saved) {
+      setCompanionUrl(saved);
+      setCompanionInput(saved);
+    }
+    const detected = await detectActiveCompanion();
+    if (detected) {
+      setCompanionUrl(detected.url);
+      setCompanionInput(detected.url);
+      setWorkerOffline(false);
+      await loadProxies(detected.url);
+    } else {
+      setCompanionUrl("");
+      await loadProxies("");
+    }
+  };
+
   useEffect(() => {
-    void loadProxies();
+    void syncCompanionAndProxies();
+    const onCompanionEvent = () => {
+      void syncCompanionAndProxies();
+    };
+    window.addEventListener(COMPANION_CHANGED_EVENT, onCompanionEvent);
+    return () => window.removeEventListener(COMPANION_CHANGED_EVENT, onCompanionEvent);
   }, []);
+
+  const handleConnectCompanion = async (candidateUrl?: string) => {
+    const target = (candidateUrl ?? companionInput).trim().replace(/\/+$/, "");
+    if (!target) return;
+    setProbingCompanion(true);
+    setMsg(null);
+    try {
+      const probe = await probeCompanionUrl(target);
+      if (!probe.ok) {
+        setMsg({
+          ok: false,
+          text: `Could not reach Stealth Companion Worker at ${target}/health. Make sure the Python worker is running on port 8001.`,
+        });
+        return;
+      }
+      setSavedCompanionUrl(target);
+      setCompanionUrl(target);
+      setCompanionInput(target);
+      setWorkerOffline(false);
+      notifyCompanionChanged();
+      await loadProxies(target);
+      setMsg({
+        ok: true,
+        text: `Connected directly to Companion Worker at ${target} (${probe.profiles.length} vaulted profile(s) ready).`,
+      });
+      onConnected?.();
+    } finally {
+      setProbingCompanion(false);
+    }
+  };
 
   useEffect(() => {
     setSubMode(mode);
@@ -392,7 +541,7 @@ export function BrowserSessionConnector({
 
   const saveAccountProxyIfTyped = async (cleanAlias: string) => {
     if (!proxyUrl.trim()) return;
-    await fetch("/api/vault/proxies", {
+    await vaultApiFetch("/api/vault/proxies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ account_id: cleanAlias, proxy_url: proxyUrl.trim() }),
@@ -405,7 +554,7 @@ export function BrowserSessionConnector({
     if (!cleanAlias) return;
     setSavingProxy(true);
     try {
-      const res = await fetch("/api/vault/proxies", {
+      const res = await vaultApiFetch("/api/vault/proxies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -414,14 +563,18 @@ export function BrowserSessionConnector({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to save proxy");
-      setProxyMap(data.accounts || {});
+      if (!res.ok) throw new Error(data.detail || data.error || "Failed to save proxy");
+      if (data.accounts) {
+        setProxyMap(data.accounts);
+      } else {
+        await loadProxies();
+      }
       if (clear) setProxyUrl("");
       setMsg({
         ok: true,
         text: clear
           ? `Cleared sticky proxy for '${cleanAlias}' (using Direct IP).`
-          : `Saved sticky proxy (${data.proxy}) for '${cleanAlias}' in config/account-settings.json!`,
+          : `Saved sticky proxy (${data.proxy || proxyUrl.trim()}) for '${cleanAlias}'.`,
       });
       onConnected?.(cleanAlias);
     } catch (err: any) {
@@ -440,7 +593,7 @@ export function BrowserSessionConnector({
     }
     setSavingProxy(true);
     try {
-      const res = await fetch("/api/vault/proxies/test", {
+      const res = await vaultApiFetch("/api/vault/proxies/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ account_id: cleanAlias || "default", proxy_url: targetProxy }),
@@ -448,7 +601,7 @@ export function BrowserSessionConnector({
       const data = await res.json();
       setMsg({
         ok: Boolean(data.ok),
-        text: data.message || data.error || "Proxy test finished.",
+        text: data.message || data.error || data.detail || "Proxy test finished.",
       });
     } catch (err: any) {
       setMsg({ ok: false, text: err.message });
@@ -470,7 +623,7 @@ export function BrowserSessionConnector({
       text: `Opening Chrome browser for '${platformId}' as '${cleanAlias}'... Sign in inside that window, then either close Chrome or click "Finish & Save Cookies Now".`,
     });
     try {
-      const res = await fetch("/api/vault/login", {
+      const res = await vaultApiFetch("/api/vault/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -481,7 +634,7 @@ export function BrowserSessionConnector({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Stealth browser login failed");
+      if (!res.ok) throw new Error(data.detail || data.error || "Stealth browser login failed");
       if (data.success) {
         setMsg({
           ok: true,
@@ -507,13 +660,13 @@ export function BrowserSessionConnector({
     if (!cleanAlias) return;
     setFinishing(true);
     try {
-      const res = await fetch("/api/vault/login/complete", {
+      const res = await vaultApiFetch("/api/vault/login/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ account_id: cleanAlias }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Could not signal active Chrome login.");
+      if (!res.ok) throw new Error(data.detail || data.error || "Could not signal active Chrome login.");
       setMsg({ ok: true, text: `Saving cookies for '${cleanAlias}' and closing Chrome...` });
     } catch (err: any) {
       setMsg({ ok: false, text: err.message });
@@ -548,7 +701,7 @@ export function BrowserSessionConnector({
     setImporting(true);
     try {
       await saveAccountProxyIfTyped(cleanAlias);
-      const res = await fetch("/api/vault/import", {
+      const res = await vaultApiFetch("/api/vault/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -558,7 +711,7 @@ export function BrowserSessionConnector({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to import cookies");
+      if (!res.ok) throw new Error(data.detail || data.error || "Failed to import cookies");
       setMsg({
         ok: true,
         text: `Imported ${data.cookie_count} cookies into ./profiles/${cleanAlias}! Ready to post & inspect DOM.`,
@@ -572,26 +725,65 @@ export function BrowserSessionConnector({
     }
   };
 
-  const isStealthOffline = stealthOnline === false || workerOffline;
+  const isStealthOffline = !companionUrl && (stealthOnline === false || workerOffline);
 
   return (
     <div className="space-y-4 text-xs">
+      {companionUrl && (
+        <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-700/80 text-emerald-200 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <span>
+            <strong>Direct Browser Companion Connected:</strong> <code className="font-mono text-emerald-100">{companionUrl}</code> (Chrome logins &amp; encrypted Vault actions run directly on your machine).
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSavedCompanionUrl("");
+              setCompanionUrl("");
+              notifyCompanionChanged();
+              void loadProxies("");
+            }}
+            className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer"
+          >
+            Disconnect Companion
+          </button>
+        </div>
+      )}
       {isStealthOffline && (
-        <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-700/80 text-amber-100 space-y-1.5">
+        <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-700/80 text-amber-100 space-y-2.5">
           <div className="font-semibold text-amber-300">
             Companion Stealth Worker Required for Chrome Login &amp; Cookie Vault
           </div>
           <p className="text-[11px] text-amber-100/90 leading-relaxed">
-            Vercel serverless functions cannot open a Chrome window on your computer or keep encrypted browser vaults on disk. To enable browser sessions here:
+            Vercel serverless cannot open desktop Chrome on your computer. Run <code className="px-1 py-0.5 rounded bg-slate-950 text-indigo-300 font-mono">apps/stealth-browser-worker</code> locally (or on a tunnel/VPS) and connect your browser directly below:
           </p>
-          <ul className="list-disc list-inside text-[11px] text-amber-100/85 space-y-0.5">
-            <li>
-              <strong>Full local automation:</strong> Run <code className="px-1 py-0.5 rounded bg-slate-950 text-indigo-300 font-mono">node scripts/dev.mjs</code> on your machine (<code className="text-slate-200">http://localhost:3000/vault</code>), or expose port <code className="font-mono">8001</code> via Cloudflare Tunnel / ngrok and set <code className="font-mono text-indigo-300">STEALTH_WORKER_URL</code> in Vercel.
-            </li>
-            <li>
-              <strong>Cloud / VPS deployment:</strong> Deploy <code className="font-mono">docker-compose.yml</code> (<code className="font-mono">apps/stealth-browser-worker</code> + Redis) on a VPS and configure <code className="font-mono text-indigo-300">STEALTH_WORKER_URL</code> &amp; <code className="font-mono text-indigo-300">REDIS_URL</code> in Vercel Environment Variables.
-            </li>
-          </ul>
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="text"
+              value={companionInput}
+              onChange={(e) => setCompanionInput(e.target.value)}
+              placeholder="http://127.0.0.1:8001 or https://your-tunnel.trycloudflare.com"
+              className="flex-1 min-w-[220px] bg-slate-950 border border-amber-700/60 rounded px-2.5 py-1.5 text-white font-mono text-[11px]"
+            />
+            <button
+              type="button"
+              disabled={probingCompanion || !companionInput.trim()}
+              onClick={() => void handleConnectCompanion()}
+              className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer disabled:opacity-50"
+            >
+              {probingCompanion ? "Checking..." : "Connect Companion"}
+            </button>
+            <button
+              type="button"
+              disabled={probingCompanion}
+              onClick={() => {
+                setCompanionInput(DEFAULT_LOCAL_COMPANION_URL);
+                void handleConnectCompanion(DEFAULT_LOCAL_COMPANION_URL);
+              }}
+              className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-amber-200 border border-amber-700/60 font-semibold cursor-pointer disabled:opacity-50"
+            >
+              Auto-Detect :8001
+            </button>
+          </div>
         </div>
       )}
       <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">

@@ -46,6 +46,7 @@ export function resolveMonorepoRoot(): string {
 export function resolveDataDir(overrideDir?: string): string {
   if (overrideDir) return resolve(overrideDir);
   if (process.env.POLYPOST_DATA_DIR) return resolve(process.env.POLYPOST_DATA_DIR);
+  if (process.env.VERCEL) return join("/tmp/polypost", "data");
   return join(resolveMonorepoRoot(), "data");
 }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  OpenAiCompatibleProvider,
   providersFromEnv,
   spinCaptions,
   type CaptionSet,
@@ -80,8 +81,47 @@ export async function POST(req: NextRequest) {
     let source = "llm_provider";
     let set: CaptionSet;
 
+    const rawCreds =
+      body.credentials && typeof body.credentials === "object"
+        ? (body.credentials as Record<string, unknown>)
+        : {};
+    const cred = (key: string): string | undefined => {
+      const v = rawCreds[key];
+      return typeof v === "string" && v.trim() ? v.trim() : undefined;
+    };
+
+    const clientProviders: LlmProvider[] = [];
+    const clientOpenRouter = cred("OPENROUTER_API_KEY");
+    if (clientOpenRouter) {
+      clientProviders.push(
+        new OpenAiCompatibleProvider(
+          "openrouter",
+          "https://openrouter.ai/api/v1",
+          clientOpenRouter,
+          cred("OPENROUTER_MODEL") || process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct",
+        ),
+      );
+    }
+    const clientVenice = cred("VENICE_API_KEY");
+    if (clientVenice) {
+      clientProviders.push(
+        new OpenAiCompatibleProvider(
+          "venice",
+          "https://api.venice.ai/api/v1",
+          clientVenice,
+          cred("VENICE_MODEL") || process.env.VENICE_MODEL || "venice-uncensored",
+        ),
+      );
+    }
+
     try {
-      const configuredProviders = providersFromEnv();
+      const envProviders = providersFromEnv().filter(
+        (p) => !process.env.VERCEL || p.name !== "ollama",
+      );
+      const configuredProviders = [...clientProviders, ...envProviders];
+      if (configuredProviders.length === 0) {
+        throw new Error("No configured AI provider");
+      }
       set = await spinCaptions(brief, {
         providers: configuredProviders,
         maxAttempts: 2,

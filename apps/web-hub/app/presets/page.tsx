@@ -2,6 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import type { PresetProfile } from "@/lib/config-store";
+import {
+  deleteClientPreset,
+  mergePresetsWithClient,
+  saveClientPreset,
+} from "@/lib/client-vault";
 
 export default function PresetsPage() {
   const [presets, setPresets] = useState<PresetProfile[]>([]);
@@ -13,7 +18,7 @@ export default function PresetsPage() {
     fetch("/api/presets")
       .then((r) => r.json())
       .then((data) => {
-        const list: PresetProfile[] = data.presets || [];
+        const list = mergePresetsWithClient(data.presets || []);
         setPresets(list);
         if (list.length > 0) setActivePreset(list[0]);
       })
@@ -29,26 +34,54 @@ export default function PresetsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(activePreset),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Save failed");
-      setPresets(data.presets);
-      setStatusBanner({ kind: "ok", text: `Saved '${activePreset.name}' to config/presets.json. Select it directly in the Composer.` });
+      if (res.ok) {
+        const data = await res.json();
+        const merged = mergePresetsWithClient(data.presets || presets);
+        setPresets(merged);
+        setStatusBanner({
+          kind: "ok",
+          text: `Saved '${activePreset.name}' cleanly. Select it directly in the Composer.`,
+        });
+      } else {
+        saveClientPreset(activePreset);
+        const merged = mergePresetsWithClient(presets);
+        setPresets(merged);
+        setStatusBanner({
+          kind: "ok",
+          text: `Saved '${activePreset.name}' in your browser vault (localStorage) — active immediately in Composer!`,
+        });
+      }
       setTimeout(() => setStatusBanner(null), 4000);
-    } catch (err: any) {
-      setStatusBanner({ kind: "err", text: err.message });
+    } catch {
+      saveClientPreset(activePreset);
+      setPresets((prev) => mergePresetsWithClient(prev));
+      setStatusBanner({
+        kind: "ok",
+        text: `Saved '${activePreset.name}' in your browser vault (localStorage).`,
+      });
     }
   };
 
   const handleDelete = async (id: string) => {
+    deleteClientPreset(id);
     try {
       const res = await fetch(`/api/presets?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Delete failed");
-      setPresets(data.presets);
-      setActivePreset(data.presets[0] || null);
-      setStatusBanner({ kind: "ok", text: "Preset deleted." });
-    } catch (err: any) {
-      setStatusBanner({ kind: "err", text: err.message });
+      if (res.ok) {
+        const data = await res.json();
+        const merged = mergePresetsWithClient(data.presets || []);
+        setPresets(merged);
+        setActivePreset(merged[0] || null);
+      } else {
+        const next = presets.filter((p) => p.id !== id);
+        setPresets(next);
+        setActivePreset(next[0] || null);
+      }
+      setStatusBanner({ kind: "ok", text: "Preset removed." });
+    } catch {
+      const next = presets.filter((p) => p.id !== id);
+      setPresets(next);
+      setActivePreset(next[0] || null);
+      setStatusBanner({ kind: "ok", text: "Preset removed from browser vault." });
     }
   };
 

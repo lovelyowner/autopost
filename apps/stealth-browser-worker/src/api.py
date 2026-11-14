@@ -1,7 +1,7 @@
 import asyncio
 import re
 from typing import Any, Dict, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -32,10 +32,19 @@ app = FastAPI(title="PolyPost Stealth Browser Worker", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def allow_private_network_cors(request: Request, call_next):
+    """Allow browsers on HTTPS deployments to reach a user's local 127.0.0.1:8001 companion."""
+    response = await call_next(request)
+    if request.headers.get("access-control-request-private-network") == "true":
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
 
 class LoginRequest(BaseModel):
     account_id: str

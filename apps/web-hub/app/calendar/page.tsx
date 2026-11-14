@@ -3,6 +3,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getPlatform } from "@polypost/platform-registry";
 import type { ScheduledItem } from "@/lib/config-store";
+import {
+  addClientScheduledItems,
+  deleteClientScheduledItem,
+  mergeScheduleWithClient,
+} from "@/lib/client-vault";
 
 export default function CalendarPage() {
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledItem[]>([]);
@@ -14,17 +19,22 @@ export default function CalendarPage() {
   const [confirmed2257, setConfirmed2257] = useState(false);
   const [recordsId2257, setRecordsId2257] = useState("REC-2257-VAULT-NOVA-2026");
   const [strictLive, setStrictLive] = useState(false);
+  const [cloudMode, setCloudMode] = useState(false);
   const [banner, setBanner] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/schedule")
       .then((r) => r.json())
-      .then((data) => setScheduledPosts(data.items || []))
-      .catch((err) => setBanner({ kind: "err", text: `Failed to load schedule: ${err.message}` }))
+      .then((data) => setScheduledPosts(mergeScheduleWithClient(data.items || [])))
+      .catch((err) => {
+        setScheduledPosts(mergeScheduleWithClient([]));
+        setBanner({ kind: "err", text: `Server schedule unavailable (${err.message}); showing browser schedule.` });
+      })
       .finally(() => setLoading(false));
     fetch("/api/credentials/status")
       .then((r) => r.json())
       .then((data) => {
+        if (data?.cloudMode) setCloudMode(true);
         if (data?.services?.simulationDisabled) setStrictLive(true);
       })
       .catch(() => {});
@@ -46,6 +56,14 @@ export default function CalendarPage() {
   const handleStageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (cloudMode && file.size > 4 * 1024 * 1024) {
+      setMediaPath(file.name);
+      setBanner({
+        kind: "ok",
+        text: `Selected '${file.name}' (${(file.size / (1024 * 1024)).toFixed(2)} MB). Note: Vercel serverless skips >4MB binary upload; connect your Companion Worker or use local stack for large video execution.`,
+      });
+      return;
+    }
     setUploadingFile(true);
     try {
       const res = await fetch(`/api/media/upload?filename=${encodeURIComponent(file.name)}`, {
@@ -105,6 +123,28 @@ export default function CalendarPage() {
       return;
     }
 
+    const persistBatchLocally = () => {
+      const localItems: ScheduledItem[] = parsedItems.map((r, idx) => ({
+        id: `sched_${Date.now()}_${idx}`,
+        title: String(r.title),
+        date: String(r.date || new Date().toISOString().slice(0, 10)),
+        time: String(r.time || "12:00 UTC"),
+        platforms: r.platforms || [],
+        masterPlatformId: r.platforms?.[0] || "bluesky",
+        mediaPath: r.mediaPath,
+        accountId: r.accountId,
+        status: "scheduled",
+        createdAt: Date.now(),
+      }));
+      addClientScheduledItems(localItems);
+      setScheduledPosts((prev) => mergeScheduleWithClient(prev));
+      setCsvContent("");
+      setBanner({
+        kind: "ok",
+        text: `Saved ${localItems.length} scheduled item(s) cleanly in your browser schedule (localStorage).`,
+      });
+    };
+
     try {
       const res = await fetch("/api/schedule", {
         method: "POST",
@@ -118,28 +158,48 @@ export default function CalendarPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.error || "Failed to queue CSV batch");
-      setScheduledPosts(data.items);
+      if (res.status === 428) {
+        throw new Error(data.message || data.error || "2257 attestation required");
+      }
+      if (!res.ok) {
+        persistBatchLocally();
+        return;
+      }
+      if (cloudMode && Array.isArray(data.items)) {
+        addClientScheduledItems(data.items);
+      }
+      setScheduledPosts(mergeScheduleWithClient(data.items || []));
       setCsvContent("");
       setBanner({
         kind: "ok",
-        text: `Persisted & scheduled ${data.addedCount} campaign(s) to config/schedule.json (delayed BullMQ flows registered where Redis active).`,
+        text: cloudMode
+          ? `Saved ${data.addedCount} scheduled item(s) to your browser schedule.`
+          : `Persisted & scheduled ${data.addedCount} campaign(s) to config/schedule.json (delayed BullMQ flows registered where Redis active).`,
       });
       setTimeout(() => setBanner(null), 5000);
     } catch (err: any) {
-      setBanner({ kind: "err", text: err.message });
+      if (err.message?.includes("2257")) {
+        setBanner({ kind: "err", text: err.message });
+      } else {
+        persistBatchLocally();
+      }
     }
   };
 
   const handleDelete = async (id: string) => {
+    deleteClientScheduledItem(id);
     try {
       const res = await fetch(`/api/schedule?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Delete failed");
-      setScheduledPosts(data.items);
+      if (res.ok) {
+        const data = await res.json();
+        setScheduledPosts(mergeScheduleWithClient(data.items || []));
+      } else {
+        setScheduledPosts((prev) => prev.filter((item) => item.id !== id));
+      }
       setBanner({ kind: "ok", text: "Removed scheduled campaign." });
-    } catch (err: any) {
-      setBanner({ kind: "err", text: err.message });
+    } catch {
+      setScheduledPosts((prev) => prev.filter((item) => item.id !== id));
+      setBanner({ kind: "ok", text: "Removed scheduled campaign." });
     }
   };
 

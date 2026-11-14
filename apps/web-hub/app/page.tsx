@@ -20,7 +20,24 @@ import {
    AccountConnectModal,
   VAULT_BROWSER_PLATFORMS,
 } from "../components/AccountConnectModal";
-import { compressImageInBrowser } from "../components/wasm-media-preprocessor";
+import {
+  compressImageInBrowser,
+  probeMediaInBrowser,
+} from "../components/wasm-media-preprocessor";
+import {
+  deleteClientPreset,
+  getClientCredentials,
+  getClientHistory,
+  mergePresetsWithClient,
+  saveClientHistoryEntry,
+  saveClientPreset,
+} from "@/lib/client-vault";
+import {
+  COMPANION_CHANGED_EVENT,
+  CREDENTIALS_CHANGED_EVENT,
+  detectActiveCompanion,
+} from "@/lib/companion-bridge";
+import { buildClientApiFlags } from "@/lib/credential-mapping";
 
 interface CampaignJob {
   jobId: string;
@@ -36,6 +53,8 @@ interface ActiveCampaign {
   status: string;
   strictLive: boolean;
   queuedInRedis: boolean;
+  executedStatelessly?: boolean;
+  immediateSnapshot?: CampaignStateSnapshot;
   masterJob: CampaignJob;
   teaserJobs: CampaignJob[];
   timestamp: number;
@@ -110,7 +129,10 @@ export default function DashboardPage() {
 
   // Media & Funnel State
   const [masterTargetId, setMasterTargetId] = useState("youtube");
+  const [cloudMode, setCloudMode] = useState(false);
   const [compressedImageInfo, setCompressedImageInfo] = useState<string | null>(null);
+  const [clientImageDataUrl, setClientImageDataUrl] = useState<string | null>(null);
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
   const [mediaPath, setMediaPath] = useState("");
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [stagedUploadInfo, setStagedUploadInfo] = useState<string | null>(null);
@@ -151,12 +173,18 @@ export default function DashboardPage() {
 
   const refreshCredentialsStatus = async (preferredAlias?: string) => {
     try {
-      const r = await fetch("/api/credentials/status");
+      const [r, companion] = await Promise.all([
+        fetch("/api/credentials/status"),
+        detectActiveCompanion(),
+      ]);
       if (!r.ok) return;
       const data = await r.json();
-      const aliases: string[] = (data.vaultedProfiles || []).map((p: any) => p.account_id).filter(Boolean);
+      setCloudMode(Boolean(data.cloudMode));
+      const serverAliases: string[] = (data.vaultedProfiles || []).map((p: any) => p.account_id).filter(Boolean);
+      const companionAliases: string[] = (companion?.profiles || []).map((p: any) => p.account_id).filter(Boolean);
+      const aliases = Array.from(new Set([...serverAliases, ...companionAliases]));
       setVaultAliases(aliases);
-      setApiCredentials(data.apiCredentials || {});
+      setApiCredentials(buildClientApiFlags(getClientCredentials(), data.apiCredentials || {}));
       if (preferredAlias && aliases.includes(preferredAlias)) {
         setAccountId(preferredAlias);
       } else if (aliases.length > 0 && accountId === "main_creator" && !aliases.includes("main_creator")) {
@@ -277,7 +305,7 @@ export default function DashboardPage() {
     fetch("/api/presets")
       .then((r) => r.json())
       .then((data) => {
-        const list: PresetProfile[] = data.presets || [];
+        const list = mergePresetsWithClient(data.presets || []);
         setPresets(list);
         if (list.length > 0) {
           setSelectedPresetId(list[0].id);
@@ -286,9 +314,15 @@ export default function DashboardPage() {
           setSeedTags(list[0].seoTags.join(", "));
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        const localOnly = mergePresetsWithClient([]);
+        setPresets(localOnly);
+      });
 
     void refreshCredentialsStatus();
+    const onCredOrCompanionChange = () => void refreshCredentialsStatus();
+    window.addEventListener(CREDENTIALS_CHANGED_EVENT, onCredOrCompanionChange);
+    window.addEventListener(COMPANION_CHANGED_EVENT, onCredOrCompanionChange);
 
     const params = new URLSearchParams(window.location.search);
     const rerunId = params.get("rerun");
@@ -297,7 +331,8 @@ export default function DashboardPage() {
       fetch(`/api/campaigns/history?campaignId=${encodeURIComponent(rerunId)}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
-          const entry = data?.entry;
+          const entry =
+            data?.entry || getClientHistory().find((h) => h.campaignId === rerunId) || null;
           if (!entry) return;
           if (entry.topic) setTopic(entry.topic);
           if (entry.masterPlatformId && entry.masterPlatformId !== "unknown") {
@@ -361,6 +396,11 @@ export default function DashboardPage() {
         })
         .catch(() => {});
     }
+
+    return () => {
+      window.removeEventListener(CREDENTIALS_CHANGED_EVENT, onCredOrCompanionChange);
+      window.removeEventListener(COMPANION_CHANGED_EVENT, onCredOrCompanionChange);
+    };
   }, []);
 
   const applyPreset = (id: string, list: PresetProfile[] = presets) => {
@@ -413,33 +453,53 @@ export default function DashboardPage() {
         .map((s) => s.trim())
         .filter(Boolean);
       const presetName = `${topic.slice(0, 24).trim() || "Custom"} Matrix (${selectedIds.length} targets)`;
-      const res = await fetch("/api/presets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: presetName,
-          recordsId2257,
-          ppvPriceUsd: priceUsd,
-          seoTags: parsedTags,
-          watermarkPosition,
-          masterPlatformId: masterTargetId,
-          targetPlatforms: selectedIds,
-          accountId,
-          accountOverrides,
-          priceOverrides,
-          captionOverrides,
-          firstCommentTemplate: firstCommentTemplate.trim() || undefined,
-          existingMasterUrl: existingMasterUrl.trim() || undefined,
-          staggerSec,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save preset");
-      if (Array.isArray(data.presets)) setPresets(data.presets);
-      if (data.saved?.id) setSelectedPresetId(data.saved.id);
+      const draftPreset: PresetProfile = {
+        id: `preset_${Date.now()}`,
+        name: presetName,
+        recordsId2257,
+        custodianContact: "custodian@example.com",
+        ppvPriceUsd: priceUsd,
+        watermarkPngPath: "/watermarks/logo.png",
+        watermarkPosition,
+        seoTags: parsedTags,
+        masterPlatformId: masterTargetId,
+        targetPlatforms: selectedIds,
+        accountId,
+        accountOverrides,
+        priceOverrides,
+        captionOverrides,
+        firstCommentTemplate: firstCommentTemplate.trim() || undefined,
+        existingMasterUrl: existingMasterUrl.trim() || undefined,
+        staggerSec,
+      };
+
+      try {
+        const res = await fetch("/api/presets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(draftPreset),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const merged = mergePresetsWithClient(data.presets || presets);
+          setPresets(merged);
+          if (data.saved?.id) setSelectedPresetId(data.saved.id);
+          setBanner({
+            kind: "ok",
+            text: `Saved current platform & multi-account roster as preset '${presetName}'.`,
+          });
+          return;
+        }
+      } catch {
+        // Fall through to browser localStorage persistence on serverless deployments
+      }
+
+      saveClientPreset(draftPreset);
+      setPresets((prev) => mergePresetsWithClient(prev));
+      setSelectedPresetId(draftPreset.id);
       setBanner({
         kind: "ok",
-        text: `Saved current platform & multi-account roster as preset '${presetName}'.`,
+        text: `Saved preset '${presetName}' privately in your browser vault (localStorage).`,
       });
     } catch (err: any) {
       setBanner({ kind: "err", text: err.message || "Could not save preset." });
@@ -451,24 +511,33 @@ export default function DashboardPage() {
   const handleDeleteSelectedPreset = async () => {
     if (!selectedPresetId || presets.length <= 1) return;
     const target = presets.find((p) => p.id === selectedPresetId);
+    deleteClientPreset(selectedPresetId);
     try {
       const res = await fetch(`/api/presets?id=${encodeURIComponent(selectedPresetId)}`, {
         method: "DELETE",
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to delete preset");
-      if (Array.isArray(data.presets)) {
-        setPresets(data.presets);
-        if (data.presets[0]) {
-          applyPreset(data.presets[0].id, data.presets);
-        }
+      if (res.ok) {
+        const data = await res.json();
+        const merged = mergePresetsWithClient(data.presets || []);
+        setPresets(merged);
+        if (merged[0]) applyPreset(merged[0].id, merged);
+      } else {
+        const next = presets.filter((p) => p.id !== selectedPresetId);
+        setPresets(next);
+        if (next[0]) applyPreset(next[0].id, next);
       }
       setBanner({
         kind: "info",
         text: `Deleted preset '${target?.name || selectedPresetId}'.`,
       });
-    } catch (err: any) {
-      setBanner({ kind: "err", text: err.message || "Could not delete preset." });
+    } catch {
+      const next = presets.filter((p) => p.id !== selectedPresetId);
+      setPresets(next);
+      if (next[0]) applyPreset(next[0].id, next);
+      setBanner({
+        kind: "info",
+        text: `Removed preset '${target?.name || selectedPresetId}' from browser vault.`,
+      });
     }
   };
 
@@ -554,13 +623,29 @@ export default function DashboardPage() {
     );
   };
 
+  const resolveWatermarkText = () =>
+    watermarkText
+      .trim()
+      .replace(/\{\{\s*ACCOUNT(?:_ID)?\s*\}\}/gi, accountId.split(",")[0]?.trim() || "creator");
+
   const handleClientCompression = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setStagedFile(file);
     try {
-      const res = await compressImageInBrowser(file);
+      const wm = resolveWatermarkText();
+      const res = await compressImageInBrowser(file, 1000 * 1024, 2048, wm, watermarkPosition);
+      setClientImageDataUrl(res.dataUrl);
+      setProbeInfo({
+        exists: true,
+        sizeMb: Number((res.sizeBytes / (1024 * 1024)).toFixed(2)),
+        durationSec: 0,
+        width: res.width,
+        height: res.height,
+        previewDataUrl: res.dataUrl,
+      });
       setCompressedImageInfo(
-        `WASM Optimized: ${(res.sizeBytes / 1024).toFixed(1)} KB (${res.width}x${res.height} ${res.format}) - Bluesky compliant (<1MB)`,
+        `WASM Optimized${wm ? " + Watermarked" : ""}: ${(res.sizeBytes / 1024).toFixed(1)} KB (${res.width}x${res.height} ${res.format}) — ready for Bluesky & cloud direct APIs`,
       );
     } catch (err: any) {
       setCompressedImageInfo(`Compression failed: ${err.message}`);
@@ -569,6 +654,33 @@ export default function DashboardPage() {
 
   const handleProbeMedia = async (customStartSec?: number, scanSafety = true, overridePath?: string) => {
     const targetPath = (overridePath ?? mediaPath).trim();
+    const targetSeek = customStartSec ?? startSec;
+    if ((!targetPath || cloudMode) && stagedFile) {
+      setProbingMedia(true);
+      try {
+        const localProbe = await probeMediaInBrowser(
+          stagedFile,
+          targetSeek,
+          resolveWatermarkText(),
+          watermarkPosition,
+        );
+        setProbeInfo({
+          exists: true,
+          sizeMb: localProbe.sizeMb,
+          durationSec: localProbe.durationSec,
+          width: localProbe.width,
+          height: localProbe.height,
+          previewDataUrl: localProbe.previewDataUrl,
+        });
+        if (localProbe.sizeMb) setMasterMb(Math.max(1, Math.ceil(localProbe.sizeMb)));
+      } catch (err: any) {
+        setProbeInfo({ exists: false, error: err.message });
+      } finally {
+        setProbingMedia(false);
+      }
+      return;
+    }
+
     if (!targetPath) return;
     setProbingMedia(true);
     try {
@@ -577,7 +689,7 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           filePath: targetPath,
-          startSec: customStartSec ?? startSec,
+          startSec: targetSeek,
           extractPreview: true,
           scanSafety,
         }),
@@ -602,6 +714,56 @@ export default function DashboardPage() {
     if (!file) return;
     setUploadingMedia(true);
     setStagedUploadInfo(null);
+    setStagedFile(file);
+
+    const wm = resolveWatermarkText();
+    let localProbePreview: string | undefined;
+    let localDims: { width: number; height: number; durationSec: number; sizeMb: number } | null = null;
+    try {
+      const localProbe = await probeMediaInBrowser(file, startSec, wm, watermarkPosition);
+      localProbePreview = localProbe.previewDataUrl;
+      localDims = {
+        width: localProbe.width,
+        height: localProbe.height,
+        durationSec: localProbe.durationSec,
+        sizeMb: localProbe.sizeMb,
+      };
+      if (localProbe.sizeMb) setMasterMb(Math.max(1, Math.ceil(localProbe.sizeMb)));
+      setProbeInfo({
+        exists: true,
+        sizeMb: localProbe.sizeMb,
+        durationSec: localProbe.durationSec,
+        width: localProbe.width,
+        height: localProbe.height,
+        previewDataUrl: localProbe.previewDataUrl,
+      });
+    } catch {
+      // Fall back to server probe if codec isn't natively decodable in browser
+    }
+
+    if (file.type.startsWith("image/")) {
+      try {
+        const comp = await compressImageInBrowser(file, 1000 * 1024, 2048, wm, watermarkPosition);
+        setClientImageDataUrl(comp.dataUrl);
+        setCompressedImageInfo(
+          `Cloud-Ready Image: ${(comp.sizeBytes / 1024).toFixed(1)} KB (${comp.width}x${comp.height} ${comp.format})`,
+        );
+      } catch {
+        setClientImageDataUrl(null);
+      }
+    } else {
+      setClientImageDataUrl(null);
+    }
+
+    if (cloudMode && file.size > 4 * 1024 * 1024) {
+      setMediaPath("");
+      setStagedUploadInfo(
+        `Browser-probed '${file.name}' (${(file.size / (1024 * 1024)).toFixed(2)} MB) locally — skipped >4MB Vercel payload upload. Direct text/link posts ready.`,
+      );
+      setUploadingMedia(false);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/media/upload?filename=${encodeURIComponent(file.name)}`, {
         method: "POST",
@@ -613,11 +775,33 @@ export default function DashboardPage() {
         throw new Error(data.error || "Upload failed");
       }
       setMediaPath(data.filePath);
-      setStagedUploadInfo(`Staged '${data.originalName}' (${data.sizeMb} MB) on disk -> ${data.filePath}`);
+      setStagedUploadInfo(`Staged '${data.originalName}' (${data.sizeMb} MB) cleanly -> ${data.filePath}`);
       if (data.sizeMb) setMasterMb(data.sizeMb);
-      void handleProbeMedia(undefined, true, data.filePath);
+
+      const probeRes = await fetch("/api/media/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filePath: data.filePath,
+          startSec,
+          extractPreview: true,
+          scanSafety: !cloudMode,
+        }),
+      });
+      if (probeRes.ok) {
+        const serverProbe: ProbeSummary = await probeRes.json();
+        setProbeInfo({
+          ...serverProbe,
+          previewDataUrl: serverProbe.previewDataUrl || localProbePreview,
+          width: serverProbe.width || localDims?.width,
+          height: serverProbe.height || localDims?.height,
+          durationSec: serverProbe.durationSec || localDims?.durationSec,
+        });
+      }
     } catch (err: any) {
-      setBanner({ kind: "err", text: `Media staging failed: ${err.message}` });
+      if (!localDims) {
+        setBanner({ kind: "err", text: `Media staging failed: ${err.message}` });
+      }
     } finally {
       setUploadingMedia(false);
     }
@@ -630,7 +814,14 @@ export default function DashboardPage() {
       const res = await fetch("/api/captions/spin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, creatorName, niche, priceUsd, seedTags }),
+        body: JSON.stringify({
+          topic,
+          creatorName,
+          niche,
+          priceUsd,
+          seedTags,
+          credentials: getClientCredentials(),
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Caption spin failed");
@@ -658,11 +849,12 @@ export default function DashboardPage() {
       !existingMasterUrl.trim() &&
       (strictLive || simulationDisabled) &&
       !masterDef.textOnly &&
-      !mediaPath.trim()
+      !mediaPath.trim() &&
+      !clientImageDataUrl
     ) {
       setBanner({
         kind: "err",
-        text: `Strict Live Mode: Stage a video or image file above (or provide an Existing Master / Link-in-Bio URL below) before uploading to ${masterDef.name}.`,
+        text: `Strict Live Mode: Stage an image/video file above (or provide an Existing Master / Link-in-Bio URL below) before uploading to ${masterDef.name}.`,
       });
       return;
     }
@@ -696,6 +888,8 @@ export default function DashboardPage() {
           topic,
           captions: mergedCaptions,
           mediaPath,
+          mediaDataUrl: clientImageDataUrl || undefined,
+          clientCredentials: getClientCredentials(),
           accountId,
           accountOverrides,
           tags: parsedTags,
@@ -720,10 +914,19 @@ export default function DashboardPage() {
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.immediateSnapshot) {
+          setLiveSnapshot(data.immediateSnapshot);
+          saveClientHistoryEntry(data.immediateSnapshot);
+        }
         throw new Error(data.message || data.error || "Failed to launch campaign.");
       }
 
-      setLiveSnapshot(null);
+      if (data.immediateSnapshot) {
+        setLiveSnapshot(data.immediateSnapshot);
+        saveClientHistoryEntry(data.immediateSnapshot);
+      } else {
+        setLiveSnapshot(null);
+      }
       setActiveCampaign(data);
     } catch (err: any) {
       setBanner({ kind: "err", text: err.message });
@@ -735,12 +938,20 @@ export default function DashboardPage() {
   // Real-time Server-Sent Events (SSE) subscription for active BullMQ funnel progress
   useEffect(() => {
     if (!activeCampaign) return;
+    if (
+      activeCampaign.immediateSnapshot &&
+      (activeCampaign.immediateSnapshot.step === "completed" ||
+        activeCampaign.immediateSnapshot.step === "failed")
+    ) {
+      return;
+    }
     const es = new EventSource(`/api/campaigns/${encodeURIComponent(activeCampaign.campaignId)}/events`);
     es.onmessage = (event) => {
       try {
         const snapshot = JSON.parse(event.data) as CampaignStateSnapshot;
         setLiveSnapshot(snapshot);
         if (snapshot.step === "completed" || snapshot.step === "failed") {
+          saveClientHistoryEntry(snapshot);
           es.close();
         }
       } catch {}
@@ -1527,7 +1738,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-xs text-slate-400 block">
-                  Select High-Res Image (WASM MozJPEG/WebP &lt; 1MB Compression):
+                  Compress &amp; Watermark Image (Browser WASM WebP &lt; 1MB + Cloud Attach):
                 </label>
                 <input
                   type="file"
