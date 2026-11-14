@@ -140,24 +140,40 @@ const DEFAULT_SCHEDULE: ScheduledItem[] = [
   },
 ];
 
+function getConfigPaths(relPath: string): { readPath: string; writePath: string } {
+  const repoPath = resolve(resolveMonorepoRoot(), relPath);
+  if (process.env.VERCEL) {
+    const tmpPath = resolve("/tmp/polypost", relPath);
+    return {
+      readPath: existsSync(tmpPath) ? tmpPath : repoPath,
+      writePath: tmpPath,
+    };
+  }
+  return { readPath: repoPath, writePath: repoPath };
+}
+
 function ensureJsonFile<T>(relPath: string, seed: T): T {
-  const fullPath = resolve(resolveMonorepoRoot(), relPath);
-  if (!existsSync(fullPath)) {
-    mkdirSync(dirname(fullPath), { recursive: true });
-    writeFileSync(fullPath, JSON.stringify(seed, null, 2), "utf-8");
+  const { readPath, writePath } = getConfigPaths(relPath);
+  if (!existsSync(readPath)) {
+    try {
+      mkdirSync(dirname(writePath), { recursive: true });
+      writeFileSync(writePath, JSON.stringify(seed, null, 2), "utf-8");
+    } catch {
+      // Serverless / read-only FS fallback: serve seeded defaults cleanly
+    }
     return seed;
   }
   try {
-    return JSON.parse(readFileSync(fullPath, "utf-8")) as T;
+    return JSON.parse(readFileSync(readPath, "utf-8")) as T;
   } catch {
     return seed;
   }
 }
 
 function writeJsonFile<T>(relPath: string, data: T): void {
-  const fullPath = resolve(resolveMonorepoRoot(), relPath);
-  mkdirSync(dirname(fullPath), { recursive: true });
-  writeFileSync(fullPath, JSON.stringify(data, null, 2), "utf-8");
+  const { writePath } = getConfigPaths(relPath);
+  mkdirSync(dirname(writePath), { recursive: true });
+  writeFileSync(writePath, JSON.stringify(data, null, 2), "utf-8");
 }
 
 export function loadPresets(): PresetProfile[] {
