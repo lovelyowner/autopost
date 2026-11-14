@@ -22,7 +22,7 @@ export async function GET() {
   let stealthOk = false;
   let vaultProfilesCount = 0;
   try {
-    const res = await fetch(`${STEALTH_WORKER_URL}/api/sessions`, {
+    const res = await fetch(`${STEALTH_WORKER_URL}/api/profiles`, {
       cache: "no-store",
       signal: AbortSignal.timeout(2000),
     });
