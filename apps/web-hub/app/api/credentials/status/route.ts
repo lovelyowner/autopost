@@ -45,6 +45,20 @@ export async function GET() {
     apiCredentials: {
       bluesky: Boolean(process.env.BLUESKY_IDENTIFIER && process.env.BLUESKY_PASSWORD),
       mastodon: Boolean(process.env.MASTODON_ACCESS_TOKEN),
+      misskey: Boolean(process.env.MISSKEY_TOKEN),
+      lemmy: Boolean(process.env.LEMMY_USERNAME && process.env.LEMMY_PASSWORD),
+      tumblr: Boolean(process.env.TUMBLR_BLOG && process.env.TUMBLR_ACCESS_TOKEN),
+      nostr: Boolean(process.env.NOSTR_PRIVATE_KEY),
+      matrix: Boolean(process.env.MATRIX_ACCESS_TOKEN && process.env.MATRIX_ROOM_ID),
+      farcaster: Boolean(process.env.FARCASTER_NEYNAR_API_KEY && process.env.FARCASTER_SIGNER_UUID),
+      wordpress: Boolean(
+        process.env.WORDPRESS_SITE_URL &&
+          process.env.WORDPRESS_USERNAME &&
+          process.env.WORDPRESS_APP_PASSWORD,
+      ),
+      devto: Boolean(process.env.DEVTO_API_KEY),
+      revolt: Boolean(process.env.REVOLT_BOT_TOKEN && process.env.REVOLT_CHANNEL_ID),
+      vk: Boolean(process.env.VK_ACCESS_TOKEN),
       telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
       discord: Boolean(process.env.WEBHOOK_DISCORD_WEBHOOK || process.env.WEBHOOK_DISCORD || process.env.DISCORD_WEBHOOK_URL),
       slack: Boolean(process.env.WEBHOOK_SLACK_WEBHOOK || process.env.WEBHOOK_SLACK || process.env.SLACK_WEBHOOK_URL),
