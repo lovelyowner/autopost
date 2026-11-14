@@ -1,40 +1,34 @@
 import { execFileSync } from "node:child_process";
 import { NextResponse } from "next/server";
 import { readMaskedCredentialSummary } from "@polypost/node-api-worker";
-import { getSharedRedis } from "@/lib/redis-singleton";
+import { pingRedisFast } from "@/lib/redis-singleton";
 
 export const dynamic = "force-dynamic";
 
-const STEALTH_WORKER_URL = process.env.STEALTH_WORKER_URL || "http://127.0.0.1:8001";
+const STEALTH_WORKER_URL =
+  process.env.STEALTH_WORKER_URL || (process.env.VERCEL ? "" : "http://127.0.0.1:8001");
 
 export async function GET() {
-  let redisOk = false;
-  try {
-    const redis = getSharedRedis();
-    if (redis) {
-      const pong = await redis.ping();
-      redisOk = pong === "PONG";
-    }
-  } catch {
-    redisOk = false;
-  }
+  const redisOk = await pingRedisFast(1500);
 
   let stealthOk = false;
   let vaultProfilesCount = 0;
-  try {
-    const res = await fetch(`${STEALTH_WORKER_URL}/api/profiles`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(2000),
-    });
-    if (res.ok) {
-      stealthOk = true;
-      const data = await res.json();
-      if (Array.isArray(data?.profiles)) {
-        vaultProfilesCount = data.profiles.length;
+  if (STEALTH_WORKER_URL) {
+    try {
+      const res = await fetch(`${STEALTH_WORKER_URL}/api/profiles`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(2000),
+      });
+      if (res.ok) {
+        stealthOk = true;
+        const data = await res.json();
+        if (Array.isArray(data?.profiles)) {
+          vaultProfilesCount = data.profiles.length;
+        }
       }
+    } catch {
+      stealthOk = false;
     }
-  } catch {
-    stealthOk = false;
   }
 
   let ffmpegOk = false;

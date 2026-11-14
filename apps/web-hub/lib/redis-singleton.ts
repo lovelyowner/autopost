@@ -14,11 +14,36 @@ export function getSharedRedis(): Redis {
         maxRetriesPerRequest: null,
         lazyConnect: true,
         connectTimeout: 2000,
+        enableReadyCheck: false,
+        retryStrategy: process.env.VERCEL ? () => null : undefined,
       },
     );
     globalForPolyPost.__polypostRedis.on("error", () => {});
   }
   return globalForPolyPost.__polypostRedis;
+}
+
+/** Ping Redis with a hard deadline so serverless health checks never block on an offline queue. */
+export async function pingRedisFast(timeoutMs = 1500): Promise<boolean> {
+  if (Boolean(process.env.VERCEL) && !process.env.REDIS_URL) {
+    return false;
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const redis = getSharedRedis();
+    const pong = await Promise.race([
+      redis.ping().catch(() => null),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+    return pong === "PONG";
+  } catch {
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export function getSharedFunnelEngine(): FunnelEngine {

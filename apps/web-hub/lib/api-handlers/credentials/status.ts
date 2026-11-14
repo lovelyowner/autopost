@@ -1,35 +1,36 @@
 import { NextResponse } from "next/server";
 import { reloadRootEnvToProcessEnv } from "@polypost/node-api-worker";
-import { getSharedRedis } from "@/lib/redis-singleton";
+import { pingRedisFast } from "@/lib/redis-singleton";
 
 export async function GET() {
   reloadRootEnvToProcessEnv();
-  const stealthUrl = process.env.STEALTH_WORKER_URL || "http://localhost:8001";
-  const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+  const stealthUrl =
+    process.env.STEALTH_WORKER_URL || (process.env.VERCEL ? "" : "http://localhost:8001");
+  const ollamaUrl =
+    process.env.OLLAMA_URL || (process.env.VERCEL ? "" : "http://localhost:11434");
 
-  let redisOk = false;
-  try {
-    const redis = getSharedRedis();
-    const pong = await redis.ping();
-    redisOk = pong === "PONG";
-  } catch {}
+  const redisOk = await pingRedisFast(1500);
 
   let stealthWorkerOk = false;
   let profiles: Array<Record<string, any>> = [];
-  try {
-    const res = await fetch(`${stealthUrl}/api/profiles`, { signal: AbortSignal.timeout(1500) });
-    if (res.ok) {
-      stealthWorkerOk = true;
-      const data = await res.json();
-      profiles = Array.isArray(data.profiles) ? data.profiles : [];
-    }
-  } catch {}
+  if (stealthUrl) {
+    try {
+      const res = await fetch(`${stealthUrl}/api/profiles`, { signal: AbortSignal.timeout(1500) });
+      if (res.ok) {
+        stealthWorkerOk = true;
+        const data = await res.json();
+        profiles = Array.isArray(data.profiles) ? data.profiles : [];
+      }
+    } catch {}
+  }
 
   let ollamaOk = false;
-  try {
-    const res = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(1000) });
-    ollamaOk = res.ok;
-  } catch {}
+  if (ollamaUrl) {
+    try {
+      const res = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(1000) });
+      ollamaOk = res.ok;
+    } catch {}
+  }
 
   return NextResponse.json({
     services: {
