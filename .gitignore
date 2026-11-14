@@ -16,4 +16,5 @@ __pycache__/
 *.log
 *.tsbuildinfo
 dump.rdb
+.vercel/
 apps/stealth-browser-worker/vendor/social-auto-upload/cookies/
