@@ -20,8 +20,9 @@ Open `http://localhost:3000`.
 
 ## Deploying Web Hub to Vercel
 
-1. Set **Root Directory** to `./` (uses [`vercel.json`](./vercel.json)) or `apps/web-hub`.
-2. Add Environment Variables:
+1. Import this repository in Vercel (`https://vercel.com/new`).
+2. Set **Root Directory** to `apps/web-hub` (Vercel automatically detects Next.js and npm workspaces from the repository root).
+3. Add Environment Variables:
    - `REDIS_URL` (e.g. Upstash Redis or external Redis TCP URL)
    - `STEALTH_WORKER_URL` (URL of your deployed Python Patchright worker on Railway/VPS)
-3. Note: Stateful Chromium browser sessions (`apps/stealth-browser-worker`), 4K FFmpeg video transcoding, and 24/7 BullMQ delayed queues require a persistent Docker/VPS runtime alongside or instead of serverless Vercel functions.
+4. Note: Stateful Chromium browser sessions (`apps/stealth-browser-worker`), 4K FFmpeg video transcoding, and 24/7 BullMQ delayed queues require a persistent Docker/VPS runtime alongside or instead of serverless Vercel functions.
