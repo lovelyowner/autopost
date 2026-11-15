@@ -78,15 +78,95 @@ export async function POST(req: NextRequest) {
 
     if (provider === "discord") {
       const url = cred("WEBHOOK_DISCORD_WEBHOOK") || cred("WEBHOOK_DISCORD") || cred("DISCORD_WEBHOOK_URL");
-      if (!url) {
-        return NextResponse.json({ ok: false, message: "Enter Discord Webhook URL first." }, { status: 400 });
+      const token = cred("DISCORD_ACCESS_TOKEN");
+      if (!url && !token) {
+        return NextResponse.json({ ok: false, message: "Enter Discord Webhook URL or connect Discord OAuth first." }, { status: 400 });
       }
-      const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      if (!res.ok) {
-        return NextResponse.json({ ok: false, message: `Discord webhook returned HTTP ${res.status}.` });
+      if (url) {
+        const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+        if (!res.ok) {
+          return NextResponse.json({ ok: false, message: `Discord webhook returned HTTP ${res.status}.` });
+        }
+        const data = await res.json();
+        return NextResponse.json({ ok: true, message: `Verified Discord webhook '${data.name || "Webhook"}'.` });
       }
+      const res = await fetch("https://discord.com/api/v10/users/@me", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(10_000),
+      });
       const data = await res.json();
-      return NextResponse.json({ ok: true, message: `Verified Discord webhook '${data.name || "Webhook"}'.` });
+      return NextResponse.json({
+        ok: Boolean(res.ok && data.id),
+        message: res.ok && data.id
+          ? `Connected Discord user @${data.username}.`
+          : `Discord token check failed (${res.status}).`,
+      });
+    }
+
+    if (provider === "fluxer") {
+      const url = cred("WEBHOOK_FLUXER_WEBHOOK") || cred("WEBHOOK_FLUXER") || cred("FLUXER_WEBHOOK_URL");
+      if (!url) {
+        return NextResponse.json({ ok: false, message: "Enter Fluxer Webhook URL first." }, { status: 400 });
+      }
+      let validFormat = false;
+      try {
+        const parsed = new URL(url);
+        validFormat = parsed.protocol === "https:" || parsed.protocol === "http:";
+      } catch {}
+      if (!validFormat) {
+        return NextResponse.json({ ok: false, message: "Invalid Fluxer webhook URL format." });
+      }
+      try {
+        const res = await fetch(url, { method: "GET", signal: AbortSignal.timeout(8_000) });
+        if (res.ok) {
+          return NextResponse.json({ ok: true, message: "Verified live Fluxer webhook endpoint." });
+        }
+        return NextResponse.json({
+          ok: res.status === 405,
+          message:
+            res.status === 405
+              ? "Fluxer webhook URL reachable and saved (POST-only webhook)."
+              : `Fluxer webhook check returned HTTP ${res.status}.`,
+        });
+      } catch {
+        return NextResponse.json({ ok: true, message: "Fluxer webhook URL format valid and saved." });
+      }
+    }
+
+    if (provider === "google" || provider === "youtube") {
+      const token = cred("GOOGLE_ACCESS_TOKEN");
+      if (!token) {
+        return NextResponse.json({ ok: false, message: "Connect Google via 1-Click Sign-In or enter GOOGLE_ACCESS_TOKEN first." }, { status: 400 });
+      }
+      const res = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      const data = await res.json();
+      return NextResponse.json({
+        ok: Boolean(res.ok && (data.email || data.sub)),
+        message: res.ok && (data.email || data.sub)
+          ? `Connected Google account ${data.email || data.name || data.sub}.`
+          : `Google OAuth check failed (${res.status}).`,
+      });
+    }
+
+    if (provider === "x") {
+      const token = cred("X_BEARER_TOKEN");
+      if (!token) {
+        return NextResponse.json({ ok: false, message: "Connect X via 1-Click OAuth or enter X_BEARER_TOKEN first." }, { status: 400 });
+      }
+      const res = await fetch("https://api.x.com/2/users/me", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      const data = await res.json();
+      return NextResponse.json({
+        ok: Boolean(res.ok && data.data?.id),
+        message: res.ok && data.data?.id
+          ? `Connected X account @${data.data.username}.`
+          : `X API verification failed (${data.detail || data.title || res.status}).`,
+      });
     }
 
     if (provider === "slack") {
@@ -349,7 +429,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (provider === "revolt") {
+    if (provider === "revolt" || provider === "stoat") {
       const apiUrl = (cred("REVOLT_API_URL") ?? "https://api.revolt.chat").replace(/\/$/, "");
       const token = cred("REVOLT_BOT_TOKEN");
       if (!token) {

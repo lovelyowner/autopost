@@ -17,9 +17,10 @@ import {
 import type { CampaignStateSnapshot } from "@polypost/node-api-worker";
 import type { PresetProfile } from "@/lib/config-store";
 import {
-   AccountConnectModal,
+  AccountConnectModal,
   VAULT_BROWSER_PLATFORMS,
 } from "../components/AccountConnectModal";
+import { OneClickConnectPanel } from "../components/OneClickConnectPanel";
 import {
   compressImageInBrowser,
   probeMediaInBrowser,
@@ -36,6 +37,7 @@ import {
   COMPANION_CHANGED_EVENT,
   CREDENTIALS_CHANGED_EVENT,
   detectActiveCompanion,
+  notifyCredentialsChanged,
 } from "@/lib/companion-bridge";
 import { buildClientApiFlags } from "@/lib/credential-mapping";
 
@@ -138,7 +140,7 @@ export default function DashboardPage() {
   const [stagedUploadInfo, setStagedUploadInfo] = useState<string | null>(null);
   const [showLiveGuide, setShowLiveGuide] = useState(false);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
-  const [connectTab, setConnectTab] = useState<"browser" | "api">("browser");
+  const [connectTab, setConnectTab] = useState<"oneclick" | "browser" | "api">("oneclick");
   const [connectPlatformId, setConnectPlatformId] = useState<string | null>(null);
   const [connectProviderId, setConnectProviderId] = useState<string | null>(null);
   const [accountOverrides, setAccountOverrides] = useState<Record<string, string>>({});
@@ -217,9 +219,12 @@ export default function DashboardPage() {
       wordpress: "wordpress",
       devto: "devto",
       revolt: "revolt",
+      stoat: "revolt",
       vk: "vk",
       telegram: "telegram",
       discord_webhook: "discord",
+      generic_webhook: "fluxer",
+      fluxer: "fluxer",
       slack_webhook: "slack",
       reddit: "reddit",
       e621: "e621",
@@ -227,6 +232,8 @@ export default function DashboardPage() {
       inkbunny: "inkbunny",
       peertube: "peertube",
       tus_s3_chunked: "peertube",
+      x: "x",
+      youtube: "google",
     };
     const vaultSupportedIds = new Set(VAULT_BROWSER_PLATFORMS.map((vp) => vp.id));
     const isBrowser =
@@ -236,6 +243,10 @@ export default function DashboardPage() {
     if (!isBrowser && pl.connector && connectorMap[pl.connector]) {
       setConnectTab("api");
       setConnectPlatformId(null);
+      setConnectProviderId(connectorMap[pl.connector]);
+    } else if ((pl.id === "x" || pl.id === "youtube") && pl.connector && connectorMap[pl.connector]) {
+      setConnectTab("api");
+      setConnectPlatformId(pl.id);
       setConnectProviderId(connectorMap[pl.connector]);
     } else {
       setConnectTab("browser");
@@ -251,6 +262,38 @@ export default function DashboardPage() {
     transport?: string;
     support?: string;
   }): { connected: boolean; label: string } => {
+    const apiKeyMap: Record<string, string> = {
+      bluesky: "bluesky",
+      mastodon: "mastodon",
+      misskey: "misskey",
+      lemmy: "lemmy",
+      tumblr: "tumblr",
+      nostr: "nostr",
+      matrix: "matrix",
+      farcaster: "farcaster",
+      wordpress: "wordpress",
+      devto: "devto",
+      revolt: "revolt",
+      stoat: "revolt",
+      vk: "vk",
+      telegram: "telegram",
+      discord_webhook: "discord",
+      generic_webhook: "fluxer",
+      fluxer: "fluxer",
+      slack_webhook: "slack",
+      reddit: "reddit",
+      e621: "e621",
+      deviantart: "deviantart",
+      inkbunny: "inkbunny",
+      peertube: "peertube",
+      tus_s3_chunked: "peertube",
+      x: "x",
+      youtube: "google",
+    };
+    const apiKeyName = pl.connector ? apiKeyMap[pl.connector] : undefined;
+    if (apiKeyName && apiCredentials[apiKeyName]) {
+      return { connected: true, label: "API OK" };
+    }
     const vaultSupportedIds = new Set(VAULT_BROWSER_PLATFORMS.map((vp) => vp.id));
     const isBrowser =
       pl.transport === "patchright_stealth" ||
@@ -269,34 +312,8 @@ export default function DashboardPage() {
       const ok = matchedCount === 1 || vaultAliases.length > 0;
       return ok ? { connected: true, label: "VAULT" } : { connected: false, label: "LOGIN" };
     }
-    const apiKeyMap: Record<string, string> = {
-      bluesky: "bluesky",
-      mastodon: "mastodon",
-      misskey: "misskey",
-      lemmy: "lemmy",
-      tumblr: "tumblr",
-      nostr: "nostr",
-      matrix: "matrix",
-      farcaster: "farcaster",
-      wordpress: "wordpress",
-      devto: "devto",
-      revolt: "revolt",
-      vk: "vk",
-      telegram: "telegram",
-      discord_webhook: "discord",
-      slack_webhook: "slack",
-      reddit: "reddit",
-      e621: "e621",
-      deviantart: "deviantart",
-      inkbunny: "inkbunny",
-      peertube: "peertube",
-      tus_s3_chunked: "peertube",
-    };
-    const keyName = pl.connector ? apiKeyMap[pl.connector] : undefined;
-    if (keyName) {
-      return apiCredentials[keyName]
-        ? { connected: true, label: "API OK" }
-        : { connected: false, label: "ADD KEY" };
+    if (apiKeyName) {
+      return { connected: false, label: "ADD KEY" };
     }
     return { connected: false, label: "DEMO" };
   };
@@ -972,12 +989,12 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 relative">
       {/* Top Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-[#cccccc] rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-2">
+          <h1 className="text-2xl font-bold text-[#333333] mb-2">
             Unified Autoposting Composer & Funnel Engine
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-[#999999]">
             Targeting {ACTIVE_PLATFORMS.length} active destinations across 4 quadrants ({ARCHIVED_PLATFORMS.length} discontinued archived) with reactive size ceilings, local AI caption spinning, and real-time BullMQ funnel SSE tracking.
           </p>
         </div>
@@ -986,7 +1003,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => openConnectForPlatform()}
-            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow cursor-pointer whitespace-nowrap"
+            className="border border-[#cccccc] px-4 py-2 rounded-lg bg-white hover:bg-white text-[#333333] text-xs font-bold shadow cursor-pointer whitespace-nowrap"
           >
             + Add / Connect Accounts
           </button>
@@ -995,7 +1012,7 @@ export default function DashboardPage() {
           {presets.length > 0 && (
             <div className="min-w-[260px] space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <label className="text-[11px] text-slate-400 font-medium block">
+                <label className="text-[11px] text-[#999999] font-medium block">
                   Load / Save Roster & 2257 Preset:
                 </label>
                 <div className="flex items-center gap-1.5">
@@ -1003,7 +1020,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={handleSaveCurrentMatrixAsPreset}
                     disabled={savingPreset}
-                    className="text-[10px] px-2 py-0.5 rounded bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-200 font-semibold cursor-pointer disabled:opacity-50"
+                    className="text-[10px] px-2 py-0.5 rounded bg-white hover:bg-white border border-[#cccccc] text-[#333333] font-semibold cursor-pointer disabled:opacity-50"
                   >
                     {savingPreset ? "Saving..." : "+ Save Current Matrix"}
                   </button>
@@ -1012,7 +1029,7 @@ export default function DashboardPage() {
                       type="button"
                       onClick={() => void handleDeleteSelectedPreset()}
                       title="Delete currently selected preset"
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 hover:bg-red-950/80 border border-slate-700 hover:border-red-800 text-slate-300 hover:text-red-200 font-mono cursor-pointer"
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-white hover:bg-white border border-[#cccccc] hover:border-[#cccccc] text-[#666666] hover:text-[#333333] font-mono cursor-pointer"
                     >
                       Delete
                     </button>
@@ -1022,7 +1039,7 @@ export default function DashboardPage() {
               <select
                 value={selectedPresetId}
                 onChange={(e) => applyPreset(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-xs text-white"
+                className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-xs text-[#333333]"
               >
                 {presets.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -1048,13 +1065,7 @@ export default function DashboardPage() {
 
       {banner && (
         <div
-          className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-4 ${
-            banner.kind === "ok"
-              ? "bg-emerald-950/70 border-emerald-700 text-emerald-200"
-              : banner.kind === "info"
-              ? "bg-indigo-950/70 border-indigo-700 text-indigo-200"
-              : "bg-red-950/70 border-red-700 text-red-200"
-          }`}
+          className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-4 ${ banner.kind === "ok" ? "bg-white border-[#cccccc] text-[#333333]" : banner.kind === "info" ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
         >
           <span>{banner.text}</span>
           <button onClick={() => setBanner(null)} className="text-[11px] opacity-75 hover:opacity-100 whitespace-nowrap">
@@ -1062,6 +1073,22 @@ export default function DashboardPage() {
           </button>
         </div>
       )}
+
+      <OneClickConnectPanel
+        compact
+        apiFlags={apiCredentials}
+        cloudMode={cloudMode}
+        onConnected={() => {
+          notifyCredentialsChanged();
+          void refreshCredentialsStatus();
+        }}
+        onOpenBrowserLogin={(platformId) => {
+          setConnectTab("browser");
+          setConnectPlatformId(platformId);
+          setConnectProviderId(null);
+          setConnectModalOpen(true);
+        }}
+      />
 
       {/* Interactive Real-Account Go-Live Readiness Checklist */}
       {(() => {
@@ -1072,19 +1099,15 @@ export default function DashboardPage() {
         const complianceOk = !requires2257 || confirmed2257Attestation;
         const liveArmed = strictLive || simulationDisabled;
         return (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+          <div className="bg-white border border-[#cccccc] rounded-xl p-4 space-y-3 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span
-                  className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold uppercase ${
-                    liveArmed
-                      ? "bg-emerald-950 text-emerald-300 border border-emerald-700"
-                      : "bg-amber-950 text-amber-300 border border-amber-700"
-                  }`}
+                  className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold uppercase ${ liveArmed ? "bg-white text-[#333333] border border-[#cccccc]" : "bg-white text-[#333333] border border-[#cccccc]" }`}
                 >
                   {liveArmed ? "LIVE MODE ARMED" : "DEMO / HYBRID MODE"}
                 </span>
-                <span className="text-slate-300 font-medium">
+                <span className="text-[#666666] font-medium">
                   {liveArmed
                     ? "Strict Live ON — PolyPost will only post to real connected accounts (never fake demo links)."
                     : "Currently in Demo fallback — unconnected accounts output simulated .example.com links. Connect accounts & turn ON Strict Live below to post for real."}
@@ -1093,7 +1116,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setShowLiveGuide((v) => !v)}
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-indigo-300 font-medium cursor-pointer"
+                className="border border-[#cccccc] px-2.5 py-1 rounded bg-white hover:bg-white text-[#333333] font-medium cursor-pointer"
               >
                 {showLiveGuide ? "Hide Guide" : "How to Post on Real Accounts?"}
               </button>
@@ -1103,11 +1126,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => openConnectForPlatform()}
-                className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer text-left ${
-                  hasAnyAccount
-                    ? "bg-emerald-950/30 border-emerald-800/70 text-emerald-200 hover:bg-emerald-950/50"
-                    : "bg-amber-950/30 border-amber-800/70 text-amber-200 hover:bg-amber-950/50"
-                }`}
+                className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer text-left ${ hasAnyAccount ? "bg-white border-[#cccccc] text-[#333333] hover:bg-white" : "bg-white border-[#cccccc] text-[#333333] hover:bg-white" }`}
               >
                 <span>1. Accounts Connected</span>
                 <span className="font-mono text-[10px] font-bold">
@@ -1115,11 +1134,7 @@ export default function DashboardPage() {
                 </span>
               </button>
               <div
-                className={`p-2 rounded-lg border flex items-center justify-between ${
-                  hasRealMedia
-                    ? "bg-emerald-950/30 border-emerald-800/70 text-emerald-200"
-                    : "bg-amber-950/30 border-amber-800/70 text-amber-200"
-                }`}
+                className={`p-2 rounded-lg border flex items-center justify-between ${ hasRealMedia ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
               >
                 <span>2. Media Staged</span>
                 <span className="font-mono text-[10px] font-bold">
@@ -1127,11 +1142,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div
-                className={`p-2 rounded-lg border flex items-center justify-between ${
-                  complianceOk
-                    ? "bg-emerald-950/30 border-emerald-800/70 text-emerald-200"
-                    : "bg-amber-950/30 border-amber-800/70 text-amber-200"
-                }`}
+                className={`p-2 rounded-lg border flex items-center justify-between ${ complianceOk ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
               >
                 <span>3. 2257 Compliance</span>
                 <span className="font-mono text-[10px] font-bold">
@@ -1142,11 +1153,7 @@ export default function DashboardPage() {
                 type="button"
                 disabled={simulationDisabled}
                 onClick={() => setStrictLive((v) => !v)}
-                className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer text-left ${
-                  liveArmed
-                    ? "bg-emerald-950/40 border-emerald-700 text-emerald-200"
-                    : "bg-slate-950 border-slate-700 text-slate-300 hover:border-indigo-500"
-                }`}
+                className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer text-left ${ liveArmed ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#666666] hover:border-[#cccccc]" }`}
               >
                 <span>4. Strict Live Gate</span>
                 <span className="font-mono text-[10px] font-bold">
@@ -1156,18 +1163,18 @@ export default function DashboardPage() {
             </div>
 
             {showLiveGuide && (
-              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 space-y-1.5">
-                <p className="font-semibold text-white">Exact 4 Steps to Publish Live on Your Real Accounts:</p>
+              <div className="p-3 rounded-lg bg-white border border-[#cccccc] text-[#666666] space-y-1.5">
+                <p className="font-semibold text-[#333333]">Exact 4 Steps to Publish Live on Your Real Accounts:</p>
                 <p>
                   <strong>Step 1 — Connect your accounts:</strong> Click <strong>1. Accounts Connected</strong> above (or open{" "}
-                  <a href="/vault" className="text-indigo-400 underline">Account Vault (/vault)</a>). For web portals (Pornhub, Fansly, OnlyFans, X, Instagram, YouTube, TikTok), use <strong>1. Chrome Login Window</strong> (then click <strong>Finish &amp; Save Cookies Now</strong> or close Chrome after signing in) OR <strong>2. Paste Cookies JSON</strong> from Chrome/Firefox&apos;s Cookie-Editor extension. For API/bot targets (Bluesky, Mastodon, Discord, Telegram, Reddit, e621, DeviantArt, Inkbunny), open <strong>3. API / Bot Keys</strong>, paste your keys, and click <strong>Save &amp; Test Live Connection</strong>.
+                  <a href="/vault" className="text-[#333333] underline">Account Vault (/vault)</a>). For web portals (Pornhub, Fansly, OnlyFans, X, Instagram, YouTube, TikTok), use <strong>1. Chrome Login Window</strong> (then click <strong>Finish &amp; Save Cookies Now</strong> or close Chrome after signing in) OR <strong>2. Paste Cookies JSON</strong> from Chrome/Firefox&apos;s Cookie-Editor extension. For API/bot targets (Bluesky, Mastodon, Discord, Telegram, Reddit, e621, DeviantArt, Inkbunny), open <strong>3. API / Bot Keys</strong>, paste your keys, and click <strong>Save &amp; Test Live Connection</strong>.
                 </p>
                 <p>
                   <strong>Step 2 — Stage your real video/image:</strong> Below under <em>Media Ingestion</em>, use{" "}
                   <strong>Upload / Stage Local File</strong> to select a video/image from your computer (or paste its disk path) and click <strong>Inspect File</strong>.
                 </p>
                 <p>
-                  <strong>Step 3 — Select your connected alias &amp; check 2257:</strong> Set <em>Target Account Alias</em> to the same name you connected in Vault (e.g. <code className="font-mono text-indigo-300">main_creator</code>). If posting to adult sites, tick the amber <strong>18 U.S.C. 2257</strong> checkbox.
+                  <strong>Step 3 — Select your connected alias &amp; check 2257:</strong> Set <em>Target Account Alias</em> to the same name you connected in Vault (e.g. <code className="font-mono text-[#333333]">main_creator</code>). If posting to adult sites, tick the amber <strong>18 U.S.C. 2257</strong> checkbox.
                 </p>
                 <p>
                   <strong>Step 4 — Arm Strict Live Only &amp; Launch:</strong> Click <strong>Strict Live Only</strong> (Step 4 above or above Launch button) so unconnected targets show real errors instead of fake demo URLs, then click <strong>Launch</strong>!
@@ -1180,42 +1187,30 @@ export default function DashboardPage() {
 
       {/* Centered Modal Overlay for Real-Time SSE Campaign Monitor */}
       {activeCampaign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-slate-900 border-2 border-indigo-500 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="border border-[#cccccc] fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/95">
+          <div className="bg-white border-2 border-[#cccccc] rounded-2xl max-w-2xl w-full p-6 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#cccccc] pb-4">
               <div className="flex items-center space-x-3">
                 <span className="relative flex h-3.5 w-3.5">
                   <span
-                    className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                      currentStep === "failed"
-                        ? "bg-red-500"
-                        : currentStep === "completed"
-                        ? "bg-emerald-400"
-                        : "animate-ping bg-amber-400"
-                    }`}
+                    className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${ currentStep === "failed" ? "border border-[#cccccc] bg-white" : currentStep === "completed" ? "border border-[#cccccc] bg-white" : "border border-[#cccccc] animate-ping bg-white" }`}
                   ></span>
                   <span
-                    className={`relative inline-flex rounded-full h-3.5 w-3.5 ${
-                      currentStep === "failed"
-                        ? "bg-red-500"
-                        : currentStep === "completed"
-                        ? "bg-emerald-500"
-                        : "bg-amber-400"
-                    }`}
+                    className={`border border-[#cccccc] relative inline-flex rounded-full h-3.5 w-3.5 ${ currentStep === "failed" ? "border border-[#cccccc] bg-white" : currentStep === "completed" ? "border border-[#cccccc] bg-white" : "border border-[#cccccc] bg-white" }`}
                   ></span>
                 </span>
                 <div>
-                  <h2 className="text-lg font-bold text-white">
+                  <h2 className="text-lg font-bold text-[#333333]">
                     Funnel Pipeline: {activeCampaign.campaignId}
                   </h2>
-                  <p className="text-xs text-indigo-300 font-mono">
+                  <p className="text-xs text-[#333333] font-mono">
                     {activeCampaign.strictLive ? "STRICT LIVE MODE" : "HYBRID / DRY-RUN MODE"} | SSE Live Stream ({activeCampaign.queuedInRedis ? "Redis BullMQ" : "In-Process"})
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveCampaign(null)}
-                className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium cursor-pointer"
+                className="border border-[#cccccc] text-xs px-3 py-1.5 rounded-lg bg-white hover:bg-white text-[#666666] font-medium cursor-pointer"
               >
                 Close
               </button>
@@ -1224,84 +1219,64 @@ export default function DashboardPage() {
             {/* Stepper Progress */}
             <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
               <div
-                className={`p-2.5 rounded-lg border transition-all ${
-                  currentStep === "uploading_master"
-                    ? "bg-amber-950/70 border-amber-500 text-amber-200 font-bold"
-                    : uploadPercent === 100
-                    ? "bg-emerald-950/40 border-emerald-700 text-emerald-300"
-                    : "bg-slate-950 border-slate-800 text-slate-500"
-                }`}
+                className={`p-2.5 rounded-lg border transition-all ${ currentStep === "uploading_master" ? "bg-white border-[#cccccc] text-[#333333] font-bold" : uploadPercent === 100 ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#999999]" }`}
               >
                 1. Stream Master ({uploadPercent}%)
               </div>
               <div
-                className={`p-2.5 rounded-lg border transition-all ${
-                  currentStep === "injecting_url"
-                    ? "bg-indigo-950/70 border-indigo-500 text-indigo-200 font-bold"
-                    : currentStep === "broadcasting_teasers" || currentStep === "completed"
-                    ? "bg-emerald-950/40 border-emerald-700 text-emerald-300"
-                    : "bg-slate-950 border-slate-800 text-slate-500"
-                }`}
+                className={`p-2.5 rounded-lg border transition-all ${ currentStep === "injecting_url" ? "bg-white border-[#cccccc] text-[#333333] font-bold" : currentStep === "broadcasting_teasers" || currentStep === "completed" ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#999999]" }`}
               >
                 2. Inject Live URL
               </div>
               <div
-                className={`p-2.5 rounded-lg border transition-all ${
-                  currentStep === "broadcasting_teasers"
-                    ? "bg-purple-950/70 border-purple-500 text-purple-200 font-bold"
-                    : currentStep === "completed"
-                    ? "bg-emerald-950 border-emerald-500 text-emerald-300 font-bold"
-                    : currentStep === "failed"
-                    ? "bg-red-950 border-red-500 text-red-300 font-bold"
-                    : "bg-slate-950 border-slate-800 text-slate-500"
-                }`}
+                className={`p-2.5 rounded-lg border transition-all ${ currentStep === "broadcasting_teasers" ? "bg-white border-[#cccccc] text-[#333333] font-bold" : currentStep === "completed" ? "bg-white border-[#cccccc] text-[#333333] font-bold" : currentStep === "failed" ? "bg-white border-[#cccccc] text-[#333333] font-bold" : "bg-white border-[#cccccc] text-[#999999]" }`}
               >
                 3. Social Teasers ({publishedCount}/{teaserStates.length})
               </div>
             </div>
 
             {liveSnapshot?.masterError && (
-              <div className="p-3 rounded-lg bg-red-950/80 border border-red-700 text-xs text-red-200 font-mono">
+              <div className="p-3 rounded-lg bg-white border border-[#cccccc] text-xs text-[#333333] font-mono">
                 Pipeline Failed (Routed to DLQ): {liveSnapshot.masterError}
               </div>
             )}
 
             {/* Master Job Card */}
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div className="p-4 rounded-xl bg-white border border-[#cccccc] space-y-3">
               <div className="flex justify-between items-center text-xs">
-                <span className="font-mono font-bold text-amber-400 uppercase tracking-wider">
+                <span className="font-mono font-bold text-[#333333] uppercase tracking-wider">
                   Primary Master Destination
                 </span>
-                <span className="font-mono text-slate-400">
+                <span className="font-mono text-[#999999]">
                   {liveSnapshot?.masterSimulated ? "SIMULATED" : uploadPercent === 100 ? "LIVE DISPATCH" : "Zero-RAM Stream"}
                 </span>
               </div>
 
-              <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-white rounded-full h-2 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-amber-500 via-indigo-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
+                  className="bg-white border-r-2 border-[#cccccc] h-2 rounded-full transition-all duration-300"
                   style={{ width: `${uploadPercent}%` }}
                 ></div>
               </div>
 
               <div className="flex justify-between items-center text-xs pt-1">
-                <span className="text-white font-semibold">
+                <span className="text-[#333333] font-semibold">
                   {activeCampaign.masterJob.platformName} ({activeCampaign.masterJob.fileSizeMb} MB)
                 </span>
-                <span className="text-emerald-400 font-mono text-[11px]">
+                <span className="text-[#333333] font-mono text-[11px]">
                   {liveSnapshot?.liveMasterUrl ? "URL Captured" : `${uploadPercent}%`}
                 </span>
               </div>
 
               {liveSnapshot?.liveMasterUrl && (
-                <div className="p-2.5 rounded bg-indigo-950/50 border border-indigo-800/80 text-xs font-mono text-slate-200 break-all flex items-center justify-between">
+                <div className="p-2.5 rounded bg-white border border-[#cccccc] text-xs font-mono text-[#333333] break-all flex items-center justify-between">
                   <div className="truncate mr-2">
-                    <span className="text-indigo-400">Master URL: </span>
+                    <span className="text-[#333333]">Master URL: </span>
                     <a
                       href={liveSnapshot.liveMasterUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="underline hover:text-indigo-300"
+                      className="underline hover:text-[#333333]"
                     >
                       {liveSnapshot.liveMasterUrl}
                     </a>
@@ -1312,7 +1287,7 @@ export default function DashboardPage() {
                       setCopiedUrl(true);
                       setTimeout(() => setCopiedUrl(false), 2000);
                     }}
-                    className="px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-[10px] whitespace-nowrap cursor-pointer"
+                    className="border border-[#cccccc] px-2 py-1 rounded bg-white hover:bg-white text-[#333333] text-[10px] whitespace-nowrap cursor-pointer"
                   >
                     {copiedUrl ? "Copied!" : "Copy URL"}
                   </button>
@@ -1322,7 +1297,7 @@ export default function DashboardPage() {
 
             {/* Child Teasers */}
             <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs font-semibold text-slate-300">
+              <div className="flex justify-between items-center text-xs font-semibold text-[#666666]">
                 <span>Chained Social Teasers:</span>
                 <div className="flex items-center space-x-2">
                   {publishedCount > 0 && (
@@ -1341,12 +1316,12 @@ export default function DashboardPage() {
                           setTimeout(() => setCopiedAllUrls(false), 2000);
                         }
                       }}
-                      className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-200 font-semibold transition-colors cursor-pointer"
+                      className="text-[10px] px-2 py-0.5 rounded bg-white hover:bg-white border border-[#cccccc] text-[#333333] font-semibold transition-colors cursor-pointer"
                     >
                       {copiedAllUrls ? "Copied All URLs!" : "Copy All Published URLs"}
                     </button>
                   )}
-                  <span className="text-emerald-400 font-mono text-[11px]">
+                  <span className="text-[#333333] font-mono text-[11px]">
                     {publishedCount} of {teaserStates.length} Published
                   </span>
                 </div>
@@ -1358,36 +1333,28 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={t.jobId}
-                      className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-3 ${
-                        status === "published"
-                          ? "bg-slate-950 border-emerald-900/60 text-slate-200"
-                          : status === "failed"
-                          ? "bg-red-950/30 border-red-800 text-red-200"
-                          : "bg-slate-950/60 border-slate-800 text-slate-400"
-                      }`}
+                      className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-3 ${ status === "published" ? "bg-white border-[#cccccc] text-[#333333]" : status === "failed" ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#999999]" }`}
                     >
                       <div className="space-y-0.5 flex-1 min-w-0">
                         <div className="flex items-center space-x-2">
-                          <span className="font-bold text-white">{t.platformName || t.platformId}</span>
+                          <span className="font-bold text-[#333333]">{t.platformName || t.platformId}</span>
                           {t.simulated !== undefined && (
                             <span
-                              className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${
-                                t.simulated ? "bg-amber-950 text-amber-300" : "bg-emerald-950 text-emerald-300"
-                              }`}
+                              className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${ t.simulated ? "border border-[#cccccc] bg-white text-[#333333]" : "border border-[#cccccc] bg-white text-[#333333]" }`}
                             >
                               {t.simulated ? "SIM" : "LIVE"}
                             </span>
                           )}
                         </div>
-                        <p className="text-slate-400 text-[11px] font-mono truncate">
+                        <p className="text-[#999999] text-[11px] font-mono truncate">
                           {t.error
                             ? `Error: ${String(t.error).split("\n")[0].slice(0, 110)}`
                             : t.publishedUrl || t.injectedCaption}
                         </p>
                         {t.error && String(t.error).length > 110 && (
-                          <details className="text-[10px] text-red-300/80 font-mono mt-0.5">
-                            <summary className="cursor-pointer hover:text-red-200">Show full error details</summary>
-                            <pre className="whitespace-pre-wrap break-all mt-1 p-1.5 rounded bg-slate-900 border border-slate-800">
+                          <details className="text-[10px] text-[#666666] font-mono mt-0.5">
+                            <summary className="cursor-pointer hover:text-[#333333]">Show full error details</summary>
+                            <pre className="whitespace-pre-wrap break-all mt-1 p-1.5 rounded bg-white border border-[#cccccc]">
                               {t.error}
                             </pre>
                           </details>
@@ -1397,20 +1364,14 @@ export default function DashboardPage() {
                             href={`/api/campaigns/failures/${encodeURIComponent(t.failureScreenshot)}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-block text-[10px] text-red-300 underline font-mono mt-0.5"
+                            className="inline-block text-[10px] text-[#333333] underline font-mono mt-0.5"
                           >
                             View Failure Screenshot
                           </a>
                         )}
                       </div>
                       <span
-                        className={`text-[10px] px-2 py-0.5 rounded font-mono font-medium uppercase whitespace-nowrap ${
-                          status === "published"
-                            ? "bg-emerald-950 text-emerald-300 border border-emerald-800"
-                            : status === "failed"
-                            ? "bg-red-950 text-red-300 border border-red-800"
-                            : "bg-slate-800 text-slate-400"
-                        }`}
+                        className={`text-[10px] px-2 py-0.5 rounded font-mono font-medium uppercase whitespace-nowrap ${ status === "published" ? "bg-white text-[#333333] border border-[#cccccc]" : status === "failed" ? "bg-white text-[#333333] border border-[#cccccc]" : "border border-[#cccccc] bg-white text-[#999999]" }`}
                       >
                         {status}
                       </span>
@@ -1451,14 +1412,14 @@ export default function DashboardPage() {
                       text: `Configured Composer to retry ONLY the ${failedList.length} failed target(s). Click Launch below when ready.`,
                     });
                   }}
-                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer"
+                  className="border border-[#cccccc] flex-1 py-2.5 rounded-xl bg-white hover:bg-white text-[#333333] font-bold text-xs cursor-pointer"
                 >
                   Load Only Failed Targets ({teaserStates.filter((t: any) => t.status === "failed").length}) for Retry
                 </button>
               )}
               <button
                 onClick={() => setActiveCampaign(null)}
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer"
+                className="border border-[#cccccc] flex-1 py-2.5 rounded-xl bg-white hover:bg-white text-[#333333] font-bold text-xs cursor-pointer"
               >
                 Done / Close Monitor
               </button>
@@ -1470,9 +1431,9 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Active Platform Registry & Constraint Calculator */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+          <div className="bg-white border border-[#cccccc] rounded-xl p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-white">Active Registry</h2>
+              <h2 className="text-lg font-semibold text-[#333333]">Active Registry</h2>
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
@@ -1489,27 +1450,27 @@ export default function DashboardPage() {
                     }
                     setSelectedIds(Array.from(new Set([masterTargetId, ...readyIds])));
                   }}
-                  className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/70 text-emerald-300 font-mono cursor-pointer"
+                  className="text-[10px] px-2 py-0.5 rounded bg-white hover:bg-white border border-[#cccccc] text-[#333333] font-mono cursor-pointer"
                 >
                   Select Connected
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedIds([masterTargetId])}
-                  className="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono cursor-pointer"
+                  className="border border-[#cccccc] text-[10px] px-2 py-0.5 rounded bg-white hover:bg-white text-[#666666] font-mono cursor-pointer"
                 >
                   Clear
                 </button>
-                <label className="flex items-center gap-1 text-[10px] text-slate-400 cursor-pointer">
+                <label className="flex items-center gap-1 text-[10px] text-[#999999] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={showRegistryOnly}
                     onChange={(e) => setShowRegistryOnly(e.target.checked)}
-                    className="rounded border-slate-700 text-indigo-600 focus:ring-0"
+                    className="rounded border-[#cccccc] text-[#333333] focus:ring-0"
                   />
                   <span>All ({ACTIVE_PLATFORMS.length})</span>
                 </label>
-                <span className="text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-300 font-mono">
+                <span className="border border-[#cccccc] text-xs px-2 py-0.5 rounded bg-white text-[#333333] font-mono">
                   {selectedIds.length} Selected
                 </span>
               </div>
@@ -1520,11 +1481,7 @@ export default function DashboardPage() {
                 <button
                   key={q}
                   onClick={() => setActiveQuadrant(q)}
-                  className={`px-2.5 py-1 rounded transition-colors ${
-                    activeQuadrant === q
-                      ? "bg-indigo-600 text-white font-medium"
-                      : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                  }`}
+                  className={`px-2.5 py-1 rounded transition-colors ${ activeQuadrant === q ? "border border-[#cccccc] bg-white text-[#333333] font-medium" : "border border-[#cccccc] bg-white text-[#999999] hover:bg-white" }`}
                 >
                   {q.replace("_", " ").toUpperCase()}
                 </button>
@@ -1537,7 +1494,7 @@ export default function DashboardPage() {
                 value={platformSearch}
                 onChange={(e) => setPlatformSearch(e.target.value)}
                 placeholder="Search 130+ platforms: nostr, misskey, lemmy, tumblr, matrix, farcaster, maloum, boosty, rumble, manyvids..."
-                className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500"
+                className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-xs text-[#333333] placeholder-[#999999]"
               />
               <div className="flex flex-wrap gap-1 text-[10px]">
                 {[
@@ -1582,11 +1539,7 @@ export default function DashboardPage() {
                         }
                         togglePlatform(quick.id);
                       }}
-                      className={`px-1.5 py-0.5 rounded border font-mono cursor-pointer transition-colors ${
-                        checked
-                          ? "bg-indigo-600 border-indigo-400 text-white font-semibold"
-                          : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200"
-                      }`}
+                      className={`px-1.5 py-0.5 rounded border font-mono cursor-pointer transition-colors ${ checked ? "bg-white border-[#cccccc] text-[#333333] font-semibold" : "bg-white border-[#cccccc] text-[#999999] hover:border-[#cccccc] hover:text-[#333333]" }`}
                     >
                       {checked ? `✓ ${quick.label}` : `+ ${quick.label}`}
                     </button>
@@ -1602,18 +1555,14 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={pl.id}
-                    className={`flex items-center justify-between p-2 rounded text-xs transition-colors ${
-                      isSelected
-                        ? "bg-indigo-950/60 border border-indigo-700/60 text-indigo-100"
-                        : "bg-slate-950 border border-slate-800 text-slate-400 hover:border-slate-700"
-                    }`}
+                    className={`flex items-center justify-between p-2 rounded text-xs transition-colors ${ isSelected ? "bg-white border border-[#cccccc] text-[#333333]" : "bg-white border border-[#cccccc] text-[#999999] hover:border-[#cccccc]" }`}
                   >
                     <label className="flex items-center space-x-2 truncate cursor-pointer flex-1 min-w-0">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => togglePlatform(pl.id)}
-                        className="rounded border-slate-700 text-indigo-600 focus:ring-0"
+                        className="rounded border-[#cccccc] text-[#333333] focus:ring-0"
                       />
                       <span className="font-medium truncate">{pl.name}</span>
                     </label>
@@ -1621,15 +1570,11 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         onClick={() => openConnectForPlatform(pl)}
-                        className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold cursor-pointer ${
-                          conn.connected
-                            ? "bg-emerald-950 text-emerald-300 border border-emerald-800"
-                            : "bg-amber-950/70 text-amber-300 border border-amber-800/70 hover:bg-amber-900"
-                        }`}
+                        className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold cursor-pointer ${ conn.connected ? "bg-white text-[#333333] border border-[#cccccc]" : "bg-white text-[#333333] border border-[#cccccc] hover:bg-white" }`}
                       >
                         {conn.label}
                       </button>
-                      <span className="font-mono text-[10px] text-slate-400 w-10 text-right">
+                      <span className="font-mono text-[10px] text-[#999999] w-10 text-right">
                         {pl.maxMb >= 1024 ? `${(pl.maxMb / 1024).toFixed(0)} GB` : `${pl.maxMb} MB`}
                       </span>
                     </div>
@@ -1640,47 +1585,41 @@ export default function DashboardPage() {
           </div>
 
           {/* Reactive File-Size Engine Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-            <h2 className="text-lg font-semibold text-white">Reactive File-Size Engine</h2>
+          <div className="bg-white border border-[#cccccc] rounded-xl p-5 space-y-4">
+            <h2 className="text-lg font-semibold text-[#333333]">Reactive File-Size Engine</h2>
 
             <div className="flex items-center space-x-2 text-xs">
               <button
                 onClick={() => setScalingMode("strict")}
-                className={`flex-1 py-1.5 rounded font-medium transition-colors ${
-                  scalingMode === "strict" ? "bg-amber-600 text-white" : "bg-slate-800 text-slate-400"
-                }`}
+                className={`flex-1 py-1.5 rounded font-medium transition-colors ${ scalingMode === "strict" ? "border border-[#cccccc] bg-white text-[#333333]" : "border border-[#cccccc] bg-white text-[#999999]" }`}
               >
                 Strict Ceiling
               </button>
               <button
                 onClick={() => setScalingMode("waterfall_autoscale")}
-                className={`flex-1 py-1.5 rounded font-medium transition-colors ${
-                  scalingMode === "waterfall_autoscale"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-800 text-slate-400"
-                }`}
+                className={`flex-1 py-1.5 rounded font-medium transition-colors ${ scalingMode === "waterfall_autoscale" ? "border border-[#cccccc] bg-white text-[#333333]" : "border border-[#cccccc] bg-white text-[#999999]" }`}
               >
                 Waterfall Autoscale
               </button>
             </div>
 
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2 text-xs">
+            <div className="bg-white border border-[#cccccc] rounded-lg p-3 space-y-2 text-xs">
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Current Upload Ceiling:</span>
-                <span className="font-mono font-bold text-amber-400">
+                <span className="text-[#999999]">Current Upload Ceiling:</span>
+                <span className="font-mono font-bold text-[#333333]">
                   {constraints.allowedMaxMb >= 1024
                     ? `${(constraints.allowedMaxMb / 1024).toFixed(1)} GB`
                     : `${constraints.allowedMaxMb} MB`}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Bottleneck Platform:</span>
-                <span className="font-mono text-slate-200">
+                <span className="text-[#999999]">Bottleneck Platform:</span>
+                <span className="font-mono text-[#333333]">
                   {constraints.bottleneckPlatform?.name || "None"}
                 </span>
               </div>
               {scalingMode === "strict" && constraints.bottleneckPlatform && (
-                <div className="flex justify-between items-center text-[11px] text-indigo-400 pt-1 border-t border-slate-800">
+                <div className="flex justify-between items-center text-[11px] text-[#333333] pt-1 border-t border-[#cccccc]">
                   <span>If {constraints.bottleneckPlatform.name} unchecked:</span>
                   <span className="font-mono font-semibold">
                     {constraints.nextLimitIfUnchecked >= 1024
@@ -1692,34 +1631,26 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs text-slate-400">Master Video Size (MB):</label>
+              <label className="text-xs text-[#999999]">Master Video Size (MB):</label>
               <input
                 type="number"
                 value={masterMb}
                 onChange={(e) => setMasterMb(Number(e.target.value) || 1)}
-                className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-white"
+                className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-xs text-[#333333]"
               />
             </div>
 
             <div className="space-y-1">
-              <span className="text-xs text-slate-400 font-medium">Waterfall Renditions:</span>
+              <span className="text-xs text-[#999999] font-medium">Waterfall Renditions:</span>
               <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
                 {waterfallPlan.map((item) => (
                   <div
                     key={item.platformId}
-                    className="p-1.5 rounded bg-slate-950 border border-slate-800/80 text-[11px] flex justify-between items-center"
+                    className="p-1.5 rounded bg-white border border-[#cccccc] text-[11px] flex justify-between items-center"
                   >
-                    <span className="text-slate-300 font-medium">{item.platformId}</span>
+                    <span className="text-[#666666] font-medium">{item.platformId}</span>
                     <span
-                      className={`font-mono text-[10px] px-1.5 py-0.5 rounded ${
-                        item.rendition === "master"
-                          ? "bg-emerald-950 text-emerald-300"
-                          : item.rendition === "promo_cut"
-                          ? "bg-blue-950 text-blue-300"
-                          : item.rendition === "teaser_clip"
-                          ? "bg-purple-950 text-purple-300"
-                          : "bg-slate-800 text-slate-400"
-                      }`}
+                      className={`font-mono text-[10px] px-1.5 py-0.5 rounded ${ item.rendition === "master" ? "border border-[#cccccc] bg-white text-[#333333]" : item.rendition === "promo_cut" ? "border border-[#cccccc] bg-white text-[#333333]" : item.rendition === "teaser_clip" ? "border border-[#cccccc] bg-white text-[#333333]" : "border border-[#cccccc] bg-white text-[#999999]" }`}
                     >
                       {item.rendition}
                     </span>
@@ -1733,21 +1664,21 @@ export default function DashboardPage() {
         {/* Right Column: Media Ingestion, AI Captions & Funnel Chaining */}
         <div className="lg:col-span-2 space-y-6">
           {/* Media Ingestion & Account Alias */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-            <h2 className="text-lg font-semibold text-white">Media Ingestion, File Probe & Target Vault Alias</h2>
+          <div className="bg-white border border-[#cccccc] rounded-xl p-5 space-y-4">
+            <h2 className="text-lg font-semibold text-[#333333]">Media Ingestion, File Probe & Target Vault Alias</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-xs text-slate-400 block">
+                <label className="text-xs text-[#999999] block">
                   Compress &amp; Watermark Image (Browser WASM WebP &lt; 1MB + Cloud Attach):
                 </label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleClientCompression}
-                  className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer"
+                  className="w-full text-xs text-[#999999] file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-[#cccccc] file:text-xs file:font-medium file:bg-white file:text-[#333333] hover:file:bg-white cursor-pointer"
                 />
                 {compressedImageInfo && (
-                  <div className="p-2 rounded bg-indigo-950/70 border border-indigo-800 text-xs text-indigo-300">
+                  <div className="p-2 rounded bg-white border border-[#cccccc] text-xs text-[#333333]">
                     {compressedImageInfo}
                   </div>
                 )}
@@ -1756,13 +1687,13 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-slate-400">
+                    <label className="text-xs text-[#999999]">
                       Target Account Alias(es) — comma-separated for 5–10+ accounts:
                     </label>
                     <button
                       type="button"
                       onClick={() => openConnectForPlatform(getPlatform(masterTargetId))}
-                      className="text-[11px] text-emerald-300 hover:text-emerald-200 underline cursor-pointer"
+                      className="text-[11px] text-[#333333] hover:text-[#333333] underline cursor-pointer"
                     >
                       + Connect / Add Account
                     </button>
@@ -1770,7 +1701,7 @@ export default function DashboardPage() {
                   {showAccountOverrides &&
                   selectedIds.length > 0 &&
                   selectedIds.every((pid) => Boolean(accountOverrides[pid]?.trim())) ? (
-                    <div className="px-3 py-1.5 rounded bg-indigo-950/60 border border-indigo-800/80 text-[11px] text-indigo-200 font-mono">
+                    <div className="px-3 py-1.5 rounded bg-white border border-[#cccccc] text-[11px] text-[#333333] font-mono">
                       All {selectedIds.length} selected platforms use explicit per-platform account overrides below.
                     </div>
                   ) : (
@@ -1781,7 +1712,7 @@ export default function DashboardPage() {
                         value={accountId}
                         onChange={(e) => setAccountId(e.target.value)}
                         placeholder="e.g. main_creator  OR  x_acc_1, x_acc_2, x_acc_3, x_acc_4, x_acc_5"
-                        className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-white font-mono"
+                        className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-xs text-[#333333] font-mono"
                       />
                       <datalist id="vault-aliases">
                         {vaultAliases.map((a) => (
@@ -1792,7 +1723,7 @@ export default function DashboardPage() {
                   )}
                   {vaultAliases.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1 mt-1.5 text-[10px]">
-                      <span className="text-slate-500">Click to toggle multi-account fan-out:</span>
+                      <span className="text-[#999999]">Click to toggle multi-account fan-out:</span>
                       {vaultAliases.map((a) => {
                         const currentList = accountId
                           .split(",")
@@ -1812,11 +1743,7 @@ export default function DashboardPage() {
                                 setAccountId(a);
                               }
                             }}
-                            className={`px-1.5 py-0.5 rounded border font-mono cursor-pointer ${
-                              isIncluded
-                                ? "bg-emerald-950 border-emerald-700 text-emerald-300 font-semibold"
-                                : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
-                            }`}
+                            className={`px-1.5 py-0.5 rounded border font-mono cursor-pointer ${ isIncluded ? "bg-white border-[#cccccc] text-[#333333] font-semibold" : "bg-white border-[#cccccc] text-[#999999] hover:text-[#333333]" }`}
                           >
                             {isIncluded ? `✓ ${a}` : `+ ${a}`}
                           </button>
@@ -1830,20 +1757,20 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         onClick={() => setShowAccountOverrides((v) => !v)}
-                        className="text-[11px] text-indigo-300 hover:text-indigo-200 cursor-pointer"
+                        className="text-[11px] text-[#333333] hover:text-[#333333] cursor-pointer"
                       >
                         {showAccountOverrides
                           ? "Hide per-platform multi-account overrides"
                           : "Assign specific or multiple (5–10) accounts per platform? (Click to configure)"}
                       </button>
                       {showAccountOverrides && (
-                        <div className="mt-2 p-2.5 rounded bg-slate-950 border border-slate-800 space-y-1.5 max-h-44 overflow-y-auto">
-                          <p className="text-[10px] text-slate-400">
-                            Tip: Enter comma-separated aliases (e.g. <code className="text-indigo-300">x_1, x_2, x_3, x_4, x_5</code>), Reddit subreddit targets (<code className="text-indigo-300">reddit_1:r/cyberpunk</code>), or per-account promo link overrides (<code className="text-emerald-300">x_1|https://onlyfans.com/persona1</code>) to fan out in one campaign!
+                        <div className="mt-2 p-2.5 rounded bg-white border border-[#cccccc] space-y-1.5 max-h-44 overflow-y-auto">
+                          <p className="text-[10px] text-[#999999]">
+                            Tip: Enter comma-separated aliases (e.g. <code className="text-[#333333]">x_1, x_2, x_3, x_4, x_5</code>), Reddit subreddit targets (<code className="text-[#333333]">reddit_1:r/cyberpunk</code>), or per-account promo link overrides (<code className="text-[#333333]">x_1|https://onlyfans.com/persona1</code>) to fan out in one campaign!
                           </p>
                           {selectedIds.map((pid) => (
                             <div key={pid} className="flex items-center justify-between gap-1.5 text-[11px]">
-                              <span className="font-mono text-slate-300 w-28 truncate">{pid}</span>
+                              <span className="font-mono text-[#666666] w-28 truncate">{pid}</span>
                               <input
                                 type="text"
                                 list="vault-aliases"
@@ -1852,7 +1779,7 @@ export default function DashboardPage() {
                                 onChange={(e) =>
                                   setAccountOverrides((prev) => ({ ...prev, [pid]: e.target.value }))
                                 }
-                                className="flex-1 bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-white font-mono"
+                                className="flex-1 bg-white border border-[#cccccc] rounded px-2 py-0.5 text-[#333333] font-mono"
                               />
                               <div className="flex items-center gap-1 shrink-0">
                                 {pid === "reddit" && (
@@ -1865,7 +1792,7 @@ export default function DashboardPage() {
                                         return { ...prev, [pid]: cur.includes(":r/") ? cur : `${cur}:r/cyberpunk` };
                                       })
                                     }
-                                    className="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 border border-slate-800 text-[9px] text-indigo-300 font-mono cursor-pointer"
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-white border border-[#cccccc] text-[9px] text-[#333333] font-mono cursor-pointer"
                                   >
                                     +:r/sub
                                   </button>
@@ -1879,7 +1806,7 @@ export default function DashboardPage() {
                                       return { ...prev, [pid]: cur.includes("#") ? cur : `${cur}#@StudioNova` };
                                     })
                                   }
-                                  className="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-purple-950 border border-slate-800 text-[9px] text-purple-300 font-mono cursor-pointer"
+                                  className="px-1.5 py-0.5 rounded bg-white hover:bg-white border border-[#cccccc] text-[9px] text-[#333333] font-mono cursor-pointer"
                                 >
                                   +#WM
                                 </button>
@@ -1895,7 +1822,7 @@ export default function DashboardPage() {
                                       };
                                     })
                                   }
-                                  className="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-emerald-950 border border-slate-800 text-[9px] text-emerald-300 font-mono cursor-pointer"
+                                  className="px-1.5 py-0.5 rounded bg-white hover:bg-white border border-[#cccccc] text-[9px] text-[#333333] font-mono cursor-pointer"
                                 >
                                   +|URL
                                 </button>
@@ -1904,14 +1831,14 @@ export default function DashboardPage() {
                           ))}
                         </div>
                       )}
-                      <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-800/80 text-[11px]">
-                        <span className="text-slate-400">
+                      <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#cccccc] text-[11px]">
+                        <span className="text-[#999999]">
                           Multi-Account Stagger Delay (+0.25s/account video hash shift):
                         </span>
                         <select
                           value={staggerSec}
                           onChange={(e) => setStaggerSec(Number(e.target.value) || 0)}
-                          className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-white font-mono text-[11px]"
+                          className="bg-white border border-[#cccccc] rounded px-2 py-0.5 text-[#333333] font-mono text-[11px]"
                         >
                           <option value={0}>Auto (~1s jitter)</option>
                           <option value={5}>5s between accounts</option>
@@ -1925,7 +1852,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">
+                  <label className="text-xs text-[#999999] block mb-1">
                     Upload / Stage Local Video or Image to Disk (Streaming Zero-RAM):
                   </label>
                   <div className="mb-2">
@@ -1934,16 +1861,16 @@ export default function DashboardPage() {
                       accept="video/*,image/*"
                       onChange={handleStageMediaFile}
                       disabled={uploadingMedia}
-                      className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer disabled:opacity-50"
+                      className="w-full text-xs text-[#999999] file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-[#cccccc] file:text-xs file:font-medium file:bg-white file:text-[#333333] hover:file:bg-white cursor-pointer disabled:opacity-50"
                     />
                     {uploadingMedia && (
-                      <p className="text-[11px] text-indigo-300 font-mono mt-1">Streaming file directly to disk...</p>
+                      <p className="text-[11px] text-[#333333] font-mono mt-1">Streaming file directly to disk...</p>
                     )}
                     {stagedUploadInfo && (
-                      <p className="text-[11px] text-emerald-300 font-mono mt-1">{stagedUploadInfo}</p>
+                      <p className="text-[11px] text-[#333333] font-mono mt-1">{stagedUploadInfo}</p>
                     )}
                   </div>
-                  <label className="text-xs text-slate-400 block mb-1">
+                  <label className="text-xs text-[#999999] block mb-1">
                     Video Master Path (Zero-RAM Disk Stream):
                   </label>
                   <div className="flex space-x-2">
@@ -1952,23 +1879,19 @@ export default function DashboardPage() {
                       value={mediaPath}
                       onChange={(e) => setMediaPath(e.target.value)}
                       placeholder="Upload above or paste local video/image path"
-                      className="flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-white font-mono"
+                      className="flex-1 bg-white border border-[#cccccc] rounded px-3 py-1.5 text-xs text-[#333333] font-mono"
                     />
                     <button
                       onClick={() => void handleProbeMedia()}
                       disabled={probingMedia}
-                      className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium whitespace-nowrap cursor-pointer"
+                      className="border border-[#cccccc] px-3 py-1.5 rounded bg-white hover:bg-white text-xs text-[#333333] font-medium whitespace-nowrap cursor-pointer"
                     >
                       {probingMedia ? "Probing..." : "Inspect File"}
                     </button>
                   </div>
                   {probeInfo && (
                     <div
-                      className={`mt-2 p-3 rounded border text-[11px] font-mono space-y-2 ${
-                        probeInfo.exists
-                          ? "bg-emerald-950/60 border-emerald-800 text-emerald-300"
-                          : "bg-amber-950/50 border-amber-800 text-amber-300"
-                      }`}
+                      className={`mt-2 p-3 rounded border text-[11px] font-mono space-y-2 ${ probeInfo.exists ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
                     >
                       <div>
                         {probeInfo.exists
@@ -1976,7 +1899,7 @@ export default function DashboardPage() {
                           : `Disk check: ${probeInfo.error} (Live browser upload requires an existing local file)`}
                       </div>
                       {probeInfo.safetyScan && (
-                        <div className="text-[10px] text-slate-300">
+                        <div className="text-[10px] text-[#666666]">
                           {probeInfo.safetyScan.available
                             ? `NudeNet Scan: max score ${probeInfo.safetyScan.sensitivityScore} across ${probeInfo.safetyScan.framesScanned} keyframes`
                             : `Safety Scan: ${probeInfo.safetyScan.reason || probeInfo.safetyScan.error}`}
@@ -1987,9 +1910,9 @@ export default function DashboardPage() {
                           <img
                             src={probeInfo.previewDataUrl}
                             alt="Teaser keyframe preview"
-                            className="w-36 rounded border border-slate-700 bg-black"
+                            className="w-36 rounded border border-[#cccccc] bg-white"
                           />
-                          <div className="text-[10px] text-slate-300 space-y-1">
+                          <div className="text-[10px] text-[#666666] space-y-1">
                             <div>Frame Preview @ {(probeInfo.previewStartSec ?? startSec).toFixed(1)}s</div>
                             {typeof probeInfo.recommendedStartSec === "number" && (
                               <button
@@ -1998,7 +1921,7 @@ export default function DashboardPage() {
                                   setStartSec(probeInfo.recommendedStartSec!);
                                   void handleProbeMedia(probeInfo.recommendedStartSec!, false);
                                 }}
-                                className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-indigo-300 cursor-pointer"
+                                className="border border-[#cccccc] px-2 py-1 rounded bg-white hover:bg-white text-[#333333] cursor-pointer"
                               >
                                 Jump to Suggested ({probeInfo.recommendedStartSec.toFixed(1)}s)
                               </button>
@@ -2013,7 +1936,7 @@ export default function DashboardPage() {
                 {/* Teaser Keyframe Scrubber & Watermark Burn Controls */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
                   <div>
-                    <label className="text-slate-400 block mb-1">
+                    <label className="text-[#999999] block mb-1">
                       Teaser Offset ({startSec.toFixed(1)}s):
                     </label>
                     <div className="flex items-center space-x-2">
@@ -2024,13 +1947,13 @@ export default function DashboardPage() {
                         step={0.5}
                         value={startSec}
                         onChange={(e) => setStartSec(Number(e.target.value) || 0)}
-                        className="flex-1 accent-indigo-500"
+                        className="flex-1 accent-[#333333]"
                       />
                       <button
                         type="button"
                         onClick={() => void handleProbeMedia(startSec, false)}
                         disabled={probingMedia}
-                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-white cursor-pointer"
+                        className="border border-[#cccccc] px-2 py-1 rounded bg-white hover:bg-white text-[10px] text-[#333333] cursor-pointer"
                       >
                         Preview
                       </button>
@@ -2038,7 +1961,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-slate-400">Watermark Burn Text:</label>
+                      <label className="text-[#999999]">Watermark Burn Text:</label>
                       <button
                         type="button"
                         onClick={() =>
@@ -2050,7 +1973,7 @@ export default function DashboardPage() {
                                 : "@{{ACCOUNT_ID}}",
                           )
                         }
-                        className="text-[10px] text-indigo-300 hover:text-indigo-200 font-mono cursor-pointer"
+                        className="text-[10px] text-[#333333] hover:text-[#333333] font-mono cursor-pointer"
                         title="Burn each account's own alias into its video teaser"
                       >
                         + @&#123;&#123;ACCOUNT_ID&#125;&#125;
@@ -2061,15 +1984,15 @@ export default function DashboardPage() {
                       value={watermarkText}
                       onChange={(e) => setWatermarkText(e.target.value)}
                       placeholder="e.g. @StudioNova or @{{ACCOUNT_ID}}"
-                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white font-mono"
+                      className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-xs text-[#333333] font-mono"
                     />
                   </div>
                   <div>
-                    <label className="text-slate-400 block mb-1">Watermark Position:</label>
+                    <label className="text-[#999999] block mb-1">Watermark Position:</label>
                     <select
                       value={watermarkPosition}
                       onChange={(e) => setWatermarkPosition(e.target.value as any)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white"
+                      className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-xs text-[#333333]"
                     >
                       <option value="bottom-right">Bottom Right</option>
                       <option value="bottom-left">Bottom Left</option>
@@ -2083,24 +2006,24 @@ export default function DashboardPage() {
           </div>
 
           {/* AI Caption Spinner */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+          <div className="bg-white border border-[#cccccc] rounded-xl p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-lg font-semibold text-white">AI Caption Spinner</h2>
-                <p className="text-[11px] text-slate-400">
+                <h2 className="text-lg font-semibold text-[#333333]">AI Caption Spinner</h2>
+                <p className="text-[11px] text-[#999999]">
                   Calls local Ollama (`dolphin3`), OpenRouter, or Venice with strict SFW denylist &amp; sibling similarity guards.
                 </p>
               </div>
               <div className="flex items-center space-x-2">
                 {spinSource && (
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono">
+                  <span className="border border-[#cccccc] text-[10px] px-2 py-0.5 rounded bg-white text-[#333333] font-mono">
                     {spinSource === "llm_provider" ? "LLM Spin" : "Offline Structured"}
                   </span>
                 )}
                 <button
                   onClick={handleSpinCaptions}
                   disabled={spinningCaptions}
-                  className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+                  className="border border-[#cccccc] px-3 py-1.5 rounded bg-white hover:bg-white text-[#333333] text-xs font-semibold cursor-pointer disabled:opacity-50"
                 >
                   {spinningCaptions ? "Spinning..." : "Spin Unique Captions"}
                 </button>
@@ -2109,39 +2032,39 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
               <div className="md:col-span-2">
-                <label className="text-slate-400 block mb-1">Post Topic:</label>
+                <label className="text-[#999999] block mb-1">Post Topic:</label>
                 <input
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-white"
+                  className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-[#333333]"
                 />
               </div>
               <div>
-                <label className="text-slate-400 block mb-1">Niche / Series:</label>
+                <label className="text-[#999999] block mb-1">Niche / Series:</label>
                 <input
                   type="text"
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-white"
+                  className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-[#333333]"
                 />
               </div>
               <div>
-                <label className="text-slate-400 block mb-1">Creator / Alias:</label>
+                <label className="text-[#999999] block mb-1">Creator / Alias:</label>
                 <input
                   type="text"
                   value={creatorName}
                   onChange={(e) => setCreatorName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-white"
+                  className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-[#333333]"
                 />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-slate-400">PPV Price ($):</label>
+                  <label className="text-[#999999]">PPV Price ($):</label>
                   <button
                     type="button"
                     onClick={() => setShowPriceOverrides((v) => !v)}
-                    className="text-[10px] text-indigo-300 hover:text-indigo-200 cursor-pointer"
+                    className="text-[10px] text-[#333333] hover:text-[#333333] cursor-pointer"
                   >
                     {showPriceOverrides ? "Hide store overrides" : "Per-store price?"}
                   </button>
@@ -2150,29 +2073,29 @@ export default function DashboardPage() {
                   type="number"
                   value={priceUsd}
                   onChange={(e) => setPriceUsd(Number(e.target.value) || 0)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-white"
+                  className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-[#333333]"
                 />
               </div>
               <div>
-                <label className="text-slate-400 block mb-1">SEO Seed Tags (synced with Preset):</label>
+                <label className="text-[#999999] block mb-1">SEO Seed Tags (synced with Preset):</label>
                 <input
                   type="text"
                   value={seedTags}
                   onChange={(e) => setSeedTags(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-white"
+                  className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-[#333333]"
                 />
               </div>
             </div>
 
             {showPriceOverrides && selectedIds.length > 0 && (
-              <div className="p-2.5 rounded bg-slate-950 border border-slate-800 space-y-1.5 text-[11px]">
-                <p className="text-[10px] text-slate-400">
-                  Set custom unlock / clip prices per platform (use <code className="text-indigo-300">&#123;&#123;PRICE_USD&#125;&#125;</code> in any caption to auto-inject that store&apos;s price):
+              <div className="p-2.5 rounded bg-white border border-[#cccccc] space-y-1.5 text-[11px]">
+                <p className="text-[10px] text-[#999999]">
+                  Set custom unlock / clip prices per platform (use <code className="text-[#333333]">&#123;&#123;PRICE_USD&#125;&#125;</code> in any caption to auto-inject that store&apos;s price):
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                   {selectedIds.map((pid) => (
                     <div key={pid} className="flex items-center justify-between gap-1.5">
-                      <span className="font-mono text-slate-300 truncate">{pid}</span>
+                      <span className="font-mono text-[#666666] truncate">{pid}</span>
                       <input
                         type="number"
                         step="0.01"
@@ -2181,7 +2104,7 @@ export default function DashboardPage() {
                         onChange={(e) =>
                           setPriceOverrides((prev) => ({ ...prev, [pid]: e.target.value }))
                         }
-                        className="w-20 bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-white font-mono text-[11px]"
+                        className="w-20 bg-white border border-[#cccccc] rounded px-2 py-0.5 text-[#333333] font-mono text-[11px]"
                       />
                     </div>
                   ))}
@@ -2191,12 +2114,12 @@ export default function DashboardPage() {
 
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-300">Generated Profile Variations:</span>
+                <span className="text-xs font-semibold text-[#666666]">Generated Profile Variations:</span>
                 {selectedIds.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setShowCaptionOverrides((v) => !v)}
-                    className="text-[11px] text-indigo-300 hover:text-indigo-200 cursor-pointer"
+                    className="text-[11px] text-[#333333] hover:text-[#333333] cursor-pointer"
                   >
                     {showCaptionOverrides
                       ? "Hide per-platform caption overrides"
@@ -2206,8 +2129,8 @@ export default function DashboardPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {CAPTION_PROFILES.map((profile) => (
-                  <div key={profile} className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1">
-                    <span className="text-[11px] font-mono uppercase text-indigo-400 font-bold block">
+                  <div key={profile} className="bg-white border border-[#cccccc] rounded-lg p-3 space-y-1">
+                    <span className="text-[11px] font-mono uppercase text-[#333333] font-bold block">
                       {profile}
                     </span>
                     <textarea
@@ -2216,15 +2139,15 @@ export default function DashboardPage() {
                       onChange={(e) =>
                         setGeneratedCaptions((prev) => ({ ...prev, [profile]: e.target.value }))
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded p-2 text-xs text-slate-200 resize-none font-mono"
+                      className="w-full bg-white border border-[#cccccc] rounded p-2 text-xs text-[#333333] resize-none font-mono"
                     />
                   </div>
                 ))}
               </div>
               {showCaptionOverrides && selectedIds.length > 0 && (
-                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-2 text-xs">
+                <div className="p-3 rounded-lg bg-white border border-[#cccccc] space-y-2 text-xs">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-[#999999]">
                       Optional Per-Platform Caption Override (leave blank to use the shared profile text above):
                     </p>
                     <div className="flex items-center gap-1.5">
@@ -2249,7 +2172,7 @@ export default function DashboardPage() {
                           });
                           setCaptionOverrides(next);
                         }}
-                        className="px-2 py-0.5 rounded bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/70 text-[10px] text-indigo-200 font-semibold cursor-pointer"
+                        className="px-2 py-0.5 rounded bg-white hover:bg-white border border-[#cccccc] text-[10px] text-[#333333] font-semibold cursor-pointer"
                       >
                         Auto-Vary All ({selectedIds.length}) Platforms
                       </button>
@@ -2257,7 +2180,7 @@ export default function DashboardPage() {
                         <button
                           type="button"
                           onClick={() => setCaptionOverrides({})}
-                          className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 cursor-pointer"
+                          className="border border-[#cccccc] px-2 py-0.5 rounded bg-white hover:bg-white text-[10px] text-[#666666] cursor-pointer"
                         >
                           Clear Overrides
                         </button>
@@ -2270,8 +2193,8 @@ export default function DashboardPage() {
                       const fallbackProf = profileForPlatform(pl);
                       return (
                         <div key={pid} className="space-y-1">
-                          <span className="text-[11px] font-mono text-slate-300 block">
-                            {pl.name} (<span className="text-indigo-400">{pid}</span>)
+                          <span className="text-[11px] font-mono text-[#666666] block">
+                            {pl.name} (<span className="text-[#333333]">{pid}</span>)
                           </span>
                           <textarea
                             rows={2}
@@ -2280,7 +2203,7 @@ export default function DashboardPage() {
                             onChange={(e) =>
                               setCaptionOverrides((prev) => ({ ...prev, [pid]: e.target.value }))
                             }
-                            className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-[11px] text-white resize-none font-mono"
+                            className="w-full bg-white border border-[#cccccc] rounded p-1.5 text-[11px] text-[#333333] resize-none font-mono"
                           />
                         </div>
                       );
@@ -2292,24 +2215,24 @@ export default function DashboardPage() {
           </div>
 
           {/* Automated Funnel-Link Chaining & 2257 Gate */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+          <div className="bg-white border border-[#cccccc] rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-semibold text-[#333333]">
                 Automated Funnel-Link Chaining (BullMQ FlowProducer)
               </h2>
-              <span className="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-mono">
+              <span className="border border-[#cccccc] text-xs px-2 py-0.5 rounded bg-white text-[#333333] font-mono">
                 Master → Teasers
               </span>
             </div>
 
-            <div className="p-4 bg-slate-950 border border-slate-800 rounded-lg space-y-3 text-xs">
+            <div className="p-4 bg-white border border-[#cccccc] rounded-lg space-y-3 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="flex items-center space-x-3">
-                  <span className="text-slate-400 whitespace-nowrap">1. Primary Master:</span>
+                  <span className="text-[#999999] whitespace-nowrap">1. Primary Master:</span>
                   <select
                     value={masterTargetId}
                     onChange={(e) => setMasterTargetId(e.target.value)}
-                    className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white font-medium"
+                    className="flex-1 bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-[#333333] font-medium"
                   >
                     <optgroup label="Video & Alt-Tech Master Hosts">
                       <option value="youtube">YouTube Long (4K)</option>
@@ -2363,67 +2286,67 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <span className="text-slate-400 whitespace-nowrap">Or Existing URL:</span>
+                  <span className="text-[#999999] whitespace-nowrap">Or Existing URL:</span>
                   <input
                     type="url"
                     value={existingMasterUrl}
                     onChange={(e) => setExistingMasterUrl(e.target.value)}
                     placeholder="https://onlyfans.com/... or Link-in-Bio (skips master upload)"
-                    className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono text-[11px]"
+                    className="flex-1 bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-[#333333] font-mono text-[11px]"
                   />
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 pt-1 border-t border-slate-800/80">
-                  <label className="flex items-center space-x-2 text-slate-300 cursor-pointer">
+              <div className="flex flex-wrap items-center gap-4 pt-1 border-t border-[#cccccc]">
+                  <label className="flex items-center space-x-2 text-[#666666] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={postFirstComment}
                       onChange={(e) => setPostFirstComment(e.target.checked)}
-                      className="rounded border-slate-700 text-indigo-600"
+                      className="rounded border-[#cccccc] text-[#333333]"
                     />
                     <span>Post link in 1st Reply</span>
                   </label>
 
-                  <label className="flex items-center space-x-2 text-slate-300 cursor-pointer">
+                  <label className="flex items-center space-x-2 text-[#666666] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={appendUtm}
                       onChange={(e) => setAppendUtm(e.target.checked)}
-                      className="rounded border-slate-700 text-indigo-600"
+                      className="rounded border-[#cccccc] text-[#333333]"
                     />
                     <span>Append UTM Source/Account Tags</span>
                   </label>
 
-                  <label className="flex items-center space-x-2 text-slate-300 cursor-pointer">
+                  <label className="flex items-center space-x-2 text-[#666666] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={autoReconcile}
                       onChange={(e) => setAutoReconcile(e.target.checked)}
-                      className="rounded border-slate-700 text-purple-600"
+                      className="rounded border-[#cccccc] text-[#333333]"
                     />
                     <span>Auto-Reconcile Teasers (&lt;9.5MB + EXIF Strip)</span>
                   </label>
 
-                  <label className="flex items-center space-x-2 text-slate-300 cursor-pointer">
+                  <label className="flex items-center space-x-2 text-[#666666] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={strictLive}
                       disabled={simulationDisabled}
                       onChange={(e) => setStrictLive(e.target.checked)}
-                      className="rounded border-slate-700 text-emerald-600"
+                      className="rounded border-[#cccccc] text-[#333333]"
                     />
-                    <span className={strictLive ? "text-emerald-300 font-semibold" : ""}>
+                    <span className={strictLive ? "text-[#333333] font-semibold" : "text-[#666666]"}>
                       {simulationDisabled ? "Strict Live Locked (.env)" : "Strict Live Only"}
                     </span>
                   </label>
 
-                  <label className="flex items-center space-x-1.5 text-slate-300">
-                    <span className="text-slate-400">Schedule:</span>
+                  <label className="flex items-center space-x-1.5 text-[#666666]">
+                    <span className="text-[#999999]">Schedule:</span>
                     <select
                       value={delayMinutes}
                       onChange={(e) => setDelayMinutes(Number(e.target.value) || 0)}
-                      className="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-white font-mono text-[11px]"
+                      className="bg-white border border-[#cccccc] rounded px-2 py-0.5 text-[#333333] font-mono text-[11px]"
                     >
                       <option value={0}>Immediate (0m)</option>
                       <option value={15}>+15 mins</option>
@@ -2438,13 +2361,13 @@ export default function DashboardPage() {
                 </div>
 
                 {postFirstComment && (
-                  <div className="pt-1 border-t border-slate-800/80">
-                    <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                  <div className="pt-1 border-t border-[#cccccc]">
+                    <label className="block text-[11px] font-medium text-[#999999] mb-1">
                       First-Comment Template{" "}
-                      <span className="text-slate-500 font-normal">
+                      <span className="text-[#999999] font-normal">
                         (optional — supports{" "}
-                        <code className="text-indigo-300">{"{{LIVE_MASTER_URL}}"}</code> &{" "}
-                        <code className="text-amber-300">{"{{PRICE_USD}}"}</code>; auto-varied across sibling accounts & skipped on clip stores)
+                        <code className="text-[#333333]">{"{{LIVE_MASTER_URL}}"}</code> &{" "}
+                        <code className="text-[#333333]">{"{{PRICE_USD}}"}</code>; auto-varied across sibling accounts & skipped on clip stores)
                       </span>
                     </label>
                     <input
@@ -2452,25 +2375,25 @@ export default function DashboardPage() {
                       value={firstCommentTemplate}
                       onChange={(e) => setFirstCommentTemplate(e.target.value)}
                       placeholder="Watch the full video here: {{LIVE_MASTER_URL}} (leave blank for automatic sibling-varied CTA)"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-white border border-[#cccccc] rounded-md px-2.5 py-1.5 text-xs text-[#333333] focus:outline-none focus:ring-1 focus:ring-[#cccccc]"
                     />
                   </div>
                 )}
 
               {requires2257 && (
-                <div className="p-3 rounded-lg bg-amber-950/40 border border-amber-700/70 space-y-2">
+                <div className="p-3 rounded-lg bg-white border border-[#cccccc] space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-amber-300 font-bold uppercase tracking-wider text-[11px]">
+                    <span className="text-[#333333] font-bold uppercase tracking-wider text-[11px]">
                       18 U.S.C. 2257 Adult Record-Keeping Gate Required
                     </span>
-                    <span className="font-mono text-[11px] text-amber-200">ID: {recordsId2257}</span>
+                    <span className="font-mono text-[11px] text-[#333333]">ID: {recordsId2257}</span>
                   </div>
-                  <label className="flex items-start space-x-2 text-amber-100 cursor-pointer">
+                  <label className="flex items-start space-x-2 text-[#333333] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={confirmed2257Attestation}
                       onChange={(e) => setConfirmed2257Attestation(e.target.checked)}
-                      className="mt-0.5 rounded border-amber-600 text-amber-500"
+                      className="mt-0.5 rounded border-[#cccccc] text-[#333333]"
                     />
                     <span>
                       I attest that performer age/identity records under <code className="font-mono">{recordsId2257}</code> are verified and authorize 2257 compliance form submission.
@@ -2483,7 +2406,7 @@ export default function DashboardPage() {
             <button
               onClick={handleLaunchCampaign}
               disabled={isLaunching}
-              className="w-full py-3 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg transition-all disabled:opacity-50 cursor-pointer"
+              className="w-full py-3 rounded-lg bg-white text-[#333333] font-bold text-sm transition-all disabled:opacity-50 cursor-pointer"
             >
               {isLaunching
                 ? "Submitting to FlowProducer..."

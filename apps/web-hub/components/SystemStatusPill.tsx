@@ -68,7 +68,7 @@ export function SystemStatusPill() {
 
   if (!health) {
     return (
-      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 font-mono whitespace-nowrap shrink-0">
+      <span className="text-[11px] px-2 py-0.5 rounded bg-white text-[#999999] border border-[#cccccc] font-mono whitespace-nowrap shrink-0">
         Checking stack...
       </span>
     );
@@ -81,21 +81,21 @@ export function SystemStatusPill() {
   const allOk = health.ok;
   const allWorkersOffline = !health.redis && !effectiveStealth && !health.ffmpeg;
 
-  let pillClass = "bg-amber-950/70 text-amber-300 border-amber-800/80 hover:bg-amber-900/70";
-  let dotClass = "bg-amber-400";
+  let pillClass = "bg-white text-[#333333] border-[#cccccc] hover:bg-white";
+  let dotClass = "border border-[#cccccc] bg-white";
   let label = "";
 
   if (allOk) {
-    pillClass = "bg-emerald-950/70 text-emerald-300 border-emerald-800/80 hover:bg-emerald-900/70";
-    dotClass = "bg-emerald-400";
+    pillClass = "bg-white text-[#333333] border-[#cccccc] hover:bg-white";
+    dotClass = "border border-[#cccccc] bg-white";
     label = `Stack Online · ${effectiveVaultCount} Vault / ${effectiveApiCount} API`;
   } else if (companionOnline) {
-    pillClass = "bg-emerald-950/70 text-emerald-300 border-emerald-800/80 hover:bg-emerald-900/70";
-    dotClass = "bg-emerald-400";
+    pillClass = "bg-white text-[#333333] border-[#cccccc] hover:bg-white";
+    dotClass = "border border-[#cccccc] bg-white";
     label = `Cloud UI + Companion · ${effectiveVaultCount} Vault / ${effectiveApiCount} API`;
   } else if (health.cloudMode && allWorkersOffline) {
-    pillClass = "bg-indigo-950/70 text-indigo-200 border-indigo-700/80 hover:bg-indigo-900/70";
-    dotClass = "bg-indigo-400";
+    pillClass = "bg-white text-[#333333] border-[#cccccc] hover:bg-white";
+    dotClass = "border border-[#cccccc] bg-white";
     label =
       effectiveApiCount > 0
         ? `Cloud Direct API (${effectiveApiCount} Connected)`
@@ -123,7 +123,7 @@ export function SystemStatusPill() {
       }
       className={`text-[11px] px-2.5 py-0.5 rounded border font-mono flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${pillClass}`}
     >
-      <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
+      <span className={`border border-[#cccccc] inline-block w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
       <span>{checking ? "Refreshing..." : label}</span>
     </button>
   );

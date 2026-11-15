@@ -14,33 +14,33 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased">
-        <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
+    <html lang="en" >
+      <body className="min-h-screen bg-white text-[#333333] font-sans antialiased">
+        <header className="border-b border-[#cccccc] bg-white sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="text-xl font-bold text-[#333333]">
                 PolyPost
               </span>
               <SystemStatusPill />
             </div>
             <nav className="flex space-x-6 text-sm font-medium">
-              <Link href="/" className="hover:text-blue-400 transition-colors">
+              <Link href="/" className="hover:text-[#333333] transition-colors">
                 Composer & Funnel
               </Link>
               <Link
                 href="/vault"
-                className="px-2.5 py-1 rounded-md bg-emerald-950/70 border border-emerald-700/80 text-emerald-300 hover:bg-emerald-900/80 transition-colors"
+                className="px-2.5 py-1 rounded-md bg-white border border-[#cccccc] text-[#333333] hover:bg-white transition-colors"
               >
                 Connect Accounts / Vault
               </Link>
-              <Link href="/presets" className="hover:text-blue-400 transition-colors">
+              <Link href="/presets" className="hover:text-[#333333] transition-colors">
                 2257 / Pricing Presets
               </Link>
-              <Link href="/calendar" className="hover:text-blue-400 transition-colors">
+              <Link href="/calendar" className="hover:text-[#333333] transition-colors">
                 Calendar &amp; Bulk CSV
               </Link>
-              <Link href="/history" className="hover:text-blue-400 transition-colors">
+              <Link href="/history" className="hover:text-[#333333] transition-colors">
                 Campaign History
               </Link>
             </nav>

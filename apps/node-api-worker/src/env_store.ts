@@ -246,13 +246,64 @@ export const CREDENTIAL_PROVIDERS: CredentialProviderSpec[] = [
       { key: "DISABLE_SIMULATED_CONNECTORS", label: "Lock Strict Live Globally (1 or 0)", placeholder: "1" },
     ],
   },
+  {
+    id: "google",
+    name: "Google / YouTube OAuth2",
+    category: "social",
+    helpText: "Use 1-click Google sign-in or paste your Google OAuth Client ID & access token for YouTube & Google identity.",
+    fields: [
+      { key: "GOOGLE_USER_EMAIL", label: "Google Account Email (optional)", placeholder: "creator@gmail.com" },
+      { key: "GOOGLE_ACCESS_TOKEN", label: "OAuth2 Access Token", secret: true, placeholder: "ya29...." },
+      { key: "GOOGLE_OAUTH_CLIENT_ID", label: "OAuth Client ID (optional)", placeholder: "123456.apps.googleusercontent.com" },
+      { key: "GOOGLE_OAUTH_CLIENT_SECRET", label: "OAuth Client Secret (optional)", secret: true, placeholder: "GOCSPX-..." },
+    ],
+  },
+  {
+    id: "x",
+    name: "X / Twitter (API v2 OAuth2)",
+    category: "social",
+    helpText: "Connect with 1-click X OAuth2 PKCE, Companion Chrome Login, or paste your X API v2 User/Bearer token.",
+    fields: [
+      { key: "X_BEARER_TOKEN", label: "OAuth2 / Bearer Token", secret: true, placeholder: "AAAA... or user OAuth2 token" },
+      { key: "X_OAUTH_CLIENT_ID", label: "OAuth2 Client ID (optional)", placeholder: "x_client_id" },
+      { key: "X_OAUTH_CLIENT_SECRET", label: "OAuth2 Client Secret (optional)", secret: true, placeholder: "x_client_secret" },
+    ],
+  },
+  {
+    id: "fluxer",
+    name: "Fluxer Chat / Community Webhook",
+    category: "webhook",
+    helpText: "Paste a Fluxer channel Webhook URL for instant live posting.",
+    fields: [
+      {
+        key: "WEBHOOK_FLUXER_WEBHOOK",
+        label: "Fluxer Webhook URL",
+        secret: true,
+        placeholder: "https://fluxer.app/api/webhooks/...",
+      },
+    ],
+  },
 ];
 
 export const ALLOWED_CREDENTIAL_KEYS = new Set<string>(
   CREDENTIAL_PROVIDERS.flatMap((p) => p.fields.map((f) => f.key)),
 );
 // Extra read/sync keys that can be managed individually if provided
-for (const extra of ["REDDIT_ACCESS_TOKEN", "INKBUNNY_SID", "DISCORD_WEBHOOK_URL", "SLACK_WEBHOOK_URL", "LEMMY_JWT"]) {
+for (const extra of [
+  "REDDIT_ACCESS_TOKEN",
+  "INKBUNNY_SID",
+  "DISCORD_WEBHOOK_URL",
+  "DISCORD_ACCESS_TOKEN",
+  "DISCORD_OAUTH_CLIENT_ID",
+  "DISCORD_OAUTH_CLIENT_SECRET",
+  "FLUXER_WEBHOOK_URL",
+  "WEBHOOK_FLUXER",
+  "GOOGLE_REFRESH_TOKEN",
+  "GOOGLE_USER_NAME",
+  "X_REFRESH_TOKEN",
+  "SLACK_WEBHOOK_URL",
+  "LEMMY_JWT",
+]) {
   ALLOWED_CREDENTIAL_KEYS.add(extra);
 }
 
@@ -359,8 +410,19 @@ export function readMaskedCredentialSummary(rootDir?: string): {
         ? Boolean(
             process.env.WEBHOOK_DISCORD_WEBHOOK ||
               process.env.WEBHOOK_DISCORD ||
-              process.env.DISCORD_WEBHOOK_URL,
+              process.env.DISCORD_WEBHOOK_URL ||
+              process.env.DISCORD_ACCESS_TOKEN,
           )
+        : spec.id === "fluxer"
+        ? Boolean(
+            process.env.WEBHOOK_FLUXER_WEBHOOK ||
+              process.env.WEBHOOK_FLUXER ||
+              process.env.FLUXER_WEBHOOK_URL,
+          )
+        : spec.id === "google"
+        ? Boolean(process.env.GOOGLE_ACCESS_TOKEN)
+        : spec.id === "x"
+        ? Boolean(process.env.X_BEARER_TOKEN)
         : spec.id === "slack"
         ? Boolean(
             process.env.WEBHOOK_SLACK_WEBHOOK ||

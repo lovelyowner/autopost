@@ -81,6 +81,21 @@ export function deriveNostrPubkeyHex(privKeyHex: string): string {
   return numTo32BytesHex(P.x);
 }
 
+/** Generate a fresh secp256k1 keypair for 1-click Nostr onboarding. */
+export function generateNostrKeypair(): { privateKeyHex: string; publicKeyHex: string } {
+  while (true) {
+    const candidate = randomBytes(32);
+    const hex = candidate.toString("hex");
+    const d0 = BigInt(`0x${hex}`);
+    if (d0 > 0n && d0 < SECP_N) {
+      return {
+        privateKeyHex: hex,
+        publicKeyHex: deriveNostrPubkeyHex(hex),
+      };
+    }
+  }
+}
+
 export function signBip340SchnorrHex(msgHash32Hex: string, privKeyHex: string): string {
   const d0 = BigInt(`0x${privKeyHex.trim().replace(/^0x/i, "")}`);
   const P = pointMul(d0);

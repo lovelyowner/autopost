@@ -60,9 +60,23 @@ export async function GET() {
       ),
       devto: Boolean(process.env.DEVTO_API_KEY),
       revolt: Boolean(process.env.REVOLT_BOT_TOKEN && process.env.REVOLT_CHANNEL_ID),
+      stoat: Boolean(process.env.REVOLT_BOT_TOKEN && process.env.REVOLT_CHANNEL_ID),
       vk: Boolean(process.env.VK_ACCESS_TOKEN),
       telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
-      discord: Boolean(process.env.WEBHOOK_DISCORD_WEBHOOK || process.env.WEBHOOK_DISCORD || process.env.DISCORD_WEBHOOK_URL),
+      discord: Boolean(
+        process.env.WEBHOOK_DISCORD_WEBHOOK ||
+          process.env.WEBHOOK_DISCORD ||
+          process.env.DISCORD_WEBHOOK_URL ||
+          process.env.DISCORD_ACCESS_TOKEN,
+      ),
+      fluxer: Boolean(
+        process.env.WEBHOOK_FLUXER_WEBHOOK ||
+          process.env.WEBHOOK_FLUXER ||
+          process.env.FLUXER_WEBHOOK_URL,
+      ),
+      google: Boolean(process.env.GOOGLE_ACCESS_TOKEN),
+      youtube: Boolean(process.env.GOOGLE_ACCESS_TOKEN),
+      x: Boolean(process.env.X_BEARER_TOKEN),
       slack: Boolean(process.env.WEBHOOK_SLACK_WEBHOOK || process.env.WEBHOOK_SLACK || process.env.SLACK_WEBHOOK_URL),
       peertube: Boolean(process.env.PEERTUBE_ENDPOINT),
       reddit: Boolean(

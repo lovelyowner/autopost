@@ -26,12 +26,23 @@ export function buildClientApiFlags(
     ),
     devto: flag("devto", has("DEVTO_API_KEY")),
     revolt: flag("revolt", has("REVOLT_BOT_TOKEN") && has("REVOLT_CHANNEL_ID")),
+    stoat: flag("stoat", has("REVOLT_BOT_TOKEN") && has("REVOLT_CHANNEL_ID")),
     vk: flag("vk", has("VK_ACCESS_TOKEN")),
     telegram: flag("telegram", has("TELEGRAM_BOT_TOKEN") && has("TELEGRAM_CHAT_ID")),
     discord: flag(
       "discord",
-      has("WEBHOOK_DISCORD_WEBHOOK") || has("WEBHOOK_DISCORD") || has("DISCORD_WEBHOOK_URL"),
+      has("WEBHOOK_DISCORD_WEBHOOK") ||
+        has("WEBHOOK_DISCORD") ||
+        has("DISCORD_WEBHOOK_URL") ||
+        has("DISCORD_ACCESS_TOKEN"),
     ),
+    fluxer: flag(
+      "fluxer",
+      has("WEBHOOK_FLUXER_WEBHOOK") || has("WEBHOOK_FLUXER") || has("FLUXER_WEBHOOK_URL"),
+    ),
+    google: flag("google", has("GOOGLE_ACCESS_TOKEN")),
+    youtube: flag("youtube", has("GOOGLE_ACCESS_TOKEN")),
+    x: flag("x", has("X_BEARER_TOKEN")),
     slack: flag(
       "slack",
       has("WEBHOOK_SLACK_WEBHOOK") || has("WEBHOOK_SLACK") || has("SLACK_WEBHOOK_URL"),
@@ -128,6 +139,7 @@ export function mapCredentialsForConnector(
       return compactRecord({ apiKey: c.DEVTO_API_KEY });
     case "revolt":
       return compactRecord({
+        apiUrl: c.REVOLT_API_URL,
         botToken: c.REVOLT_BOT_TOKEN,
         channelId: c.REVOLT_CHANNEL_ID,
       });
@@ -168,9 +180,20 @@ export function mapCredentialsForConnector(
       return compactRecord({
         webhookUrl: c.WEBHOOK_DISCORD_WEBHOOK || c.WEBHOOK_DISCORD || c.DISCORD_WEBHOOK_URL,
       });
+    case "generic_webhook":
+    case "fluxer":
+      return compactRecord({
+        webhookUrl: c.WEBHOOK_FLUXER_WEBHOOK || c.WEBHOOK_FLUXER || c.FLUXER_WEBHOOK_URL,
+      });
     case "slack_webhook":
       return compactRecord({
         webhookUrl: c.WEBHOOK_SLACK_WEBHOOK || c.WEBHOOK_SLACK || c.SLACK_WEBHOOK_URL,
+      });
+    case "google":
+    case "youtube":
+      return compactRecord({
+        accessToken: c.GOOGLE_ACCESS_TOKEN,
+        email: c.GOOGLE_USER_EMAIL,
       });
     case "x":
       return compactRecord({ bearerToken: c.X_BEARER_TOKEN });

@@ -3,11 +3,37 @@
 @tailwind utilities;
 
 :root {
-  --background: #020617;
-  --foreground: #f8fafc;
+  --background: #ffffff;
+  --foreground: #333333;
+  --border-color: #cccccc;
+  --text-1: #999999;
+  --text-2: #666666;
+  --text-3: #333333;
 }
 
+* {
+  border-color: #cccccc;
+}
+
+html,
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: #ffffff;
+  color: #333333;
+}
+
+input,
+select,
+textarea,
+button {
+  background-color: #ffffff;
+  outline-color: #cccccc;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #999999;
+}
+
+svg {
+  color: #999999;
 }

@@ -19,6 +19,7 @@ import {
   vaultApiFetch,
 } from "@/lib/companion-bridge";
 import { buildClientApiFlags } from "@/lib/credential-mapping";
+import { OneClickConnectPanel } from "./OneClickConnectPanel";
 
 interface CredentialField {
   key: string;
@@ -304,7 +305,7 @@ export function ApiCredentialsManager({
   return (
     <div className="space-y-2">
       {cloudMode && (
-        <div className="p-3 rounded-lg bg-indigo-950/50 border border-indigo-700/70 text-[11px] text-indigo-200 leading-relaxed">
+        <div className="p-3 rounded-lg bg-white border border-[#cccccc] text-[11px] text-[#333333] leading-relaxed">
           <strong>Private Browser Key Vault (Cloud Mode):</strong> Keys entered below stay isolated in your own browser (<code className="font-mono">localStorage</code>) per user — never written to shared server files. Enter your API tokens and click <strong>Save &amp; Test Live Connection</strong> or launch campaigns directly.
         </div>
       )}
@@ -312,38 +313,34 @@ export function ApiCredentialsManager({
         const isOpen = expandedId === p.id;
         const msg = statusMsg?.providerId === p.id ? statusMsg : null;
         return (
-          <div key={p.id} className="rounded-lg bg-slate-950 border border-slate-800 overflow-hidden">
+          <div key={p.id} className="rounded-lg bg-white border border-[#cccccc] overflow-hidden">
             <button
               type="button"
               onClick={() => setExpandedId(isOpen ? null : p.id)}
-              className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-900/60 cursor-pointer"
+              className="border border-[#cccccc] w-full px-4 py-3 flex items-center justify-between text-left hover:bg-white cursor-pointer"
             >
               <div>
-                <span className="text-sm font-semibold text-white">{p.name}</span>
-                <p className="text-[11px] text-slate-400">{p.helpText}</p>
+                <span className="text-sm font-semibold text-[#333333]">{p.name}</span>
+                <p className="text-[11px] text-[#999999]">{p.helpText}</p>
               </div>
               <div className="flex items-center gap-2 ml-3">
                 <span
-                  className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
-                    p.configured
-                      ? "bg-emerald-950 text-emerald-300 border border-emerald-700"
-                      : "bg-slate-900 text-amber-300 border border-amber-800/60"
-                  }`}
+                  className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${ p.configured ? "bg-white text-[#333333] border border-[#cccccc]" : "bg-white text-[#333333] border border-[#cccccc]" }`}
                 >
                   {p.configured ? "CONNECTED" : "ADD KEYS"}
                 </span>
-                <span className="text-slate-500 text-xs">{isOpen ? "Hide" : "Configure"}</span>
+                <span className="text-[#999999] text-xs">{isOpen ? "Hide" : "Configure"}</span>
               </div>
             </button>
 
             {isOpen && (
-              <div className="px-4 pb-4 pt-2 border-t border-slate-800/80 space-y-3 text-xs">
+              <div className="px-4 pb-4 pt-2 border-t border-[#cccccc] space-y-3 text-xs">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {p.fields.map((f) => (
                     <div key={f.key}>
-                      <label className="text-slate-400 block mb-1">
+                      <label className="text-[#999999] block mb-1">
                         {f.label}{" "}
-                        <span className="text-[10px] font-mono text-slate-500">({f.key})</span>
+                        <span className="text-[10px] font-mono text-[#999999]">({f.key})</span>
                       </label>
                       <input
                         type={f.secret ? "password" : "text"}
@@ -358,7 +355,7 @@ export function ApiCredentialsManager({
                             },
                           }))
                         }
-                        className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-white font-mono"
+                        className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-[#333333] font-mono"
                       />
                     </div>
                   ))}
@@ -366,11 +363,7 @@ export function ApiCredentialsManager({
 
                 {msg && (
                   <div
-                    className={`p-2 rounded border font-mono text-[11px] ${
-                      msg.ok
-                        ? "bg-emerald-950/60 border-emerald-700 text-emerald-200"
-                        : "bg-red-950/60 border-red-700 text-red-200"
-                    }`}
+                    className={`p-2 rounded border font-mono text-[11px] ${ msg.ok ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
                   >
                     {msg.text}
                   </div>
@@ -381,7 +374,7 @@ export function ApiCredentialsManager({
                     type="button"
                     onClick={() => void handleSave(p.id)}
                     disabled={busyId === p.id}
-                    className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer disabled:opacity-50"
+                    className="border border-[#cccccc] px-3 py-1.5 rounded bg-white hover:bg-white text-[#333333] font-semibold cursor-pointer disabled:opacity-50"
                   >
                     {busyId === p.id ? "Saving..." : "Save Credentials"}
                   </button>
@@ -390,7 +383,7 @@ export function ApiCredentialsManager({
                       type="button"
                       onClick={() => void handleTest(p.id)}
                       disabled={busyId === p.id}
-                      className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-semibold cursor-pointer disabled:opacity-50"
+                      className="border border-[#cccccc] px-3 py-1.5 rounded bg-white hover:bg-white text-[#333333] font-semibold cursor-pointer disabled:opacity-50"
                     >
                       Save &amp; Test Live Connection
                     </button>
@@ -400,7 +393,7 @@ export function ApiCredentialsManager({
                       type="button"
                       onClick={() => void handleDisconnect(p.id)}
                       disabled={busyId === p.id}
-                      className="px-3 py-1.5 rounded bg-slate-900 hover:bg-red-950 text-red-400 cursor-pointer"
+                      className="border border-[#cccccc] px-3 py-1.5 rounded bg-white hover:bg-white text-[#333333] cursor-pointer"
                     >
                       Disconnect
                     </button>
@@ -730,9 +723,9 @@ export function BrowserSessionConnector({
   return (
     <div className="space-y-4 text-xs">
       {companionUrl && (
-        <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-700/80 text-emerald-200 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+        <div className="p-3 rounded-xl bg-white border border-[#cccccc] text-[#333333] flex flex-wrap items-center justify-between gap-2 text-[11px]">
           <span>
-            <strong>Direct Browser Companion Connected:</strong> <code className="font-mono text-emerald-100">{companionUrl}</code> (Chrome logins &amp; encrypted Vault actions run directly on your machine).
+            <strong>Direct Browser Companion Connected:</strong> <code className="font-mono text-[#333333]">{companionUrl}</code> (Chrome logins &amp; encrypted Vault actions run directly on your machine).
           </span>
           <button
             type="button"
@@ -742,19 +735,19 @@ export function BrowserSessionConnector({
               notifyCompanionChanged();
               void loadProxies("");
             }}
-            className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer"
+            className="px-2 py-0.5 rounded bg-white hover:bg-white text-[#666666] border border-[#cccccc] cursor-pointer"
           >
             Disconnect Companion
           </button>
         </div>
       )}
       {isStealthOffline && (
-        <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-700/80 text-amber-100 space-y-2.5">
-          <div className="font-semibold text-amber-300">
+        <div className="p-3.5 rounded-xl bg-white border border-[#cccccc] text-[#333333] space-y-2.5">
+          <div className="font-semibold text-[#333333]">
             Companion Stealth Worker Required for Chrome Login &amp; Cookie Vault
           </div>
-          <p className="text-[11px] text-amber-100/90 leading-relaxed">
-            Vercel serverless cannot open desktop Chrome on your computer. Run <code className="px-1 py-0.5 rounded bg-slate-950 text-indigo-300 font-mono">apps/stealth-browser-worker</code> locally (or on a tunnel/VPS) and connect your browser directly below:
+          <p className="text-[11px] text-[#333333] leading-relaxed">
+            Vercel serverless cannot open desktop Chrome on your computer. Run <code className="border border-[#cccccc] px-1 py-0.5 rounded bg-white text-[#333333] font-mono">apps/stealth-browser-worker</code> locally (or on a tunnel/VPS) and connect your browser directly below:
           </p>
           <div className="flex flex-wrap gap-2">
             <input
@@ -762,13 +755,13 @@ export function BrowserSessionConnector({
               value={companionInput}
               onChange={(e) => setCompanionInput(e.target.value)}
               placeholder="http://127.0.0.1:8001 or https://your-tunnel.trycloudflare.com"
-              className="flex-1 min-w-[220px] bg-slate-950 border border-amber-700/60 rounded px-2.5 py-1.5 text-white font-mono text-[11px]"
+              className="flex-1 min-w-[220px] bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-[#333333] font-mono text-[11px]"
             />
             <button
               type="button"
               disabled={probingCompanion || !companionInput.trim()}
               onClick={() => void handleConnectCompanion()}
-              className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer disabled:opacity-50"
+              className="border border-[#cccccc] px-3 py-1.5 rounded bg-white hover:bg-white text-[#333333] font-semibold cursor-pointer disabled:opacity-50"
             >
               {probingCompanion ? "Checking..." : "Connect Companion"}
             </button>
@@ -779,47 +772,39 @@ export function BrowserSessionConnector({
                 setCompanionInput(DEFAULT_LOCAL_COMPANION_URL);
                 void handleConnectCompanion(DEFAULT_LOCAL_COMPANION_URL);
               }}
-              className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-amber-200 border border-amber-700/60 font-semibold cursor-pointer disabled:opacity-50"
+              className="px-2.5 py-1.5 rounded bg-white hover:bg-white text-[#333333] border border-[#cccccc] font-semibold cursor-pointer disabled:opacity-50"
             >
               Auto-Detect :8001
             </button>
           </div>
         </div>
       )}
-      <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+      <div className="p-4 rounded-xl bg-white border border-[#cccccc] space-y-3">
         {!hideModeSwitch && (
           <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setSubMode("browser")}
-                className={`px-3 py-1.5 rounded font-semibold cursor-pointer ${
-                  subMode === "browser"
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-900 text-slate-300 border border-slate-700 hover:bg-slate-800"
-                }`}
+                className={`px-3 py-1.5 rounded font-semibold cursor-pointer ${ subMode === "browser" ? "border border-[#cccccc] bg-white text-[#333333]" : "bg-white text-[#666666] border border-[#cccccc] hover:bg-white" }`}
               >
                 Interactive Chrome Login
               </button>
               <button
                 type="button"
                 onClick={() => setSubMode("cookies")}
-                className={`px-3 py-1.5 rounded font-semibold cursor-pointer ${
-                  subMode === "cookies"
-                    ? "bg-violet-600 text-white"
-                    : "bg-slate-900 text-slate-300 border border-slate-700 hover:bg-slate-800"
-                }`}
+                className={`px-3 py-1.5 rounded font-semibold cursor-pointer ${ subMode === "cookies" ? "border border-[#cccccc] bg-white text-[#333333]" : "bg-white text-[#666666] border border-[#cccccc] hover:bg-white" }`}
               >
                 Paste Cookies JSON (Cookie-Editor)
               </button>
             </div>
-            <span className="text-[11px] text-slate-500">Saved encrypted inside ./profiles/&lt;alias&gt;</span>
+            <span className="text-[11px] text-[#999999]">Saved encrypted inside ./profiles/&lt;alias&gt;</span>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="text-slate-400 block mb-1">
+            <label className="text-[#999999] block mb-1">
               Which site is this account for? ({VAULT_BROWSER_PLATFORMS.length} supported portals)
             </label>
             <select
@@ -828,7 +813,7 @@ export function BrowserSessionConnector({
                 setPlatformId(e.target.value);
                 onPlatformChange?.(e.target.value);
               }}
-              className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white"
+              className="w-full bg-white border border-[#cccccc] rounded px-3 py-2 text-[#333333]"
             >
               {Array.from(new Set(VAULT_BROWSER_PLATFORMS.map((p) => p.category))).map((cat) => (
                 <optgroup key={cat} label={cat}>
@@ -843,7 +828,7 @@ export function BrowserSessionConnector({
           </div>
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-slate-400">Account Alias Name (1 per account):</label>
+              <label className="text-[#999999]">Account Alias Name (1 per account):</label>
               <button
                 type="button"
                 onClick={() => {
@@ -859,7 +844,7 @@ export function BrowserSessionConnector({
                   setAlias(next);
                   onAliasChange?.(next);
                 }}
-                className="text-[10px] px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/70 font-mono cursor-pointer"
+                className="text-[10px] px-2 py-0.5 rounded bg-white hover:bg-white text-[#333333] border border-[#cccccc] font-mono cursor-pointer"
                 title="Auto-generate a fresh alias for a 2nd, 5th, or 10th account on this platform"
               >
                 + Next Account Alias (#2, #3...)
@@ -873,20 +858,20 @@ export function BrowserSessionConnector({
                 onAliasChange?.(e.target.value);
               }}
               placeholder="e.g. main_creator, x_acc_1, x_acc_2..."
-              className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-white font-mono"
+              className="w-full bg-white border border-[#cccccc] rounded px-3 py-2 text-[#333333] font-mono"
             />
-            <p className="text-[10px] text-slate-500 mt-1">
-              Want 5–10 accounts on the same platform (e.g. X, OnlyFans, Clips4Sale)? Click <strong>+ Next Account Alias</strong> to create <code className="text-slate-300">{platformId.split("_")[0]}_acc_1</code>, <code className="text-slate-300">{platformId.split("_")[0]}_acc_2</code>, etc.
+            <p className="text-[10px] text-[#999999] mt-1">
+              Want 5–10 accounts on the same platform (e.g. X, OnlyFans, Clips4Sale)? Click <strong>+ Next Account Alias</strong> to create <code className="text-[#666666]">{platformId.split("_")[0]}_acc_1</code>, <code className="text-[#666666]">{platformId.split("_")[0]}_acc_2</code>, etc.
             </p>
           </div>
         </div>
 
-        <div className="p-2.5 rounded-lg bg-slate-900/70 border border-slate-800 space-y-1.5">
+        <div className="p-2.5 rounded-lg bg-white border border-[#cccccc] space-y-1.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="text-slate-300 font-medium text-[11px]">
-              Dedicated Sticky Proxy for <code className="text-indigo-300 font-mono">{alias || "alias"}</code> (Recommended when running 3–10+ accounts):
+            <label className="text-[#666666] font-medium text-[11px]">
+              Dedicated Sticky Proxy for <code className="text-[#333333] font-mono">{alias || "alias"}</code> (Recommended when running 3–10+ accounts):
             </label>
-            <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-emerald-300">
+            <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white border border-[#cccccc] text-[#333333]">
               {proxyMap[alias.trim()] ? `Active: ${proxyMap[alias.trim()]}` : "Current: Direct IP"}
             </span>
           </div>
@@ -896,13 +881,13 @@ export function BrowserSessionConnector({
               value={proxyUrl}
               onChange={(e) => setProxyUrl(e.target.value)}
               placeholder="Optional: http://user:pass@ip:port or socks5://user:pass@ip:port"
-              className="flex-1 min-w-[220px] bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white font-mono text-[11px]"
+              className="flex-1 min-w-[220px] bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-[#333333] font-mono text-[11px]"
             />
             <button
               type="button"
               disabled={savingProxy || !proxyUrl.trim()}
               onClick={() => void handleTestProxy()}
-              className="px-2.5 py-1.5 rounded bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 font-semibold cursor-pointer disabled:opacity-50"
+              className="border border-[#cccccc] px-2.5 py-1.5 rounded bg-white hover:bg-white text-[#333333] font-semibold cursor-pointer disabled:opacity-50"
             >
               Test Proxy
             </button>
@@ -910,7 +895,7 @@ export function BrowserSessionConnector({
               type="button"
               disabled={savingProxy || !proxyUrl.trim()}
               onClick={() => void handleSaveProxyOnly(false)}
-              className="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold cursor-pointer disabled:opacity-50"
+              className="border border-[#cccccc] px-2.5 py-1.5 rounded bg-white hover:bg-white text-[#333333] font-semibold cursor-pointer disabled:opacity-50"
             >
               {savingProxy ? "Saving..." : "Pin Proxy"}
             </button>
@@ -919,7 +904,7 @@ export function BrowserSessionConnector({
                 type="button"
                 disabled={savingProxy}
                 onClick={() => void handleSaveProxyOnly(true)}
-                className="px-2.5 py-1.5 rounded bg-slate-950 hover:bg-red-950 text-red-300 border border-red-900/60 cursor-pointer"
+                className="px-2.5 py-1.5 rounded bg-white hover:bg-white text-[#333333] border border-[#cccccc] cursor-pointer"
               >
                 Use Direct IP
               </button>
@@ -929,11 +914,11 @@ export function BrowserSessionConnector({
 
         {subMode === "browser" ? (
           <div className="space-y-3">
-            <p className="text-[11px] text-slate-400 leading-relaxed">
+            <p className="text-[11px] text-[#999999] leading-relaxed">
               1. Click <strong>Open Chrome to Sign In</strong>. 2. Log in (solve any CAPTCHA or 2FA) inside the opened window.
               3. Cookies save automatically once logged in, or click <strong>Finish &amp; Save Cookies Now</strong> / close Chrome.
               {platformId === "youtube" && (
-                <span className="block mt-1 text-amber-300">
+                <span className="block mt-1 text-[#333333]">
                   Tip for Google / YouTube: If Google asks to verify or blocks embedded sign-in, switch to <strong>2. Paste Cookies JSON</strong> and paste cookies exported from your logged-in desktop browser.
                 </span>
               )}
@@ -943,7 +928,7 @@ export function BrowserSessionConnector({
                 type="button"
                 onClick={() => void launchBrowserLogin()}
                 disabled={connecting}
-                className="flex-1 py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
+                className="border border-[#cccccc] flex-1 py-2.5 px-4 rounded-lg bg-white hover:bg-white text-[#333333] font-bold text-sm cursor-pointer disabled:opacity-50"
               >
                 {connecting ? "Waiting for sign-in inside Chrome..." : "Open Chrome to Sign In"}
               </button>
@@ -952,7 +937,7 @@ export function BrowserSessionConnector({
                   type="button"
                   onClick={() => void finishActiveLoginNow()}
                   disabled={finishing}
-                  className="py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
+                  className="border border-[#cccccc] py-2.5 px-4 rounded-lg bg-white hover:bg-white text-[#333333] font-bold text-sm cursor-pointer disabled:opacity-50"
                 >
                   {finishing ? "Saving..." : "Finish & Save Cookies Now"}
                 </button>
@@ -961,17 +946,17 @@ export function BrowserSessionConnector({
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-[11px] text-slate-300 space-y-1">
-              <div className="font-semibold text-violet-300">Fastest fallback if Chrome blocks login or runs headless:</div>
-              <ol className="list-decimal list-inside space-y-0.5 text-slate-400">
+            <div className="p-2.5 rounded bg-white border border-[#cccccc] text-[11px] text-[#666666] space-y-1">
+              <div className="font-semibold text-[#333333]">Fastest fallback if Chrome blocks login or runs headless:</div>
+              <ol className="list-decimal list-inside space-y-0.5 text-[#999999]">
                 <li>Log into your account in your everyday Chrome / Edge / Firefox browser.</li>
                 <li>Install the free <strong>Cookie-Editor</strong> extension -&gt; click <strong>Export</strong> -&gt; <strong>Export as JSON</strong>.</li>
-                <li>Paste that JSON below (or load a Playwright <code className="text-slate-200">storage_state.json</code> file) and save.</li>
+                <li>Paste that JSON below (or load a Playwright <code className="text-[#333333]">storage_state.json</code> file) and save.</li>
               </ol>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <label className="text-slate-400">Cookie-Editor JSON array or Playwright storage_state JSON:</label>
-              <label className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer border border-slate-700">
+              <label className="text-[#999999]">Cookie-Editor JSON array or Playwright storage_state JSON:</label>
+              <label className="px-2.5 py-1 rounded bg-white hover:bg-white text-[#333333] cursor-pointer border border-[#cccccc]">
                 Load .json File
                 <input
                   type="file"
@@ -986,13 +971,13 @@ export function BrowserSessionConnector({
               value={cookiesText}
               onChange={(e) => setCookiesText(e.target.value)}
               placeholder='[{"name": "sessionid", "value": "...", "domain": ".example.com", "path": "/"}]'
-              className="w-full bg-slate-900 border border-slate-800 rounded p-2.5 text-slate-200 font-mono text-[11px]"
+              className="w-full bg-white border border-[#cccccc] rounded p-2.5 text-[#333333] font-mono text-[11px]"
             />
             <button
               type="button"
               onClick={() => void importCookiesJson()}
               disabled={importing}
-              className="w-full py-2.5 px-4 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
+              className="border border-[#cccccc] w-full py-2.5 px-4 rounded-lg bg-white hover:bg-white text-[#333333] font-bold text-sm cursor-pointer disabled:opacity-50"
             >
               {importing ? "Encrypting & Importing..." : "Import & Save Session to Vault"}
             </button>
@@ -1001,11 +986,7 @@ export function BrowserSessionConnector({
 
         {msg && (
           <div
-            className={`p-3 rounded border font-mono text-[11px] ${
-              msg.ok
-                ? "bg-emerald-950/60 border-emerald-700 text-emerald-200"
-                : "bg-red-950/60 border-red-700 text-red-200"
-            }`}
+            className={`p-3 rounded border font-mono text-[11px] ${ msg.ok ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
           >
             {msg.text}
           </div>
@@ -1013,17 +994,17 @@ export function BrowserSessionConnector({
       </div>
 
       {showConnectedAliases && (
-        <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+        <div className="p-4 rounded-xl bg-white border border-[#cccccc] space-y-2">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-white">
+            <span className="font-semibold text-[#333333]">
               Already Connected Browser Aliases ({vaultAliases.length}) — click to select:
             </span>
-            <a href="/vault" className="text-indigo-400 underline">
+            <a href="/vault" className="text-[#333333] underline">
               Manage Health &amp; DOM Selectors in Vault -&gt;
             </a>
           </div>
           {vaultAliases.length === 0 ? (
-            <p className="text-slate-500">None connected yet. Pick a site above and sign in or import cookies.</p>
+            <p className="text-[#999999]">None connected yet. Pick a site above and sign in or import cookies.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {vaultAliases.map((a) => (
@@ -1034,11 +1015,7 @@ export function BrowserSessionConnector({
                     setAlias(a);
                     onAliasChange?.(a);
                   }}
-                  className={`px-2.5 py-1 rounded border font-mono cursor-pointer transition-colors ${
-                    alias.trim() === a
-                      ? "bg-indigo-600 border-indigo-400 text-white font-bold"
-                      : "bg-emerald-950/50 border-emerald-800 text-emerald-300 hover:bg-emerald-900/60"
-                  }`}
+                  className={`px-2.5 py-1 rounded border font-mono cursor-pointer transition-colors ${ alias.trim() === a ? "bg-white border-[#cccccc] text-[#333333] font-bold" : "bg-white border-[#cccccc] text-[#333333] hover:bg-white" }`}
                 >
                   {a}
                 </button>
@@ -1053,7 +1030,7 @@ export function BrowserSessionConnector({
 
 export function AccountConnectModal({
   open,
-  initialTab = "browser",
+  initialTab = "oneclick",
   initialPlatformId,
   initialProviderId,
   initialAlias = "main_creator",
@@ -1062,7 +1039,7 @@ export function AccountConnectModal({
   onConnected,
 }: {
   open: boolean;
-  initialTab?: "browser" | "api" | "cookies";
+  initialTab?: "oneclick" | "browser" | "api" | "cookies";
   initialPlatformId?: string | null;
   initialProviderId?: string | null;
   initialAlias?: string;
@@ -1070,29 +1047,45 @@ export function AccountConnectModal({
   onClose: () => void;
   onConnected: (newAlias?: string) => void;
 }) {
-  const [tab, setTab] = useState<"browser" | "api" | "cookies">(initialTab);
+  const [tab, setTab] = useState<"oneclick" | "browser" | "api" | "cookies">(initialTab);
+  const [focusProvider, setFocusProvider] = useState<string | null | undefined>(initialProviderId);
+  const [browserTarget, setBrowserTarget] = useState<string | null | undefined>(initialPlatformId);
+  const [modalApiFlags, setModalApiFlags] = useState<Record<string, boolean>>({});
+  const [modalCloudMode, setModalCloudMode] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setTab(initialTab);
-  }, [open, initialTab]);
+    setFocusProvider(initialProviderId);
+    setBrowserTarget(initialPlatformId);
+    setModalApiFlags(buildClientApiFlags(getClientCredentials(), {}));
+    fetch("/api/credentials/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.cloudMode) setModalCloudMode(true);
+        if (data?.apiCredentials) {
+          setModalApiFlags(buildClientApiFlags(getClientCredentials(), data.apiCredentials));
+        }
+      })
+      .catch(() => {});
+  }, [open, initialTab, initialProviderId, initialPlatformId]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border-2 border-indigo-500 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/95">
+      <div className="bg-white border border-[#cccccc] rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5">
+        <div className="flex items-start justify-between gap-4 border-b border-[#cccccc] pb-4">
           <div>
-            <h2 className="text-xl font-bold text-white">Connect Your Real Accounts</h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Use <strong>Browser Login</strong> or <strong>Paste Cookies JSON</strong> for web portals (Pornhub, Fansly, OnlyFans, X, Instagram, YouTube, TikTok) or <strong>API / Bot Keys</strong> for direct APIs (Bluesky, Telegram, Discord, Mastodon, Reddit, e621, etc.).
+            <h2 className="text-xl font-bold text-[#333333]">Connect Your Real Accounts</h2>
+            <p className="text-xs text-[#666666] mt-1">
+              Use <strong className="text-[#333333]">1-Click Sign-Up</strong> (Google, Discord, Fluxer, Stoat, Bluesky, X, Nostr, Mastodon) or <strong className="text-[#333333]">Chrome Login / Cookies</strong> for web portals.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 cursor-pointer"
+            className="px-3 py-1.5 rounded border border-[#cccccc] bg-white text-xs text-[#333333] font-medium cursor-pointer"
           >
             Done
           </button>
@@ -1101,40 +1094,59 @@ export function AccountConnectModal({
         <div className="flex flex-wrap gap-2 text-xs">
           <button
             type="button"
+            onClick={() => setTab("oneclick")}
+            className={`px-3.5 py-2 rounded-lg border border-[#cccccc] bg-white cursor-pointer ${ tab === "oneclick" ? "font-bold text-[#333333] outline outline-1 outline-[#cccccc]" : "font-medium text-[#666666]" }`}
+          >
+            0. 1-Click Sign-Up
+          </button>
+          <button
+            type="button"
             onClick={() => setTab("browser")}
-            className={`px-3.5 py-2 rounded-lg font-semibold cursor-pointer ${
-              tab === "browser" ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-            }`}
+            className={`px-3.5 py-2 rounded-lg border border-[#cccccc] bg-white cursor-pointer ${ tab === "browser" ? "font-bold text-[#333333] outline outline-1 outline-[#cccccc]" : "font-medium text-[#666666]" }`}
           >
             1. Chrome Login Window
           </button>
           <button
             type="button"
             onClick={() => setTab("cookies")}
-            className={`px-3.5 py-2 rounded-lg font-semibold cursor-pointer ${
-              tab === "cookies" ? "bg-violet-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-            }`}
+            className={`px-3.5 py-2 rounded-lg border border-[#cccccc] bg-white cursor-pointer ${ tab === "cookies" ? "font-bold text-[#333333] outline outline-1 outline-[#cccccc]" : "font-medium text-[#666666]" }`}
           >
             2. Paste Cookies JSON
           </button>
           <button
             type="button"
             onClick={() => setTab("api")}
-            className={`px-3.5 py-2 rounded-lg font-semibold cursor-pointer ${
-              tab === "api" ? "bg-emerald-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-            }`}
+            className={`px-3.5 py-2 rounded-lg border border-[#cccccc] bg-white cursor-pointer ${ tab === "api" ? "font-bold text-[#333333] outline outline-1 outline-[#cccccc]" : "font-medium text-[#666666]" }`}
           >
-            3. API / Bot Keys (Bluesky, Telegram...)
+            3. All API / Bot Keys
           </button>
         </div>
 
-        {tab === "api" ? (
-          <ApiCredentialsManager focusProviderId={initialProviderId} onChanged={() => onConnected()} />
+        {tab === "oneclick" ? (
+          <OneClickConnectPanel
+            apiFlags={modalApiFlags}
+            cloudMode={modalCloudMode}
+            onConnected={(creds) => {
+              notifyCredentialsChanged();
+              setModalApiFlags((prev) => buildClientApiFlags(creds, prev));
+              onConnected();
+            }}
+            onSelectProvider={(pid) => {
+              setFocusProvider(pid);
+              setTab("api");
+            }}
+            onOpenBrowserLogin={(pid) => {
+              setBrowserTarget(pid);
+              setTab("browser");
+            }}
+          />
+        ) : tab === "api" ? (
+          <ApiCredentialsManager focusProviderId={focusProvider} onChanged={() => onConnected()} />
         ) : (
           <BrowserSessionConnector
             mode={tab === "cookies" ? "cookies" : "browser"}
             hideModeSwitch={true}
-            initialPlatformId={initialPlatformId}
+            initialPlatformId={browserTarget}
             initialAlias={initialAlias}
             vaultAliases={vaultAliases}
             onConnected={onConnected}

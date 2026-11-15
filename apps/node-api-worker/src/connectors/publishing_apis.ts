@@ -118,6 +118,11 @@ export class RevoltStoatConnector implements PlatformConnector {
   async publish(payload: PostPayload): Promise<ConnectorResult> {
     const token = payload.credentials?.botToken ?? process.env.REVOLT_BOT_TOKEN;
     const channelId = payload.credentials?.channelId ?? process.env.REVOLT_CHANNEL_ID;
+    const apiUrl = (
+      payload.credentials?.apiUrl ??
+      process.env.REVOLT_API_URL ??
+      "https://api.revolt.chat"
+    ).replace(/\/$/, "");
     if (!token || !channelId) {
       assertSimulationAllowed(
         payload.strictLive,
@@ -137,10 +142,11 @@ export class RevoltStoatConnector implements PlatformConnector {
         ? payload.text
         : `${payload.text}\n${payload.linkUrl}`;
 
-    const res = await fetch(`https://api.revolt.chat/channels/${encodeURIComponent(channelId)}/messages`, {
+    const res = await fetch(`${apiUrl}/channels/${encodeURIComponent(channelId)}/messages`, {
       method: "POST",
       headers: {
         "x-bot-token": token,
+        "x-session-token": token,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ content }),

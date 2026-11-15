@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  ALLOWED_CREDENTIAL_KEYS,
   BlueskyConnector,
   buildFirstCommentForTeaser,
   buildFunnelFlow,
   createSignedNostrEvent,
+  CREDENTIAL_PROVIDERS,
   deleteCampaignHistory,
   deleteSimulatedCampaignHistory,
   deriveNostrPubkeyHex,
@@ -17,6 +19,7 @@ import {
   FarcasterConnector,
   formatCleanAccountHandle,
   formatMasterUrlForTeaser,
+  generateNostrKeypair,
   getAccountCooldownWaitMs,
   getCampaignHistoryEntry,
   getConnectorForPlatform,
@@ -44,10 +47,12 @@ import {
   TumblrConnector,
   upsertRootEnvCredentials,
   VkConnector,
+  WebhookConnector,
   WordPressConnector,
   type FunnelSubmission,
 } from "../src/index";
 import type { ConnectorResult, PlatformConnector, PostPayload } from "../src/connectors/types";
+import { buildClientApiFlags, mapCredentialsForConnector } from "../../web-hub/lib/credential-mapping";
 
 describe("BullMQ Funnel-Link FlowProducer", () => {
   const submission: FunnelSubmission = {
@@ -1036,5 +1041,88 @@ describe("BullMQ Funnel-Link FlowProducer", () => {
         strictLive: true,
       }),
     ).rejects.toThrow(/WORDPRESS_SITE_URL/);
+  });
+
+  it("1-click Nostr keypair, Stoat session auth, Fluxer webhook, Google & X credential mapping work end-to-end", async () => {
+    const generated = generateNostrKeypair();
+    expect(generated.privateKeyHex).toMatch(/^[0-9a-f]{64}$/);
+    expect(generated.publicKeyHex).toMatch(/^[0-9a-f]{64}$/);
+    expect(deriveNostrPubkeyHex(generated.privateKeyHex)).toBe(generated.publicKeyHex);
+
+    const signed = createSignedNostrEvent({
+      privKeyHex: generated.privateKeyHex,
+      content: "One-click keygen verification",
+      createdAt: 1700000100,
+    });
+    expect(signed.pubkey).toBe(generated.publicKeyHex);
+
+    expect(CREDENTIAL_PROVIDERS.some((p) => p.id === "google")).toBe(true);
+    expect(CREDENTIAL_PROVIDERS.some((p) => p.id === "x")).toBe(true);
+    expect(CREDENTIAL_PROVIDERS.some((p) => p.id === "fluxer")).toBe(true);
+    expect(ALLOWED_CREDENTIAL_KEYS.has("GOOGLE_ACCESS_TOKEN")).toBe(true);
+    expect(ALLOWED_CREDENTIAL_KEYS.has("WEBHOOK_FLUXER_WEBHOOK")).toBe(true);
+    expect(ALLOWED_CREDENTIAL_KEYS.has("X_BEARER_TOKEN")).toBe(true);
+    expect(ALLOWED_CREDENTIAL_KEYS.has("DISCORD_ACCESS_TOKEN")).toBe(true);
+
+    const flatCreds = {
+      WEBHOOK_FLUXER_WEBHOOK: "https://fluxer.app/api/webhooks/123/abc",
+      X_BEARER_TOKEN: "x_tok_123",
+      GOOGLE_ACCESS_TOKEN: "ya29_test",
+      GOOGLE_USER_EMAIL: "creator@gmail.com",
+      REVOLT_API_URL: "https://stoat.example/api",
+      REVOLT_BOT_TOKEN: "stoat_sess_tok",
+      REVOLT_CHANNEL_ID: "01CHANNEL",
+      DISCORD_ACCESS_TOKEN: "disc_oauth_tok",
+    };
+
+    const flags = buildClientApiFlags(flatCreds, {});
+    expect(flags.fluxer).toBe(true);
+    expect(flags.x).toBe(true);
+    expect(flags.google).toBe(true);
+    expect(flags.youtube).toBe(true);
+    expect(flags.stoat).toBe(true);
+    expect(flags.revolt).toBe(true);
+    expect(flags.discord).toBe(true);
+
+    expect(mapCredentialsForConnector("generic_webhook", flatCreds)).toEqual({
+      webhookUrl: "https://fluxer.app/api/webhooks/123/abc",
+    });
+    expect(mapCredentialsForConnector("revolt", flatCreds)).toEqual({
+      apiUrl: "https://stoat.example/api",
+      botToken: "stoat_sess_tok",
+      channelId: "01CHANNEL",
+    });
+    expect(mapCredentialsForConnector("x", flatCreds)).toEqual({ bearerToken: "x_tok_123" });
+    expect(mapCredentialsForConnector("youtube", flatCreds)).toEqual({
+      accessToken: "ya29_test",
+      email: "creator@gmail.com",
+    });
+
+    expect(getConnectorForPlatform("fluxer")).toBeInstanceOf(WebhookConnector);
+
+    const origFetch = globalThis.fetch;
+    let capturedUrl = "";
+    let capturedHeaders: Record<string, string> = {};
+    globalThis.fetch = (async (input: any, init?: any) => {
+      capturedUrl = String(input);
+      capturedHeaders = (init?.headers ?? {}) as Record<string, string>;
+      return new Response(JSON.stringify({ _id: "01MSG123" }), { status: 200 });
+    }) as any;
+
+    try {
+      const stoatRes = await new RevoltStoatConnector("stoat").publish({
+        platformId: "stoat",
+        accountId: "creator",
+        text: "Hello Stoat",
+        strictLive: true,
+        credentials: mapCredentialsForConnector("revolt", flatCreds),
+      });
+      expect(stoatRes.success).toBe(true);
+      expect(capturedUrl).toBe("https://stoat.example/api/channels/01CHANNEL/messages");
+      expect(capturedHeaders["x-bot-token"]).toBe("stoat_sess_tok");
+      expect(capturedHeaders["x-session-token"]).toBe("stoat_sess_tok");
+    } finally {
+      globalThis.fetch = origFetch;
+    }
   });
 });
