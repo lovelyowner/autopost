@@ -117,3 +117,95 @@ export async function vaultApiFetch(
   }
   return fetch(apiPath, init);
 }
+
+/**
+ * Stream a selected file straight from the browser to the user's running local
+ * Companion Worker (:8001) so even large videos stay local and bypass Vercel limits.
+ */
+export async function stageMediaToCompanion(
+  companionBaseUrl: string,
+  file: File,
+): Promise<{ success: boolean; filePath: string; originalName: string; sizeMb: number }> {
+  const clean = companionBaseUrl.trim().replace(/\/+$/, "");
+  const res = await fetch(`${clean}/api/media/stage?filename=${encodeURIComponent(file.name)}`, {
+    method: "POST",
+    mode: "cors",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.detail || data.error || "Local companion staging failed");
+  }
+  return data;
+}
+
+export interface CompanionUploadParams {
+  jobId: string;
+  accountId: string;
+  platformId: string;
+  filePath?: string;
+  mediaDataUrl?: string;
+  title: string;
+  description: string;
+  tags?: string[];
+  dryRun: boolean;
+  confirmed2257Attestation?: boolean;
+  recordsId2257?: string;
+  extraParams?: Record<string, unknown>;
+}
+
+/**
+ * Dispatch a stealth browser upload directly from the visitor's browser to their
+ * local Chromium Companion Worker (:8001). Keeps cookies, proxies, and IP local.
+ */
+export async function dispatchCompanionUpload(
+  companionBaseUrl: string,
+  params: CompanionUploadParams,
+): Promise<{
+  success: boolean;
+  simulated?: boolean;
+  publishedUrl?: string;
+  failureScreenshot?: string;
+  error?: string;
+}> {
+  const clean = companionBaseUrl.trim().replace(/\/+$/, "");
+  const res = await fetch(`${clean}/api/upload`, {
+    method: "POST",
+    mode: "cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      job_id: params.jobId,
+      account_id: params.accountId || "default",
+      platform_id: params.platformId,
+      file_path: params.filePath || "",
+      media_data_url: params.mediaDataUrl || undefined,
+      title: params.title,
+      description: params.description,
+      tags: params.tags || [],
+      dry_run: params.dryRun,
+      confirmed_2257_attestation: Boolean(params.confirmed2257Attestation),
+      records_id_2257: params.recordsId2257 || undefined,
+      extra_params: params.extraParams || {},
+    }),
+    signal: AbortSignal.timeout(300_000),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail =
+      typeof data.detail === "string"
+        ? data.detail
+        : data.detail?.message || data.error || `Companion upload HTTP ${res.status}`;
+    return { success: false, error: detail };
+  }
+  return {
+    success: Boolean(data.success),
+    simulated: Boolean(data.dry_run),
+    publishedUrl: data.published_url,
+    failureScreenshot:
+      typeof data.failure_screenshot === "string"
+        ? data.failure_screenshot.split(/[\\/]/).pop()
+        : undefined,
+    error: data.error,
+  };
+}

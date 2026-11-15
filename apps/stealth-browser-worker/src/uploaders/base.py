@@ -14,7 +14,8 @@ class UploadJobPayload(BaseModel):
     job_id: str
     account_id: str
     platform_id: str
-    file_path: str
+    file_path: str = ""
+    media_data_url: Optional[str] = None
     title: str
     description: str = ""
     tags: list[str] = []

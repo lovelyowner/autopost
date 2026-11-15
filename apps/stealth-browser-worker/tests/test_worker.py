@@ -376,7 +376,7 @@ async def test_login_flow_finish_button_and_manual_close_preserve_cookies(tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_launch_stealth_context_wayland_and_missing_display(monkeypatch):
+async def test_launch_stealth_context_wayland_and_missing_display(tmp_path, monkeypatch):
     import sys
     from src import browser as browser_mod
 
@@ -384,6 +384,12 @@ async def test_launch_stealth_context_wayland_and_missing_display(monkeypatch):
     monkeypatch.delenv("DISPLAY", raising=False)
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
 
+    with pytest.raises(RuntimeError, match="Cookie JSON Import"):
+        await browser_mod.launch_stealth_context(object(), headless=False)
+
+    # Stale WAYLAND_DISPLAY without a live socket must also fail fast cleanly
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "missing-runtime"))
     with pytest.raises(RuntimeError, match="Cookie JSON Import"):
         await browser_mod.launch_stealth_context(object(), headless=False)
 
@@ -404,12 +410,24 @@ async def test_launch_stealth_context_wayland_and_missing_display(monkeypatch):
     class FakePw:
         chromium = FakeChromium()
 
+    # Live Wayland socket triggers Ozone-Wayland flags
+    live_sock = tmp_path / "wayland-0"
+    live_sock.touch()
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
     monkeypatch.setattr(browser_mod, "resolve_browser_executable", lambda *a, **kw: "/usr/bin/chromium-browser")
     await browser_mod.launch_stealth_context(FakePw(), headless=False)
     assert "--ozone-platform=wayland" in captured_args
     assert "--enable-features=UseOzonePlatform" in captured_args
     assert captured_kwargs.get("executable_path") == "/usr/bin/chromium-browser"
+    assert isinstance(captured_kwargs.get("env"), dict)
+
+    # Read-only $HOME redirects Chromium XDG dirs to a writable path
+    monkeypatch.setattr(browser_mod, "_is_dir_writable", lambda p: False)
+    ro_env = browser_mod.build_writable_browser_env({"HOME": "/readonly-home", "PATH": "/usr/bin"})
+    assert ro_env["HOME"] != "/readonly-home"
+    assert ro_env["XDG_CONFIG_HOME"].endswith("/.config")
+    assert ro_env["XDG_DATA_HOME"].endswith("/.local/share")
 
     monkeypatch.setattr(browser_mod, "resolve_browser_executable", lambda *a, **kw: None)
     with pytest.raises(RuntimeError, match="No Chrome or Chromium browser found"):
@@ -800,6 +818,58 @@ def test_export_and_import_vault_bundle():
         assert len(load_cookies("bundle_test_acc")) == 1
     finally:
         delete_profile("bundle_test_acc")
+
+
+def test_companion_media_stage_and_inline_materialization(tmp_path, monkeypatch):
+    import base64
+    from fastapi.testclient import TestClient
+    from src import api as api_mod
+    from src.uploaders import modular_uploader as mod_up
+    from src.uploaders.base import UploadJobPayload
+
+    monkeypatch.setattr(api_mod, "MONOREPO_ROOT", tmp_path)
+    monkeypatch.setattr(mod_up, "MONOREPO_ROOT", tmp_path)
+
+    client = TestClient(api_mod.app)
+    resp = client.post(
+        "/api/media/stage?filename=demo%20clip.mp4",
+        content=b"FAKE_MP4_BYTES_1234",
+        headers={"Origin": "https://autopost-gilt-gamma.vercel.app"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["sizeBytes"] == len(b"FAKE_MP4_BYTES_1234")
+    staged = tmp_path / "data" / "uploads" / data["originalName"]
+    assert staged.name.endswith("demo_clip.mp4")
+
+    # Verify Private Network Access preflight headers for HTTPS web domain -> 127.0.0.1:8001
+    opt = client.options(
+        "/api/upload",
+        headers={
+            "Origin": "https://autopost-gilt-gamma.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Private-Network": "true",
+        },
+    )
+    assert opt.status_code == 200
+    assert opt.headers.get("access-control-allow-private-network") == "true"
+
+    # Verify inline media_data_url decodes to temporary upload path
+    raw_b64 = base64.b64encode(b"\x89PNG\r\n").decode("ascii")
+    payload = UploadJobPayload(
+        job_id="job_inline_1",
+        account_id="acc1",
+        platform_id="x",
+        title="Test",
+        media_data_url=f"data:image/png;base64,{raw_b64}",
+    )
+    uploader = mod_up.ModularBrowserUploader(payload)
+    decoded_path = uploader._materialize_media_data_url()
+    assert decoded_path is not None
+    assert decoded_path.exists()
+    assert decoded_path.read_bytes() == b"\x89PNG\r\n"
+
 
 
 

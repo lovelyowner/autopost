@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "companion": "node scripts/companion.mjs",
     "build": "npm --workspace @polypost/web-hub run build",
     "test": "vitest run",
     "test:py": "cd apps/stealth-browser-worker && PYTHONPATH=. ../../.venv/bin/pytest -q",

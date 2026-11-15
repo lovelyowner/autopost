@@ -1,12 +1,15 @@
 import asyncio
+import inspect
 import re
+import time
+from pathlib import Path
 from typing import Any, Dict, Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from .config import load_settings, mask_proxy_url, set_proxy_for_account, verify_proxy_connectivity
+from .config import MONOREPO_ROOT, load_settings, mask_proxy_url, set_proxy_for_account, verify_proxy_connectivity
 from .health_check import verify_session_health
 from .login_flow import launch_interactive_login, request_login_completion
 from .session_vault import (
@@ -29,13 +32,16 @@ from .uploaders.modular_uploader import (
 
 app = FastAPI(title="PolyPost Stealth Browser Worker", version="0.1.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_cors_kwargs: Dict[str, Any] = {
+    "allow_origins": ["*"],
+    "allow_credentials": False,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if "allow_private_network" in inspect.signature(CORSMiddleware.__init__).parameters:
+    _cors_kwargs["allow_private_network"] = True
+
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 
 @app.middleware("http")
@@ -211,6 +217,29 @@ async def confirm_2257(req: Confirm2257Request):
         "signature": req.custodian_signature,
     }
     return {"status": "confirmed", "job_id": req.job_id}
+
+@app.post("/api/media/stage")
+async def stage_media_locally(request: Request, filename: str = "upload.bin"):
+    """Stream selected browser media directly into local data/uploads/ without touching any cloud server."""
+    safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", Path(filename).name or "upload.bin")
+    uploads_dir = MONOREPO_ROOT / "data" / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    dest = uploads_dir / f"{int(time.time() * 1000)}_{safe_name}"
+    total_bytes = 0
+    with open(dest, "wb") as f:
+        async for chunk in request.stream():
+            if not chunk:
+                continue
+            total_bytes += len(chunk)
+            f.write(chunk)
+    return {
+        "success": True,
+        "filePath": str(dest),
+        "originalName": safe_name,
+        "sizeBytes": total_bytes,
+        "sizeMb": round(total_bytes / (1024 * 1024), 2),
+    }
+
 
 @app.post("/api/upload")
 async def handle_upload(payload: UploadJobPayload):

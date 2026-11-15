@@ -747,7 +747,7 @@ export function BrowserSessionConnector({
             Companion Stealth Worker Required for Chrome Login &amp; Cookie Vault
           </div>
           <p className="text-[11px] text-[#333333] leading-relaxed">
-            Vercel serverless cannot open desktop Chrome on your computer. Run <code className="border border-[#cccccc] px-1 py-0.5 rounded bg-white text-[#333333] font-mono">apps/stealth-browser-worker</code> locally (or on a tunnel/VPS) and connect your browser directly below:
+            Chrome sessions, proxies, and browser uploads stay on your machine (safer than datacenter IPs). Run <code className="border border-[#cccccc] px-1 py-0.5 rounded bg-white text-[#333333] font-mono">npm run companion</code> locally and this hosted page connects directly to <code className="border border-[#cccccc] px-1 py-0.5 rounded bg-white text-[#333333] font-mono">http://127.0.0.1:8001</code>:
           </p>
           <div className="flex flex-wrap gap-2">
             <input

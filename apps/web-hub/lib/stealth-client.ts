@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export const STEALTH_WORKER_OFFLINE_REASON =
-  "Stealth Browser Worker is not connected on this Vercel deployment. Vercel serverless functions cannot launch desktop Chrome or store encrypted browser vaults — run PolyPost locally (node scripts/dev.mjs) or host apps/stealth-browser-worker on a VPS / tunnel and set STEALTH_WORKER_URL in Vercel Environment Variables.";
+  "Stealth Browser Worker is not connected on this Vercel deployment. Vercel serverless functions cannot launch desktop Chrome or store encrypted browser vaults — run `npm run companion` locally (auto-detected on http://127.0.0.1:8001), run the full local stack (`npm run dev`), or set STEALTH_WORKER_URL to your VPS / tunnel.";
 
 /** Resolve configured Stealth Browser Worker URL, returning empty string on Vercel when unset. */
 export function getStealthWorkerUrl(): string {

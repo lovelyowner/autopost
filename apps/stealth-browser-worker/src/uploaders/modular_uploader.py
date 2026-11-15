@@ -1,12 +1,14 @@
+import base64
 import json
 import os
 import random
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from patchright.async_api import async_playwright
 
 from ..browser import launch_stealth_context
-from ..config import reload_root_env_if_changed
+from ..config import MONOREPO_ROOT, reload_root_env_if_changed
 from ..session_vault import load_storage_state, persist_refreshed_context_state
 from .base import BaseUploader, UploadJobPayload
 
@@ -748,6 +750,29 @@ class ModularBrowserUploader(BaseUploader):
                 merged.append(t)
         return merged
 
+    def _materialize_media_data_url(self) -> Optional[Path]:
+        raw = (self.payload.media_data_url or "").strip()
+        if not raw:
+            return None
+        match = re.match(r"^data:((?:image|video)/[a-zA-Z0-9.+-]+);base64,(.+)$", raw, re.DOTALL)
+        if not match:
+            return None
+        mime = match.group(1).lower()
+        ext = mime.split("/")[1].split("+")[0]
+        if ext == "jpeg":
+            ext = "jpg"
+        elif ext == "quicktime":
+            ext = "mov"
+        decoded = base64.b64decode(match.group(2))
+        if not decoded:
+            return None
+        uploads_dir = MONOREPO_ROOT / "data" / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        safe_job = re.sub(r"[^a-zA-Z0-9._-]", "_", self.payload.job_id)
+        dest = uploads_dir / f"{safe_job}_inline.{ext}"
+        dest.write_bytes(decoded)
+        return dest
+
     async def execute(self) -> Dict[str, Any]:
         # 1. Always enforce 2257 compliance gate first
         is_adult_platform = self._is_adult_platform()
@@ -775,12 +800,20 @@ class ModularBrowserUploader(BaseUploader):
                 "applied_tags": self._merged_tags(),
             }
 
-        # 3. Validate real local file & active session for live browser dispatch
-        if not os.path.exists(self.payload.file_path):
+        # 3. Validate local file (or materialize inline browser media) & active session
+        temp_media_path: Optional[Path] = None
+        if (not self.payload.file_path or not os.path.exists(self.payload.file_path)) and self.payload.media_data_url:
+            temp_media_path = self._materialize_media_data_url()
+            if temp_media_path:
+                self.payload.file_path = str(temp_media_path)
+
+        if self.payload.file_path and not os.path.exists(self.payload.file_path):
             raise FileNotFoundError(f"Media file not found on disk: {self.payload.file_path}")
 
         storage_state = load_storage_state(self.payload.account_id)
         if not storage_state:
+            if temp_media_path and temp_media_path.exists():
+                temp_media_path.unlink(missing_ok=True)
             return {
                 "success": False,
                 "dry_run": False,
@@ -788,42 +821,46 @@ class ModularBrowserUploader(BaseUploader):
                 "error": f"No active session found for account '{self.payload.account_id}'. Connect account in Vault or run `npm run login`.",
             }
 
-        async with async_playwright() as p:
-            browser, context = await launch_stealth_context(
-                p,
-                account_id=self.payload.account_id,
-                headless=True,
-            )
-            page = await context.new_page()
-            try:
-                published_url = await self._upload_workflow(page, recipe, is_adult_platform)
-                await persist_refreshed_context_state(context, self.payload.account_id, self.payload.platform_id)
-                preview_path = await capture_failure_screenshot(
-                    page,
-                    f"upload_{self.payload.job_id}",
-                    output_dir=PREVIEWS_DIR,
+        try:
+            async with async_playwright() as p:
+                browser, context = await launch_stealth_context(
+                    p,
+                    account_id=self.payload.account_id,
+                    headless=True,
                 )
-                return {
-                    "success": True,
-                    "dry_run": False,
-                    "job_id": self.payload.job_id,
-                    "platform_id": self.payload.platform_id,
-                    "published_url": published_url,
-                    "preview_screenshot": Path(preview_path).name if preview_path else None,
-                    "compliance_verified": is_adult_platform,
-                }
-            except Exception as exc:
-                screenshot_path = await capture_failure_screenshot(page, self.payload.job_id)
-                return {
-                    "success": False,
-                    "dry_run": False,
-                    "job_id": self.payload.job_id,
-                    "platform_id": self.payload.platform_id,
-                    "failure_screenshot": Path(screenshot_path).name if screenshot_path else None,
-                    "error": f"Browser workflow failed on {self.payload.platform_id}: {exc}",
-                }
-            finally:
-                await browser.close()
+                page = await context.new_page()
+                try:
+                    published_url = await self._upload_workflow(page, recipe, is_adult_platform)
+                    await persist_refreshed_context_state(context, self.payload.account_id, self.payload.platform_id)
+                    preview_path = await capture_failure_screenshot(
+                        page,
+                        f"upload_{self.payload.job_id}",
+                        output_dir=PREVIEWS_DIR,
+                    )
+                    return {
+                        "success": True,
+                        "dry_run": False,
+                        "job_id": self.payload.job_id,
+                        "platform_id": self.payload.platform_id,
+                        "published_url": published_url,
+                        "preview_screenshot": Path(preview_path).name if preview_path else None,
+                        "compliance_verified": is_adult_platform,
+                    }
+                except Exception as exc:
+                    screenshot_path = await capture_failure_screenshot(page, self.payload.job_id)
+                    return {
+                        "success": False,
+                        "dry_run": False,
+                        "job_id": self.payload.job_id,
+                        "platform_id": self.payload.platform_id,
+                        "failure_screenshot": Path(screenshot_path).name if screenshot_path else None,
+                        "error": f"Browser workflow failed on {self.payload.platform_id}: {exc}",
+                    }
+                finally:
+                    await browser.close()
+        finally:
+            if temp_media_path and temp_media_path.exists():
+                temp_media_path.unlink(missing_ok=True)
 
     async def _upload_workflow(self, page, recipe: Dict[str, Any], is_adult_platform: bool) -> str:
         await page.goto(recipe["upload_url"], wait_until="domcontentloaded", timeout=30_000)

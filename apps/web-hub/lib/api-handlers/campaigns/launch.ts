@@ -118,6 +118,8 @@ export async function POST(req: NextRequest) {
       watermark,
       clientCredentials,
       mediaDataUrl,
+      deferBrowserTeasersToCompanion = false,
+      companionMasterSimulated = false,
     } = body;
 
     const flatClientCreds = sanitizeClientCredentials(clientCredentials);
@@ -263,7 +265,7 @@ export async function POST(req: NextRequest) {
       step: trimmedExistingMasterUrl ? "broadcasting_teasers" : "uploading_master",
       uploadPercent: trimmedExistingMasterUrl ? 100 : 10,
       liveMasterUrl: trimmedExistingMasterUrl || undefined,
-      masterSimulated: trimmedExistingMasterUrl ? false : undefined,
+      masterSimulated: trimmedExistingMasterUrl ? Boolean(companionMasterSimulated) : undefined,
       teasers: childTeasers.map((t: any) => ({
         jobId: t.jobId,
         platformId: t.platformId,
@@ -297,7 +299,7 @@ export async function POST(req: NextRequest) {
 
       try {
         let liveMasterUrl = trimmedExistingMasterUrl;
-        let masterSimulated = false;
+        let masterSimulated = Boolean(trimmedExistingMasterUrl && companionMasterSimulated);
         let masterError: string | undefined;
 
         if (!liveMasterUrl) {
@@ -410,6 +412,16 @@ export async function POST(req: NextRequest) {
               : resolvedCaption;
 
             if (serverlessWithoutStealth && isRemoteBrowserPlatform(t.platformId)) {
+              if (deferBrowserTeasersToCompanion) {
+                return {
+                  jobId: t.jobId,
+                  platformId: t.platformId,
+                  platformName: t.platformName,
+                  accountId: t.accountId,
+                  status: "queued",
+                  injectedCaption: resolvedCaption || displayCaption,
+                };
+              }
               if (!effectiveStrictLive) {
                 return {
                   jobId: t.jobId,
@@ -479,10 +491,11 @@ export async function POST(req: NextRequest) {
         );
 
         const anySuccess = teaserResults.some((t) => t.status === "published");
-        const allFailed = teaserResults.length > 0 && !anySuccess;
+        const hasQueued = teaserResults.some((t) => t.status === "queued");
+        const allFailed = teaserResults.length > 0 && !anySuccess && !hasQueued;
         immediateSnapshot = {
           ...initialSnapshot,
-          step: allFailed ? "failed" : "completed",
+          step: hasQueued ? "broadcasting_teasers" : allFailed ? "failed" : "completed",
           uploadPercent: 100,
           liveMasterUrl,
           masterSimulated,

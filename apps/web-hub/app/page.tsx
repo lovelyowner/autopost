@@ -37,7 +37,9 @@ import {
   COMPANION_CHANGED_EVENT,
   CREDENTIALS_CHANGED_EVENT,
   detectActiveCompanion,
+  dispatchCompanionUpload,
   notifyCredentialsChanged,
+  stageMediaToCompanion,
 } from "@/lib/companion-bridge";
 import { buildClientApiFlags } from "@/lib/credential-mapping";
 
@@ -772,13 +774,30 @@ export default function DashboardPage() {
       setClientImageDataUrl(null);
     }
 
-    if (cloudMode && file.size > 4 * 1024 * 1024) {
-      setMediaPath("");
-      setStagedUploadInfo(
-        `Browser-probed '${file.name}' (${(file.size / (1024 * 1024)).toFixed(2)} MB) locally — skipped >4MB Vercel payload upload. Direct text/link posts ready.`,
-      );
-      setUploadingMedia(false);
-      return;
+    if (cloudMode) {
+      const companion = await detectActiveCompanion();
+      if (companion) {
+        try {
+          const staged = await stageMediaToCompanion(companion.url, file);
+          setMediaPath(staged.filePath);
+          setStagedUploadInfo(
+            `Staged locally via Companion (:8001): '${staged.originalName}' (${staged.sizeMb} MB) -> ${staged.filePath}`,
+          );
+          if (staged.sizeMb) setMasterMb(Math.max(1, Math.ceil(staged.sizeMb)));
+          setUploadingMedia(false);
+          return;
+        } catch {
+          // Fall through to browser-only / Vercel staging if companion staging fails
+        }
+      }
+      if (file.size > 4 * 1024 * 1024) {
+        setMediaPath("");
+        setStagedUploadInfo(
+          `Browser-probed '${file.name}' (${(file.size / (1024 * 1024)).toFixed(2)} MB) locally — skipped >4MB Vercel upload. Start local Companion (\`npm run companion\`) to stage videos locally or post text/link teasers.`,
+        );
+        setUploadingMedia(false);
+        return;
+      }
     }
 
     try {
@@ -895,6 +914,50 @@ export default function DashboardPage() {
         }
       }
 
+      const activeCompanion = cloudMode ? await detectActiveCompanion() : null;
+      const isBrowserPlatform = (pid: string) => {
+        const pl = getPlatform(pid);
+        return pl.transport === "patchright_stealth" || pl.support === "sau_browser";
+      };
+
+      let effectiveExistingMasterUrl = existingMasterUrl.trim();
+      let companionMasterSimulated = false;
+      const effectiveStrict = Boolean(strictLive || simulationDisabled);
+
+      if (cloudMode && activeCompanion && !effectiveExistingMasterUrl && isBrowserPlatform(masterTargetId)) {
+        const masterProfile = profileForPlatform(masterDef);
+        const primaryMasterAlias =
+          (accountOverrides[masterTargetId] || accountId || "main_creator")
+            .split(",")[0]
+            .split("#")[0]
+            .split("|")[0]
+            .trim() || "main_creator";
+        const masterRes = await dispatchCompanionUpload(activeCompanion.url, {
+          jobId: `camp_${Date.now()}_master`,
+          accountId: primaryMasterAlias,
+          platformId: masterTargetId,
+          filePath: mediaPath,
+          mediaDataUrl: clientImageDataUrl || undefined,
+          title: topic,
+          description:
+            mergedCaptions[masterTargetId] ||
+            mergedCaptions[masterProfile] ||
+            mergedCaptions.tube_seo ||
+            topic,
+          tags: parsedTags,
+          dryRun: !effectiveStrict,
+          confirmed2257Attestation,
+          recordsId2257: recordsId2257.trim() || undefined,
+        });
+        if (!masterRes.success || !masterRes.publishedUrl) {
+          throw new Error(
+            masterRes.error || `Local Companion master upload failed on ${masterDef.name}.`,
+          );
+        }
+        effectiveExistingMasterUrl = masterRes.publishedUrl;
+        companionMasterSimulated = Boolean(masterRes.simulated);
+      }
+
       const res = await fetch("/api/campaigns/launch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -922,7 +985,9 @@ export default function DashboardPage() {
           priceUsd,
           priceOverrides,
           appendUtm,
-          existingMasterUrl: existingMasterUrl.trim() || undefined,
+          existingMasterUrl: effectiveExistingMasterUrl || undefined,
+          companionMasterSimulated,
+          deferBrowserTeasersToCompanion: Boolean(activeCompanion),
           watermark: watermarkText.trim()
             ? { text: watermarkText.trim(), position: watermarkPosition }
             : undefined,
@@ -938,13 +1003,62 @@ export default function DashboardPage() {
         throw new Error(data.message || data.error || "Failed to launch campaign.");
       }
 
-      if (data.immediateSnapshot) {
-        setLiveSnapshot(data.immediateSnapshot);
-        saveClientHistoryEntry(data.immediateSnapshot);
+      let finalSnapshot: CampaignStateSnapshot | null = data.immediateSnapshot || null;
+      if (
+        finalSnapshot &&
+        activeCompanion &&
+        finalSnapshot.teasers.some((t) => t.status === "queued" && isBrowserPlatform(t.platformId))
+      ) {
+        setLiveSnapshot(finalSnapshot);
+        const resolvedTeasers = await Promise.all(
+          finalSnapshot.teasers.map(async (t) => {
+            if (t.status !== "queued" || !isBrowserPlatform(t.platformId)) return t;
+            const cRes = await dispatchCompanionUpload(activeCompanion.url, {
+              jobId: t.jobId,
+              accountId: t.accountId || accountId,
+              platformId: t.platformId,
+              filePath: mediaPath,
+              mediaDataUrl: clientImageDataUrl || undefined,
+              title: topic,
+              description: t.injectedCaption || topic,
+              tags: parsedTags,
+              dryRun: !effectiveStrict,
+              confirmed2257Attestation,
+              recordsId2257: recordsId2257.trim() || undefined,
+            });
+            return {
+              ...t,
+              status: cRes.success ? ("published" as const) : ("failed" as const),
+              publishedUrl: cRes.publishedUrl,
+              simulated: cRes.simulated,
+              failureScreenshot: cRes.failureScreenshot,
+              error: cRes.error,
+            };
+          }),
+        );
+        const anyOk = resolvedTeasers.some((t) => t.status === "published");
+        const allErr = resolvedTeasers.length > 0 && !anyOk;
+        finalSnapshot = {
+          ...finalSnapshot,
+          step: allErr ? "failed" : "completed",
+          uploadPercent: 100,
+          teasers: resolvedTeasers,
+          updatedAt: Date.now(),
+        };
+      }
+
+      if (finalSnapshot) {
+        setLiveSnapshot(finalSnapshot);
+        saveClientHistoryEntry(finalSnapshot);
+        setActiveCampaign({
+          ...data,
+          status: finalSnapshot.step,
+          immediateSnapshot: finalSnapshot,
+        });
       } else {
         setLiveSnapshot(null);
+        setActiveCampaign(data);
       }
-      setActiveCampaign(data);
     } catch (err: any) {
       setBanner({ kind: "err", text: err.message });
     } finally {
