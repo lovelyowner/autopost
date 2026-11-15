@@ -871,6 +871,54 @@ def test_companion_media_stage_and_inline_materialization(tmp_path, monkeypatch)
     assert decoded_path.read_bytes() == b"\x89PNG\r\n"
 
 
+@pytest.mark.asyncio
+async def test_community_and_social_browser_login_registration(tmp_path, monkeypatch):
+    from src.health_check import PLATFORM_HEALTH_URLS, verify_session_health
+    from src.login_flow import PLATFORM_AUTH_RULES, PLATFORM_LOGIN_URLS
+    from src.session_vault import save_session
+
+    required_platforms = [
+        "discord",
+        "fluxer",
+        "stoat",
+        "revolt",
+        "matrix",
+        "nostr",
+        "bluesky",
+        "mastodon",
+        "pinterest",
+    ]
+    for pid in required_platforms:
+        assert pid in PLATFORM_LOGIN_URLS, f"Missing login URL for {pid}"
+        assert pid in PLATFORM_AUTH_RULES, f"Missing auth rule for {pid}"
+        assert pid in PLATFORM_HEALTH_URLS, f"Missing health URL for {pid}"
+        recipe = get_platform_recipe(pid)
+        assert "upload_url" in recipe and recipe["upload_url"].startswith("https://")
+        assert len(recipe.get("description_selectors", [])) >= 1
+        assert len(recipe.get("submit_selectors", [])) >= 1
+
+    # SPA platforms storing auth in localStorage origins with zero cookies should pass pre-check
+    test_profiles = tmp_path / "spa_profiles"
+    monkeypatch.setattr("src.session_vault.PROFILES_ROOT", test_profiles)
+    save_session(
+        "fluxer_spa_acc",
+        "fluxer",
+        {
+            "cookies": [],
+            "origins": [
+                {
+                    "origin": "https://web.fluxer.app",
+                    "localStorage": [{"name": "token", "value": "spa_tok_123"}],
+                }
+            ],
+        },
+    )
+    spa_health = await verify_session_health("fluxer_spa_acc", "fluxer")
+    assert spa_health["healthy"] is True
+    assert "SPA browser storage" in spa_health["reason"]
+
+
+
 
 
 

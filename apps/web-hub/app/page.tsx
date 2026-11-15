@@ -20,6 +20,7 @@ import {
   AccountConnectModal,
   VAULT_BROWSER_PLATFORMS,
 } from "../components/AccountConnectModal";
+import { LetterFilterBar, matchesSearchAndLetter } from "../components/LetterFilterBar";
 import { OneClickConnectPanel } from "../components/OneClickConnectPanel";
 import {
   compressImageInBrowser,
@@ -99,6 +100,7 @@ export default function DashboardPage() {
   const [masterMb, setMasterMb] = useState<number>(350);
   const [activeQuadrant, setActiveQuadrant] = useState<string>("all");
   const [platformSearch, setPlatformSearch] = useState<string>("");
+  const [platformLetter, setPlatformLetter] = useState<string>("all");
   const [showRegistryOnly, setShowRegistryOnly] = useState<boolean>(false);
 
   // Presets & Vault Accounts Sync
@@ -568,6 +570,16 @@ export default function DashboardPage() {
     return planWaterfall(masterMb, selectedIds);
   }, [masterMb, selectedIds]);
 
+  const availablePlatformLetters = useMemo(() => {
+    const letters = new Set<string>();
+    for (const p of ACTIVE_PLATFORMS) {
+      if (activeQuadrant !== "all" && p.quadrant !== activeQuadrant) continue;
+      const first = p.name.trim().charAt(0).toUpperCase();
+      if (first) letters.add(first);
+    }
+    return letters;
+  }, [activeQuadrant]);
+
   const filteredPlatforms = useMemo(() => {
     const q = platformSearch.trim().toLowerCase();
     return ACTIVE_PLATFORMS.filter((p) => {
@@ -576,15 +588,10 @@ export default function DashboardPage() {
         p.support !== "registry_only" ||
         VAULT_BROWSER_PLATFORMS.some((vp) => vp.id === p.id) ||
         selectedIds.includes(p.id);
-      if (!showRegistryOnly && !q && !isLiveCapable) return false;
-      if (!q) return true;
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q) ||
-        (p.url && p.url.toLowerCase().includes(q))
-      );
+      if (!showRegistryOnly && !q && platformLetter === "all" && !isLiveCapable) return false;
+      return matchesSearchAndLetter(p.name, p.id, q, platformLetter, p.url);
     });
-  }, [activeQuadrant, platformSearch, showRegistryOnly, selectedIds]);
+  }, [activeQuadrant, platformSearch, platformLetter, showRegistryOnly, selectedIds]);
 
   const requires2257 = useMemo(() => {
     const ids = new Set([masterTargetId, ...selectedIds]);
@@ -1196,6 +1203,12 @@ export default function DashboardPage() {
           notifyCredentialsChanged();
           void refreshCredentialsStatus();
         }}
+        onSelectProvider={(providerId) => {
+          setConnectTab("api");
+          setConnectPlatformId(null);
+          setConnectProviderId(providerId);
+          setConnectModalOpen(true);
+        }}
         onOpenBrowserLogin={(platformId) => {
           setConnectTab("browser");
           setConnectPlatformId(platformId);
@@ -1603,12 +1616,13 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-1.5">
-              <input
-                type="text"
-                value={platformSearch}
-                onChange={(e) => setPlatformSearch(e.target.value)}
-                placeholder="Search 130+ platforms: nostr, misskey, lemmy, tumblr, matrix, farcaster, maloum, boosty, rumble, manyvids..."
-                className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-xs text-[#333333] placeholder-[#999999]"
+              <LetterFilterBar
+                searchQuery={platformSearch}
+                onSearchChange={setPlatformSearch}
+                selectedLetter={platformLetter}
+                onLetterChange={setPlatformLetter}
+                availableLetters={availablePlatformLetters}
+                searchPlaceholder="Search 130+ platforms: fluxer, discord, stoat, matrix, nostr, bluesky, mastodon, pinterest..."
               />
               <div className="flex flex-wrap gap-1 text-[10px]">
                 {[

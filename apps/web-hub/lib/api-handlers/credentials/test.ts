@@ -121,12 +121,12 @@ export async function POST(req: NextRequest) {
         if (res.ok) {
           return NextResponse.json({ ok: true, message: "Verified live Fluxer webhook endpoint." });
         }
+        const postOnlyOk = res.status === 401 || res.status === 403 || res.status === 405;
         return NextResponse.json({
-          ok: res.status === 405,
-          message:
-            res.status === 405
-              ? "Fluxer webhook URL reachable and saved (POST-only webhook)."
-              : `Fluxer webhook check returned HTTP ${res.status}.`,
+          ok: postOnlyOk,
+          message: postOnlyOk
+            ? `Fluxer webhook URL reachable and saved (POST-only webhook, HTTP ${res.status}).`
+            : `Fluxer webhook check returned HTTP ${res.status}.`,
         });
       } catch {
         return NextResponse.json({ ok: true, message: "Fluxer webhook URL format valid and saved." });
@@ -430,7 +430,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "revolt" || provider === "stoat") {
-      const apiUrl = (cred("REVOLT_API_URL") ?? "https://api.revolt.chat").replace(/\/$/, "");
+      const apiUrl = (cred("REVOLT_API_URL") ?? "https://api.stoat.chat").replace(/\/$/, "");
       const token = cred("REVOLT_BOT_TOKEN");
       if (!token) {
         return NextResponse.json({ ok: false, message: "Enter REVOLT_BOT_TOKEN first." }, { status: 400 });

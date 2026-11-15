@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   clearClientCredentialKeys,
   getClientCredentials,
@@ -19,6 +19,7 @@ import {
   vaultApiFetch,
 } from "@/lib/companion-bridge";
 import { buildClientApiFlags } from "@/lib/credential-mapping";
+import { LetterFilterBar, matchesSearchAndLetter } from "./LetterFilterBar";
 import { OneClickConnectPanel } from "./OneClickConnectPanel";
 
 interface CredentialField {
@@ -83,12 +84,19 @@ export const VAULT_BROWSER_PLATFORMS = [
   { id: "douyin", name: "Douyin Creator", category: "Video & Alt-Tech Hosts" },
 
   // Social & Microblogging
-  { id: "x", name: "X (Twitter) Session", category: "Social & Microblog" },
+  { id: "bluesky", name: "Bluesky (bsky.app) Session", category: "Social & Microblog" },
+  { id: "discord", name: "Discord Web Session", category: "Social & Microblog" },
+  { id: "fluxer", name: "Fluxer Web Session", category: "Social & Microblog" },
   { id: "instagram", name: "Instagram Session", category: "Social & Microblog" },
-  { id: "threads", name: "Threads Session", category: "Social & Microblog" },
-  { id: "reddit", name: "Reddit (SFW / NSFW) Session", category: "Social & Microblog" },
+  { id: "mastodon", name: "Mastodon Web Session", category: "Social & Microblog" },
+  { id: "matrix", name: "Matrix (Element Web) Session", category: "Social & Microblog" },
+  { id: "nostr", name: "Nostr (Primal Web) Session", category: "Social & Microblog" },
   { id: "pinterest", name: "Pinterest Creator", category: "Social & Microblog" },
+  { id: "reddit", name: "Reddit (SFW / NSFW) Session", category: "Social & Microblog" },
   { id: "rednote", name: "RedNote / Xiaohongshu", category: "Social & Microblog" },
+  { id: "stoat", name: "Stoat (Revolt) Web Session", category: "Social & Microblog" },
+  { id: "threads", name: "Threads Session", category: "Social & Microblog" },
+  { id: "x", name: "X (Twitter) Session", category: "Social & Microblog" },
 
   // 18+ Video Tube Networks
   { id: "pornhub_video", name: "Pornhub — Long Video", category: "18+ Video Tubes" },
@@ -118,6 +126,21 @@ export function ApiCredentialsManager({
   const [expandedId, setExpandedId] = useState<string | null>(focusProviderId || "bluesky");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ providerId: string; ok: boolean; text: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [letterFilter, setLetterFilter] = useState("all");
+
+  const availableLetters = useMemo(
+    () => new Set(providers.map((p) => p.name.trim().charAt(0).toUpperCase()).filter(Boolean)),
+    [providers],
+  );
+
+  const filteredProviders = useMemo(
+    () =>
+      providers.filter((p) =>
+        matchesSearchAndLetter(p.name, p.id, searchQuery, letterFilter, `${p.category} ${p.helpText}`),
+      ),
+    [providers, searchQuery, letterFilter],
+  );
 
   const mergeProvidersForDisplay = (
     rawList: CredentialProvider[],
@@ -309,7 +332,22 @@ export function ApiCredentialsManager({
           <strong>Private Browser Key Vault (Cloud Mode):</strong> Keys entered below stay isolated in your own browser (<code className="font-mono">localStorage</code>) per user — never written to shared server files. Enter your API tokens and click <strong>Save &amp; Test Live Connection</strong> or launch campaigns directly.
         </div>
       )}
-      {providers.map((p) => {
+      <div className="p-2.5 rounded-lg bg-white border border-[#cccccc]">
+        <LetterFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          selectedLetter={letterFilter}
+          onLetterChange={setLetterFilter}
+          availableLetters={availableLetters}
+          searchPlaceholder="Search API / bot keys: discord, fluxer, stoat, matrix, nostr, bluesky, mastodon..."
+        />
+      </div>
+      {filteredProviders.length === 0 && (
+        <div className="p-3 rounded-lg bg-white border border-[#cccccc] text-xs text-[#666666]">
+          No API providers matched &ldquo;{searchQuery || letterFilter}&rdquo;. Try another letter or clear the filter.
+        </div>
+      )}
+      {filteredProviders.map((p) => {
         const isOpen = expandedId === p.id;
         const msg = statusMsg?.providerId === p.id ? statusMsg : null;
         return (
@@ -433,6 +471,8 @@ export function BrowserSessionConnector({
 }) {
   const [subMode, setSubMode] = useState<"browser" | "cookies">(mode);
   const [platformId, setPlatformId] = useState(initialPlatformId || "pornhub_video");
+  const [platformSearch, setPlatformSearch] = useState("");
+  const [letterFilter, setLetterFilter] = useState("all");
   const [alias, setAlias] = useState(initialAlias || "main_creator");
   const [proxyUrl, setProxyUrl] = useState("");
   const [proxyMap, setProxyMap] = useState<Record<string, string | null>>({});
@@ -461,6 +501,45 @@ export function BrowserSessionConnector({
       setWorkerOffline(true);
     }
   };
+
+  const availableBrowserLetters = useMemo(
+    () =>
+      new Set(
+        VAULT_BROWSER_PLATFORMS.map((p) => p.name.trim().charAt(0).toUpperCase()).filter(Boolean),
+      ),
+    [],
+  );
+
+  const filteredBrowserPlatforms = useMemo(
+    () =>
+      VAULT_BROWSER_PLATFORMS.filter((p) =>
+        matchesSearchAndLetter(p.name, p.id, platformSearch, letterFilter, p.category),
+      ),
+    [platformSearch, letterFilter],
+  );
+
+  const spotlightPlatformIds = ["discord", "fluxer", "stoat", "matrix", "nostr", "bluesky", "mastodon", "pinterest"];
+  const quickPickPlatforms = useMemo(() => {
+    if (platformSearch.trim() || letterFilter !== "all") {
+      return filteredBrowserPlatforms.slice(0, 16);
+    }
+    return VAULT_BROWSER_PLATFORMS.filter((p) => spotlightPlatformIds.includes(p.id));
+  }, [filteredBrowserPlatforms, platformSearch, letterFilter]);
+
+  const handleSelectBrowserPlatform = (nextId: string) => {
+    setPlatformId(nextId);
+    onPlatformChange?.(nextId);
+  };
+
+  useEffect(() => {
+    if ((platformSearch.trim() || letterFilter !== "all") && filteredBrowserPlatforms.length > 0) {
+      if (!filteredBrowserPlatforms.some((p) => p.id === platformId)) {
+        const firstId = filteredBrowserPlatforms[0].id;
+        setPlatformId(firstId);
+        onPlatformChange?.(firstId);
+      }
+    }
+  }, [platformSearch, letterFilter, filteredBrowserPlatforms, platformId, onPlatformChange]);
 
   const syncCompanionAndProxies = async () => {
     const saved = getSavedCompanionUrl();
@@ -802,28 +881,90 @@ export function BrowserSessionConnector({
           </div>
         )}
 
+        <div className="rounded border border-[#cccccc] bg-white p-2.5 space-y-2">
+          <div className="flex items-center justify-between gap-2 text-[11px] text-[#666666]">
+            <span>Find site by name or starting letter ({filteredBrowserPlatforms.length} / {VAULT_BROWSER_PLATFORMS.length} portals):</span>
+            {(platformSearch || letterFilter !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPlatformSearch("");
+                  setLetterFilter("all");
+                }}
+                className="rounded border border-[#cccccc] bg-white px-2 py-0.5 text-[10px] text-[#666666] hover:text-[#333333] cursor-pointer"
+              >
+                Reset Filter
+              </button>
+            )}
+          </div>
+          <LetterFilterBar
+            searchQuery={platformSearch}
+            onSearchChange={setPlatformSearch}
+            selectedLetter={letterFilter}
+            onLetterChange={(nextLetter) => {
+              setLetterFilter(nextLetter);
+              if (nextLetter !== "all") {
+                const firstMatch = VAULT_BROWSER_PLATFORMS.find((p) =>
+                  matchesSearchAndLetter(p.name, p.id, platformSearch, nextLetter, p.category),
+                );
+                if (firstMatch && firstMatch.id !== platformId) {
+                  handleSelectBrowserPlatform(firstMatch.id);
+                }
+              }
+            }}
+            availableLetters={availableBrowserLetters}
+            searchPlaceholder="Search browser login portals: fluxer, discord, stoat, matrix, nostr, bluesky, mastodon, pinterest..."
+          />
+          {quickPickPlatforms.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {quickPickPlatforms.map((qp) => {
+                const isActive = platformId === qp.id;
+                return (
+                  <button
+                    key={qp.id}
+                    type="button"
+                    onClick={() => handleSelectBrowserPlatform(qp.id)}
+                    className={`rounded border border-[#cccccc] bg-white px-2 py-0.5 text-[11px] cursor-pointer ${
+                      isActive ? "outline outline-1 outline-[#cccccc] font-semibold text-[#333333]" : "text-[#666666] hover:text-[#333333]"
+                    }`}
+                  >
+                    {qp.name.replace(/\s+Session$|\s+Web Session$/, "")}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className="text-[#999999] block mb-1">
-              Which site is this account for? ({VAULT_BROWSER_PLATFORMS.length} supported portals)
+              Which site is this account for? ({filteredBrowserPlatforms.length} shown of {VAULT_BROWSER_PLATFORMS.length} portals)
             </label>
             <select
-              value={platformId}
-              onChange={(e) => {
-                setPlatformId(e.target.value);
-                onPlatformChange?.(e.target.value);
-              }}
+              value={
+                filteredBrowserPlatforms.some((p) => p.id === platformId)
+                  ? platformId
+                  : (filteredBrowserPlatforms[0]?.id ?? platformId)
+              }
+              onChange={(e) => handleSelectBrowserPlatform(e.target.value)}
               className="w-full bg-white border border-[#cccccc] rounded px-3 py-2 text-[#333333]"
             >
-              {Array.from(new Set(VAULT_BROWSER_PLATFORMS.map((p) => p.category))).map((cat) => (
-                <optgroup key={cat} label={cat}>
-                  {VAULT_BROWSER_PLATFORMS.filter((p) => p.category === cat).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
+              {filteredBrowserPlatforms.length === 0 ? (
+                <option value={platformId}>No portals match filter</option>
+              ) : (
+                Array.from(new Set(filteredBrowserPlatforms.map((p) => p.category))).map((cat) => (
+                  <optgroup key={cat} label={cat}>
+                    {filteredBrowserPlatforms
+                      .filter((p) => p.category === cat)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                ))
+              )}
             </select>
           </div>
           <div>

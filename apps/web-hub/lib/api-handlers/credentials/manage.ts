@@ -24,7 +24,12 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json();
-    const values = body?.values && typeof body.values === "object" ? body.values : {};
+    const values =
+      body?.values && typeof body.values === "object"
+        ? body.values
+        : body?.updates && typeof body.updates === "object"
+          ? body.updates
+          : {};
     const res = upsertRootEnvCredentials(values);
     return NextResponse.json({
       success: true,

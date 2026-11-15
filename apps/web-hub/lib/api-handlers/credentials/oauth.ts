@@ -54,6 +54,7 @@ export async function GET() {
       mastodon: true,
       misskey: true,
       stoat: true,
+      matrix: true,
       bluesky: true,
       fluxer: true,
       telegram: true,
@@ -92,32 +93,70 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "stoat_login") {
-      const apiUrl = String(body.apiUrl || "https://api.revolt.chat")
+      const requestedUrl = String(body.apiUrl || "https://api.stoat.chat")
         .trim()
         .replace(/\/+$/, "");
       const email = String(body.email || "").trim();
       const password = String(body.password || "");
       const providedChannelId = String(body.channelId || "").trim();
 
-      if (!/^https?:\/\/.+/.test(apiUrl)) {
-        return NextResponse.json({ ok: false, message: "Enter a valid Stoat/Revolt API URL (e.g. https://api.revolt.chat)." }, { status: 400 });
+      if (!/^https?:\/\/.+/.test(requestedUrl)) {
+        return NextResponse.json(
+          { ok: false, message: "Enter a valid Stoat/Revolt API URL (e.g. https://api.stoat.chat)." },
+          { status: 400 },
+        );
       }
       if (!email || !password) {
         return NextResponse.json({ ok: false, message: "Enter your Stoat/Revolt email and password." }, { status: 400 });
       }
 
-      const loginRes = await fetch(`${apiUrl}/auth/session/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          friendly_name: "PolyPost 1-Click",
-        }),
-        signal: AbortSignal.timeout(12_000),
-      });
+      const candidateUrls = [requestedUrl];
+      if (!body.apiUrl || requestedUrl === "https://api.stoat.chat") {
+        if (!candidateUrls.includes("https://api.revolt.chat")) candidateUrls.push("https://api.revolt.chat");
+      } else if (requestedUrl === "https://api.revolt.chat") {
+        candidateUrls.push("https://api.stoat.chat");
+      }
 
-      const loginJson = (await loginRes.json().catch(() => ({}))) as Record<string, any>;
+      let apiUrl = requestedUrl;
+      let loginRes: Response | null = null;
+      let loginJson: Record<string, any> = {};
+      let lastNetworkErr = "";
+
+      for (const candidate of candidateUrls) {
+        try {
+          const res = await fetch(`${candidate}/auth/session/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email,
+              password,
+              friendly_name: "PolyPost 1-Click",
+            }),
+            signal: AbortSignal.timeout(12_000),
+          });
+          const data = (await res.json().catch(() => ({}))) as Record<string, any>;
+          apiUrl = candidate;
+          loginRes = res;
+          loginJson = data;
+          if (res.ok && (data.token || data.result === "Success" || data.result === "MFA")) {
+            break;
+          }
+          if (res.status !== 404 && res.status < 500 && candidateUrls.length > 1) {
+            // Try fallback host if credentials belong to the migrated Stoat vs legacy Revolt host
+            continue;
+          }
+        } catch (err: any) {
+          lastNetworkErr = err?.message || "Connection failed";
+        }
+      }
+
+      if (!loginRes) {
+        return NextResponse.json(
+          { ok: false, message: `Could not reach Stoat API (${lastNetworkErr || requestedUrl}).` },
+          { status: 502 },
+        );
+      }
+
       if (!loginRes.ok || (!loginJson.token && loginJson.result !== "Success")) {
         if (loginJson.result === "MFA") {
           return NextResponse.json(
@@ -183,6 +222,91 @@ export async function POST(req: NextRequest) {
         message: finalChannelId
           ? `Signed into Stoat as @${username} and linked channel ${finalChannelId}.`
           : `Signed into Stoat as @${username}. Paste a target Channel ID below to finish live channel routing.`,
+      });
+    }
+
+    if (action === "matrix_login") {
+      let hs = String(body.homeserver || "https://matrix-client.matrix.org")
+        .trim()
+        .replace(/\/+$/, "");
+      if (hs && !/^https?:\/\//i.test(hs)) {
+        hs = `https://${hs}`;
+      }
+      if (hs === "https://matrix.org") {
+        hs = "https://matrix-client.matrix.org";
+      }
+      const username = String(body.username || "").trim();
+      const password = String(body.password || "");
+      const providedRoomId = String(body.roomId || "").trim();
+
+      if (!/^https?:\/\/.+/.test(hs)) {
+        return NextResponse.json(
+          { ok: false, message: "Enter a valid Matrix homeserver URL (e.g. https://matrix-client.matrix.org)." },
+          { status: 400 },
+        );
+      }
+      if (!username || !password) {
+        return NextResponse.json(
+          { ok: false, message: "Enter your Matrix username (e.g. @alice:matrix.org) and password." },
+          { status: 400 },
+        );
+      }
+
+      const loginRes = await fetch(`${hs}/_matrix/client/v3/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "m.login.password",
+          identifier: { type: "m.id.user", user: username },
+          password,
+          initial_device_display_name: "PolyPost 1-Click",
+        }),
+        signal: AbortSignal.timeout(12_000),
+      });
+      const loginJson = (await loginRes.json().catch(() => ({}))) as Record<string, any>;
+      if (!loginRes.ok || !loginJson.access_token) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `Matrix sign-in failed (${loginRes.status}): ${loginJson.error || loginJson.errcode || "Invalid credentials"}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      const token = String(loginJson.access_token);
+      const userId = String(loginJson.user_id || username);
+      const discoveredRooms: string[] = [];
+      try {
+        const roomsRes = await fetch(`${hs}/_matrix/client/v3/joined_rooms`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (roomsRes.ok) {
+          const roomsJson = (await roomsRes.json()) as { joined_rooms?: string[] };
+          if (Array.isArray(roomsJson.joined_rooms)) {
+            discoveredRooms.push(...roomsJson.joined_rooms.slice(0, 12));
+          }
+        }
+      } catch {}
+
+      const finalRoomId = providedRoomId || discoveredRooms[0] || "";
+      const credentials: Record<string, string> = {
+        MATRIX_HOMESERVER_URL: hs,
+        MATRIX_ACCESS_TOKEN: token,
+        ...(finalRoomId ? { MATRIX_ROOM_ID: finalRoomId } : {}),
+      };
+      maybeSaveLocalEnv(credentials);
+
+      return NextResponse.json({
+        ok: true,
+        provider: "matrix",
+        userId,
+        discoveredRooms,
+        credentials,
+        message: finalRoomId
+          ? `Signed into Matrix as ${userId} and linked room ${finalRoomId}.`
+          : `Signed into Matrix as ${userId}. Paste a target Room ID (!room:matrix.org) to finish setup.`,
       });
     }
 

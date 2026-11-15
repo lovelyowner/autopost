@@ -7,6 +7,14 @@ from .session_vault import load_cookies, load_storage_state, persist_refreshed_c
 
 PLATFORM_HEALTH_URLS = {
     "x": "https://x.com/home",
+    "discord": "https://discord.com/channels/@me",
+    "fluxer": "https://web.fluxer.app/",
+    "stoat": "https://stoat.chat/app",
+    "revolt": "https://stoat.chat/app",
+    "matrix": "https://app.element.io/#/home",
+    "nostr": "https://primal.net/home",
+    "bluesky": "https://bsky.app/",
+    "mastodon": "https://mastodon.social/home",
     "instagram": "https://www.instagram.com/",
     "threads": "https://www.threads.net/",
     "pinterest": "https://www.pinterest.com/",
@@ -78,6 +86,14 @@ async def verify_session_health(account_id: str, platform: str) -> Dict[str, Any
         }
 
     cookies = storage_state.get("cookies", [])
+    origins = storage_state.get("origins", [])
+    if not cookies and origins:
+        return {
+            "account_id": account_id,
+            "platform": platform,
+            "healthy": True,
+            "reason": f"Active SPA browser storage found ({len(origins)} origin(s)).",
+        }
     valid, reason = check_cookies_expiry(cookies)
     if not valid:
         return {

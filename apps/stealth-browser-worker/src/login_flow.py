@@ -8,6 +8,14 @@ from .session_vault import _safe_account_id, save_session
 
 PLATFORM_LOGIN_URLS: Dict[str, str] = {
     "x": "https://x.com/i/flow/login",
+    "discord": "https://discord.com/login",
+    "fluxer": "https://web.fluxer.app/",
+    "stoat": "https://stoat.chat/app",
+    "revolt": "https://stoat.chat/app",
+    "matrix": "https://app.element.io/#/login",
+    "nostr": "https://primal.net/login",
+    "bluesky": "https://bsky.app/",
+    "mastodon": "https://mastodon.social/auth/sign_in",
     "instagram": "https://www.instagram.com/accounts/login/",
     "threads": "https://www.threads.net/login",
     "pinterest": "https://www.pinterest.com/login/",
@@ -361,6 +369,38 @@ PLATFORM_AUTH_RULES: Dict[str, Dict[str, Any]] = {
         "domains": ("locals.com",),
         "cookies": {"locals_session", "auth_token", "PHPSESSID"},
     },
+    "discord": {
+        "domains": ("discord.com",),
+        "cookies": {"__dcfduid", "__sdcfduid", "cf_clearance", "locale"},
+    },
+    "fluxer": {
+        "domains": ("fluxer.app", "web.fluxer.app", "fluxer.com"),
+        "cookies": {"session", "auth_token", "token", "connect.sid", "fluxer_session"},
+    },
+    "stoat": {
+        "domains": ("stoat.chat", "revolt.chat"),
+        "cookies": {"session", "token", "auth_token", "cf_clearance"},
+    },
+    "revolt": {
+        "domains": ("stoat.chat", "revolt.chat"),
+        "cookies": {"session", "token", "auth_token", "cf_clearance"},
+    },
+    "matrix": {
+        "domains": ("element.io", "matrix.org"),
+        "cookies": {"session", "auth_token", "matrix_session"},
+    },
+    "nostr": {
+        "domains": ("primal.net", "snort.social", "coracle.social"),
+        "cookies": {"session", "token", "primal_session"},
+    },
+    "bluesky": {
+        "domains": ("bsky.app", "bsky.social"),
+        "cookies": {"bsky_session", "session", "auth_token"},
+    },
+    "mastodon": {
+        "domains": ("mastodon.social", "mstdn.social", "fosstodon.org"),
+        "cookies": {"_mastodon_session", "_session_id", "remember_user_token"},
+    },
 }
 
 _ACTIVE_LOGIN_EVENTS: Dict[str, asyncio.Event] = {}
@@ -438,6 +478,9 @@ def _extract_platform_auth_tokens(
             continue
         matched.add((domain.lower().lstrip("."), name, value))
     return matched
+
+
+SPA_ORIGIN_PLATFORMS = {"discord", "fluxer", "stoat", "revolt", "matrix", "nostr", "bluesky"}
 
 
 def _is_authenticated_snapshot(
@@ -556,10 +599,19 @@ async def launch_interactive_login(
                     final_cookies = await _get_context_cookies(context)
                     if final_cookies:
                         last_state = {"cookies": final_cookies, "origins": []}
+                    if (
+                        (platform in SPA_ORIGIN_PLATFORMS or not final_cookies)
+                        and hasattr(context, "storage_state")
+                        and callable(context.storage_state)
+                    ):
+                        full_state = await context.storage_state()
+                        if isinstance(full_state, dict):
+                            last_state = full_state
                 except Exception:
                     pass
 
             cookies_count = len(last_state.get("cookies", []))
+            origins_count = len(last_state.get("origins", []))
             auth_detected = logged_in or _is_authenticated_snapshot(
                 last_state.get("cookies", []),
                 url,
@@ -568,7 +620,7 @@ async def launch_interactive_login(
                 baseline_tokens=baseline_tokens,
             )
 
-            if manual_completed and cookies_count > 0:
+            if manual_completed and (cookies_count > 0 or origins_count > 0):
                 state_path = save_session(
                     account_id,
                     platform,
@@ -600,7 +652,7 @@ async def launch_interactive_login(
                     "status": "authenticated",
                 }
 
-            if window_closed and cookies_count > 2:
+            if window_closed and (cookies_count > 2 or origins_count > 0):
                 state_path = save_session(
                     account_id,
                     platform,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check, ExternalLink, KeyRound, Loader2, Sparkles, X } from "lucide-react";
 import { getClientCredentials, getSavedCompanionUrl, saveClientCredentials } from "@/lib/client-vault";
 import { notifyCredentialsChanged } from "@/lib/companion-bridge";
+import { LetterFilterBar, matchesSearchAndLetter } from "./LetterFilterBar";
 
 interface OneClickConnectPanelProps {
   apiFlags?: Record<string, boolean>;
@@ -33,11 +34,12 @@ const QUICK_PROVIDERS: QuickProviderMeta[] = [
   { id: "nostr", label: "Nostr", flagKey: "nostr", subtitle: "Instant 1-Click Key", tier: "primary" },
   { id: "mastodon", label: "Mastodon", flagKey: "mastodon", subtitle: "Zero-Config OAuth", tier: "primary" },
   { id: "misskey", label: "Misskey", flagKey: "misskey", subtitle: "MiAuth 1-Click", tier: "more" },
+  { id: "matrix", label: "Matrix", flagKey: "matrix", subtitle: "Login / Token", tier: "more" },
+  { id: "pinterest", label: "Pinterest", flagKey: "pinterest", subtitle: "Chrome Login", tier: "more" },
   { id: "telegram", label: "Telegram", flagKey: "telegram", subtitle: "@BotFather + Channel", tier: "more" },
   { id: "slack", label: "Slack", flagKey: "slack", subtitle: "Incoming Webhook", tier: "more" },
   { id: "devto", label: "Dev.to", flagKey: "devto", subtitle: "API Key", tier: "more" },
-  { id: "reddit", label: "Reddit", flagKey: "reddit", subtitle: "OAuth Script", tier: "more" },
-  { id: "matrix", label: "Matrix", flagKey: "matrix", subtitle: "Room Token", tier: "more" },
+  { id: "reddit", label: "Reddit", flagKey: "reddit", subtitle: "OAuth / Chrome", tier: "more" },
   { id: "farcaster", label: "Farcaster", flagKey: "farcaster", subtitle: "Neynar Signer", tier: "more" },
   { id: "wordpress", label: "WordPress", flagKey: "wordpress", subtitle: "App Password", tier: "more" },
 ];
@@ -119,6 +121,8 @@ export function OneClickConnectPanel({
 }: OneClickConnectPanelProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(!compact);
+  const [providerSearch, setProviderSearch] = useState("");
+  const [letterFilter, setLetterFilter] = useState("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [oauthReady, setOauthReady] = useState<Record<string, boolean>>({
@@ -126,6 +130,7 @@ export function OneClickConnectPanel({
     mastodon: true,
     misskey: true,
     stoat: true,
+    matrix: true,
     bluesky: true,
     fluxer: true,
   });
@@ -145,11 +150,18 @@ export function OneClickConnectPanel({
 
   const [fluxerWebhook, setFluxerWebhook] = useState("");
 
-  const [stoatApiUrl, setStoatApiUrl] = useState("https://api.revolt.chat");
+  const [stoatApiUrl, setStoatApiUrl] = useState("https://api.stoat.chat");
   const [stoatEmail, setStoatEmail] = useState("");
   const [stoatPassword, setStoatPassword] = useState("");
   const [stoatChannelId, setStoatChannelId] = useState("");
   const [stoatChannels, setStoatChannels] = useState<Array<{ id: string; label: string }>>([]);
+
+  const [matrixHomeserver, setMatrixHomeserver] = useState("https://matrix-client.matrix.org");
+  const [matrixUsername, setMatrixUsername] = useState("");
+  const [matrixPassword, setMatrixPassword] = useState("");
+  const [matrixRoomId, setMatrixRoomId] = useState("");
+  const [matrixRooms, setMatrixRooms] = useState<string[]>([]);
+  const [matrixTokenInput, setMatrixTokenInput] = useState("");
 
   const [bskyIdentifier, setBskyIdentifier] = useState("");
   const [bskyPassword, setBskyPassword] = useState("");
@@ -179,7 +191,7 @@ export function OneClickConnectPanel({
       await fetch("/api/credentials/manage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ updates: newCreds }),
+        body: JSON.stringify({ values: newCreds }),
       }).catch(() => {});
     }
     if (onConnected) {
@@ -196,8 +208,10 @@ export function OneClickConnectPanel({
     setXClientId(saved.X_OAUTH_CLIENT_ID || "");
     setMastodonHost(saved.MASTODON_HOST || "mastodon.social");
     setMisskeyHost(saved.MISSKEY_HOST || "misskey.io");
-    setStoatApiUrl(saved.REVOLT_API_URL || "https://api.revolt.chat");
+    setStoatApiUrl(saved.REVOLT_API_URL || "https://api.stoat.chat");
     setStoatChannelId(saved.REVOLT_CHANNEL_ID || "");
+    setMatrixHomeserver(saved.MATRIX_HOMESERVER_URL || "https://matrix-client.matrix.org");
+    setMatrixRoomId(saved.MATRIX_ROOM_ID || "");
     setBskyIdentifier(saved.BLUESKY_IDENTIFIER || "");
     setTelegramChatId(saved.TELEGRAM_CHAT_ID || "");
 
@@ -239,7 +253,7 @@ export function OneClickConnectPanel({
     const miSession = params.get("session");
     const miHost = params.get("host");
 
-    if (!code && !(oauthProviderParam === "misskey" && miSession)) return;
+    if (!code && !miSession) return;
 
     let sessionMeta: Record<string, string> = {};
     try {
@@ -315,7 +329,7 @@ export function OneClickConnectPanel({
       const data = await res.json();
       if (data.needsClientConfig) {
         setActiveId(provider);
-        setStatusMsg({ ok: false, text: data.message });
+        setStatusMsg({ ok: true, text: data.message });
         return;
       }
       if (!data.ok || !data.authUrl) {
@@ -424,6 +438,45 @@ export function OneClickConnectPanel({
     }
   };
 
+  const handleMatrixSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusyId("matrix");
+    setStatusMsg(null);
+    try {
+      const res = await fetch("/api/credentials/oauth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "matrix_login",
+          homeserver: matrixHomeserver,
+          username: matrixUsername,
+          password: matrixPassword,
+          roomId: matrixRoomId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setStatusMsg({ ok: false, text: data.message || "Matrix sign-in failed." });
+        return;
+      }
+      if (Array.isArray(data.discoveredRooms)) {
+        setMatrixRooms(data.discoveredRooms);
+        if (!matrixRoomId && data.discoveredRooms[0]) {
+          setMatrixRoomId(data.discoveredRooms[0]);
+        }
+      }
+      if (data.credentials) {
+        await syncSavedCreds(data.credentials, "matrix");
+      }
+      setMatrixPassword("");
+      setStatusMsg({ ok: true, text: data.message });
+    } catch (err: any) {
+      setStatusMsg({ ok: false, text: err?.message || "Matrix sign-in request failed." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleQuickButtonClick = async (p: QuickProviderMeta) => {
     setStatusMsg(null);
     if (p.id === "nostr") {
@@ -452,12 +505,6 @@ export function OneClickConnectPanel({
       return;
     }
 
-    if (["devto", "reddit", "matrix", "farcaster", "wordpress"].includes(p.id) && onSelectProvider) {
-      onSelectProvider(p.id);
-      setActiveId(null);
-      return;
-    }
-
     setActiveId((prev) => (prev === p.id ? null : p.id));
   };
 
@@ -465,7 +512,14 @@ export function OneClickConnectPanel({
 
   const primaryList = QUICK_PROVIDERS.filter((p) => p.tier === "primary");
   const moreList = QUICK_PROVIDERS.filter((p) => p.tier === "more");
-  const visibleList = showMore ? [...primaryList, ...moreList] : primaryList;
+  const hasQuickFilter = Boolean(providerSearch.trim() || letterFilter !== "all");
+  const availableQuickLetters = useMemo(
+    () => new Set(QUICK_PROVIDERS.map((p) => p.label.trim().charAt(0).toUpperCase()).filter(Boolean)),
+    [],
+  );
+  const visibleList = (hasQuickFilter || showMore ? [...primaryList, ...moreList] : primaryList).filter((p) =>
+    matchesSearchAndLetter(p.label, p.id, providerSearch, letterFilter, p.subtitle),
+  );
 
   return (
     <section className="rounded-xl border border-[#cccccc] bg-white p-4">
@@ -500,6 +554,17 @@ export function OneClickConnectPanel({
         </div>
       </div>
 
+      <div className="mt-3">
+        <LetterFilterBar
+          searchQuery={providerSearch}
+          onSearchChange={setProviderSearch}
+          selectedLetter={letterFilter}
+          onLetterChange={setLetterFilter}
+          availableLetters={availableQuickLetters}
+          searchPlaceholder="Filter 1-click sign-up: google, discord, fluxer, stoat, bluesky, nostr, mastodon, matrix, pinterest..."
+        />
+      </div>
+
       {statusMsg && (
         <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-[#cccccc] bg-white px-3 py-2 text-xs">
           <span className={statusMsg.ok ? "font-medium text-[#333333]" : "font-medium text-[#666666]"}>
@@ -517,6 +582,11 @@ export function OneClickConnectPanel({
       )}
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+        {visibleList.length === 0 && (
+          <div className="col-span-full rounded-lg border border-[#cccccc] bg-white px-3 py-2 text-xs text-[#666666]">
+            No 1-click providers matched &ldquo;{providerSearch || letterFilter}&rdquo;.
+          </div>
+        )}
         {visibleList.map((p) => {
           const connected = isConnected(p.flagKey);
           const selected = activeId === p.id;
@@ -596,6 +666,15 @@ export function OneClickConnectPanel({
                 >
                   Detect NIP-07 Extension
                 </button>
+                {onOpenBrowserLogin && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenBrowserLogin("nostr")}
+                    className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                  >
+                    Companion Chrome Login (Nostr)
+                  </button>
+                )}
               </div>
               {nostrPubkeyPreview && (
                 <p className="font-mono text-[11px] text-[#666666]">
@@ -660,6 +739,15 @@ export function OneClickConnectPanel({
                 >
                   {busyId === "mastodon" ? "Connecting..." : `Authorize 1-Click on ${mastodonHost || "mastodon.social"}`}
                 </button>
+                {onOpenBrowserLogin && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenBrowserLogin("mastodon")}
+                    className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                  >
+                    Companion Chrome Login
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -798,42 +886,87 @@ export function OneClickConnectPanel({
                 >
                   Authorize Discord OAuth
                 </button>
+                {onOpenBrowserLogin && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenBrowserLogin("discord")}
+                    className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                  >
+                    Companion Chrome Login (Discord)
+                  </button>
+                )}
               </div>
             </div>
           )}
 
           {activeId === "fluxer" && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <input
-                type="password"
-                value={fluxerWebhook}
-                onChange={(e) => setFluxerWebhook(e.target.value)}
-                placeholder="https://fluxer.app/api/webhooks/..."
-                className="min-w-[240px] flex-1 rounded-lg border border-[#cccccc] bg-white px-2.5 py-1.5 text-xs text-[#333333]"
-              />
-              <button
-                type="button"
-                disabled={busyId === "fluxer"}
-                onClick={() =>
-                  void handleSaveAndVerify("fluxer", { WEBHOOK_FLUXER_WEBHOOK: fluxerWebhook.trim() })
-                }
-                className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
-              >
-                Verify & Connect Fluxer
-              </button>
+            <div className="space-y-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="password"
+                  value={fluxerWebhook}
+                  onChange={(e) => setFluxerWebhook(e.target.value)}
+                  placeholder="https://fluxer.app/api/webhooks/..."
+                  className="min-w-[240px] flex-1 rounded-lg border border-[#cccccc] bg-white px-2.5 py-1.5 text-xs text-[#333333]"
+                />
+                <button
+                  type="button"
+                  disabled={busyId === "fluxer"}
+                  onClick={() =>
+                    void handleSaveAndVerify("fluxer", { WEBHOOK_FLUXER_WEBHOOK: fluxerWebhook.trim() })
+                  }
+                  className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                >
+                  Verify & Connect Fluxer
+                </button>
+                {onOpenBrowserLogin && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenBrowserLogin("fluxer")}
+                    className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                  >
+                    Companion Chrome Login (Fluxer)
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
           {activeId === "stoat" && (
             <form onSubmit={handleStoatSignIn} className="space-y-2.5 text-xs">
-              <p className="text-[#666666]">
-                Sign in with your Stoat / Revolt account credentials to obtain a live session token automatically.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[#666666]">
+                  Sign in with your Stoat / Revolt account credentials to obtain a live session token automatically.
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {["https://api.stoat.chat", "https://api.revolt.chat"].map((presetUrl) => (
+                    <button
+                      key={presetUrl}
+                      type="button"
+                      onClick={() => setStoatApiUrl(presetUrl)}
+                      className={`rounded border border-[#cccccc] bg-white px-2 py-0.5 text-[11px] ${
+                        stoatApiUrl === presetUrl ? "font-semibold text-[#333333]" : "text-[#666666]"
+                      }`}
+                    >
+                      {presetUrl.replace("https://", "")}
+                    </button>
+                  ))}
+                  {onOpenBrowserLogin && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenBrowserLogin("stoat")}
+                      className="rounded border border-[#cccccc] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#333333]"
+                    >
+                      Chrome Login
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
                   value={stoatApiUrl}
                   onChange={(e) => setStoatApiUrl(e.target.value)}
-                  placeholder="https://api.revolt.chat"
+                  placeholder="https://api.stoat.chat"
                   className="rounded-lg border border-[#cccccc] bg-white px-2.5 py-1.5 text-xs text-[#333333]"
                 />
                 <input
@@ -891,14 +1024,25 @@ export function OneClickConnectPanel({
             <div className="space-y-2.5 text-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[#666666]">Connect using your Bluesky handle & App Password.</span>
-                <a
-                  href="https://bsky.app/settings/app-passwords"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 rounded border border-[#cccccc] bg-white px-2 py-1 font-medium text-[#666666] hover:text-[#333333]"
-                >
-                  Open bsky.app App Passwords <ExternalLink className="h-3 w-3 text-[#999999]" />
-                </a>
+                <div className="flex flex-wrap items-center gap-2">
+                  {onOpenBrowserLogin && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenBrowserLogin("bluesky")}
+                      className="rounded border border-[#cccccc] bg-white px-2.5 py-1 font-semibold text-[#333333]"
+                    >
+                      Companion Chrome Login (Bluesky)
+                    </button>
+                  )}
+                  <a
+                    href="https://bsky.app/settings/app-passwords"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded border border-[#cccccc] bg-white px-2 py-1 font-medium text-[#666666] hover:text-[#333333]"
+                  >
+                    Open bsky.app App Passwords <ExternalLink className="h-3 w-3 text-[#999999]" />
+                  </a>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -1049,17 +1193,163 @@ export function OneClickConnectPanel({
             </div>
           )}
 
-          {["reddit", "matrix", "farcaster", "wordpress"].includes(activeId) && (
+          {activeId === "matrix" && (
+            <form onSubmit={handleMatrixSignIn} className="space-y-2.5 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[#666666]">
+                  1-Click sign into your Matrix homeserver (discovers joined rooms automatically) or paste an Access Token.
+                </span>
+                {onOpenBrowserLogin && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenBrowserLogin("matrix")}
+                    className="rounded border border-[#cccccc] bg-white px-2.5 py-1 font-semibold text-[#333333]"
+                  >
+                    Companion Chrome Login (Element)
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={matrixHomeserver}
+                  onChange={(e) => setMatrixHomeserver(e.target.value)}
+                  placeholder="https://matrix-client.matrix.org"
+                  className="rounded-lg border border-[#cccccc] bg-white px-2.5 py-1.5 text-xs text-[#333333]"
+                />
+                <input
+                  value={matrixRoomId}
+                  onChange={(e) => setMatrixRoomId(e.target.value)}
+                  placeholder="Target Room ID (optional — !room:matrix.org)"
+                  className="rounded-lg border border-[#cccccc] bg-white px-2.5 py-1.5 text-xs text-[#333333]"
+                />
+                <input
+                  required
+                  value={matrixUsername}
+                  onChange={(e) => setMatrixUsername(e.target.value)}
+                  placeholder="Matrix Username (@alice:matrix.org)"
+                  className="rounded-lg border border-[#cccccc] bg-white px-2.5 py-1.5 text-xs text-[#333333]"
+                />
+                <input
+                  type="password"
+                  required
+                  value={matrixPassword}
+                  onChange={(e) => setMatrixPassword(e.target.value)}
+                  placeholder="Matrix Password"
+                  className="rounded-lg border border-[#cccccc] bg-white px-2.5 py-1.5 text-xs text-[#333333]"
+                />
+              </div>
+              {matrixRooms.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-[#999999]">Joined Rooms:</span>
+                  {matrixRooms.map((rm) => (
+                    <button
+                      key={rm}
+                      type="button"
+                      onClick={() => {
+                        setMatrixRoomId(rm);
+                        void syncSavedCreds({ MATRIX_ROOM_ID: rm }, "matrix");
+                      }}
+                      className="rounded border border-[#cccccc] bg-white px-2 py-0.5 text-[11px] text-[#333333]"
+                    >
+                      {rm}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={busyId === "matrix"}
+                  className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                >
+                  {busyId === "matrix" ? "Signing in..." : "1-Click Sign In to Matrix"}
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#cccccc]">
+                <input
+                  type="password"
+                  value={matrixTokenInput}
+                  onChange={(e) => setMatrixTokenInput(e.target.value)}
+                  placeholder="Or paste existing MATRIX_ACCESS_TOKEN"
+                  className="min-w-[220px] flex-1 rounded-lg border border-[#cccccc] bg-white px-2.5 py-1.5 text-xs text-[#333333]"
+                />
+                <button
+                  type="button"
+                  disabled={busyId === "matrix"}
+                  onClick={() =>
+                    void handleSaveAndVerify("matrix", {
+                      MATRIX_HOMESERVER_URL: matrixHomeserver.trim() || "https://matrix-client.matrix.org",
+                      MATRIX_ACCESS_TOKEN: matrixTokenInput.trim(),
+                      ...(matrixRoomId.trim() ? { MATRIX_ROOM_ID: matrixRoomId.trim() } : {}),
+                    })
+                  }
+                  className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                >
+                  Verify & Save Matrix Token
+                </button>
+              </div>
+            </form>
+          )}
+
+          {activeId === "pinterest" && (
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="text-[#666666]">
-                Configure {activeId} fields & verify live in Vault API Keys.
+                Pinterest publishing uses persistent Creator browser sessions or pasted cookies in Vault.
               </span>
-              <Link
-                href="/vault"
-                className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
-              >
-                Open {activeId} Setup in Vault
-              </Link>
+              {onOpenBrowserLogin ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenBrowserLogin("pinterest")}
+                  className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                >
+                  1-Click Companion Chrome Login (Pinterest)
+                </button>
+              ) : (
+                <Link
+                  href="/vault"
+                  className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                >
+                  Open Pinterest Setup in Vault
+                </Link>
+              )}
+            </div>
+          )}
+
+          {["reddit", "farcaster", "wordpress"].includes(activeId) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="text-[#666666]">
+                Configure {activeId} fields & verify live in API Key Manager.
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {activeId === "reddit" && onOpenBrowserLogin && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenBrowserLogin("reddit")}
+                    className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                  >
+                    Companion Chrome Login (Reddit)
+                  </button>
+                )}
+                {onSelectProvider ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectProvider(activeId);
+                      setActiveId(null);
+                    }}
+                    className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                  >
+                    Configure {activeId} Keys
+                  </button>
+                ) : (
+                  <Link
+                    href="/vault"
+                    className="rounded-lg border border-[#cccccc] bg-white px-3 py-1.5 font-semibold text-[#333333]"
+                  >
+                    Open {activeId} Setup in Vault
+                  </Link>
+                )}
+              </div>
             </div>
           )}
         </div>
