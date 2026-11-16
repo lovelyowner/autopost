@@ -508,9 +508,9 @@ export default function AccountVaultPage() {
             </p>
           </div>
           <div className="p-3 rounded-lg bg-white border border-[#cccccc] space-y-1">
-            <span className="text-[#333333] font-bold uppercase tracking-wider text-[10px]">Step 2: Turn Off Demo Mode</span>
+            <span className="text-[#333333] font-bold uppercase tracking-wider text-[10px]">Step 2: Launch Live Campaign</span>
             <p className="text-[#666666]">
-              In Composer (<code className="font-mono text-[#333333]">/</code>), stage your media file, pick your alias (<code className="font-mono text-[#333333]">main_creator</code>), check <strong>2257</strong> if adult, and check <strong>Strict Live Only</strong> before clicking Launch.
+              In Composer (<code className="font-mono text-[#333333]">/</code>), stage media, match your Vault alias (<code className="font-mono text-[#333333]">main_creator</code>), and enable <strong>Strict Live Only</strong> before clicking Launch.
             </p>
           </div>
         </div>
@@ -527,39 +527,21 @@ export default function AccountVaultPage() {
         </div>
       )}
 
-      {/* System & API Credentials Live Readiness Grid */}
+      {/* System Worker Readiness Strip */}
       {readiness && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white border border-[#cccccc] rounded-xl p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-[#333333] uppercase tracking-wider">Worker Services Readiness</h2>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {Object.entries(readiness.services).map(([key, ok]) => (
-                <div key={key} className="flex items-center justify-between p-2 rounded bg-white border border-[#cccccc]">
-                  <span className="text-[#666666] font-mono text-[11px]">{key}</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${ ok ? "border border-[#cccccc] bg-white text-[#333333]" : "border border-[#cccccc] bg-white text-[#999999]" }`}
-                  >
-                    {ok ? "READY" : "OFF"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white border border-[#cccccc] rounded-xl p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-[#333333] uppercase tracking-wider">Direct API Credentials (.env &amp; Browser Vault)</h2>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {Object.entries(readiness.apiCredentials).map(([key, configured]) => (
-                <div key={key} className="flex items-center justify-between p-2 rounded bg-white border border-[#cccccc]">
-                  <span className="text-[#666666] font-mono text-[11px]">{key}</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${ configured ? "border border-[#cccccc] bg-white text-[#333333]" : "border border-[#cccccc] bg-white text-[#333333]" }`}
-                  >
-                    {configured ? "LIVE KEY" : "UNSET"}
-                  </span>
-                </div>
-              ))}
-            </div>
+        <div className="bg-white border border-[#cccccc] rounded-xl p-4 space-y-2.5">
+          <h2 className="text-xs font-semibold text-[#333333] uppercase tracking-wider">Worker Services Readiness</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+            {Object.entries(readiness.services).map(([key, ok]) => (
+              <div key={key} className="flex items-center justify-between p-2 rounded bg-white border border-[#cccccc]">
+                <span className="text-[#666666] font-mono text-[10px] truncate mr-1">{key}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${ ok ? "border border-[#cccccc] bg-white text-[#333333]" : "border border-[#cccccc] bg-white text-[#999999]" }`}
+                >
+                  {ok ? "READY" : "OFF"}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}

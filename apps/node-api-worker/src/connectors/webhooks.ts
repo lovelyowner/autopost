@@ -37,7 +37,9 @@ export class WebhookConnector implements PlatformConnector {
         ? payload.text
         : `${payload.text}\n\n${payload.linkUrl}`;
 
-    if (payload.filePath && existsSync(payload.filePath)) {
+    const isSlack = this.id.includes("slack") || webhookUrl.includes("hooks.slack.com");
+
+    if (!isSlack && payload.filePath && existsSync(payload.filePath)) {
       const formData = new FormData();
       formData.append("content", content);
       const nodeStream = createReadStream(payload.filePath);
@@ -55,10 +57,11 @@ export class WebhookConnector implements PlatformConnector {
         throw new Error(`${this.id} post failed: ${res.status} ${await res.text()}`);
       }
     } else {
+      const jsonBody = isSlack ? { text: content } : { content, text: content };
       const res = await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, text: content }),
+        body: JSON.stringify(jsonBody),
       });
 
       if (!res.ok) {

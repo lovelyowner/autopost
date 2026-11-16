@@ -96,7 +96,7 @@ export default function PresetsPage() {
     <div className="space-y-8 max-w-5xl mx-auto">
       <div className="bg-white border border-[#cccccc] rounded-xl p-6">
         <h1 className="text-2xl font-bold text-[#333333] mb-2">
-          2257 Compliance, Pricing & SEO Preset Manager
+          Templates, Pricing &amp; Compliance Preset Manager
         </h1>
         <p className="text-sm text-[#999999]">
           Presets are saved to disk (<code className="text-[#333333] font-mono">config/presets.json</code>) and automatically load inside the Unified Composer so custodian IDs, watermarks, PPV prices, and SEO tags never go out of sync.

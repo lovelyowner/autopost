@@ -18,6 +18,7 @@ import { TusChunkedConnector } from "./tus_s3_chunked";
 import { assertSimulationAllowed, isSimulationDisabled, type ConnectorResult, type PlatformConnector, type PostPayload } from "./types";
 import { WebhookConnector } from "./webhooks";
 import { XApiConnector } from "./x_api";
+import { YouTubeApiConnector } from "./youtube";
 
 export class StealthWorkerBridgeConnector implements PlatformConnector {
   constructor(
@@ -115,6 +116,8 @@ export function getConnectorForPlatform(platformId: string): PlatformConnector {
   }
 
   switch (pl.connector) {
+    case "youtube":
+      return new YouTubeApiConnector();
     case "x":
       return new XApiConnector();
     case "bluesky":

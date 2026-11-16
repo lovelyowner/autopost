@@ -14,6 +14,8 @@ export * from "./connectors/reddit";
 export * from "./connectors/telegram";
 export * from "./connectors/tumblr";
 export * from "./connectors/webhooks";
+export * from "./connectors/x_api";
+export * from "./connectors/youtube";
 export * from "./connectors/tus_s3_chunked";
 export * from "./connectors/registry";
 export * from "./env_store";

@@ -17,16 +17,16 @@ export default function RootLayout({
     <html lang="en" >
       <body className="min-h-screen bg-white text-[#333333] font-sans antialiased">
         <header className="border-b border-[#cccccc] bg-white sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 min-h-16 py-2 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center space-x-3">
               <span className="text-xl font-bold text-[#333333]">
                 PolyPost
               </span>
               <SystemStatusPill />
             </div>
-            <nav className="flex space-x-6 text-sm font-medium">
-              <Link href="/" className="hover:text-[#333333] transition-colors">
-                Composer & Funnel
+            <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium">
+              <Link href="/" className="hover:text-[#333333] text-[#666666] transition-colors">
+                Composer &amp; Funnel
               </Link>
               <Link
                 href="/vault"
@@ -34,13 +34,13 @@ export default function RootLayout({
               >
                 Connect Accounts / Vault
               </Link>
-              <Link href="/presets" className="hover:text-[#333333] transition-colors">
-                2257 / Pricing Presets
+              <Link href="/presets" className="hover:text-[#333333] text-[#666666] transition-colors">
+                Templates &amp; Presets
               </Link>
-              <Link href="/calendar" className="hover:text-[#333333] transition-colors">
+              <Link href="/calendar" className="hover:text-[#333333] text-[#666666] transition-colors">
                 Calendar &amp; Bulk CSV
               </Link>
-              <Link href="/history" className="hover:text-[#333333] transition-colors">
+              <Link href="/history" className="hover:text-[#333333] text-[#666666] transition-colors">
                 Campaign History
               </Link>
             </nav>

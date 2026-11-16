@@ -1,5 +1,31 @@
+import { existsSync, readFileSync } from "node:fs";
+import { extname } from "node:path";
 import { StealthWorkerBridgeConnector } from "./registry";
 import { assertSimulationAllowed, type ConnectorResult, type PlatformConnector, type PostPayload } from "./types";
+
+const X_IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+
+async function tryUploadXImageMedia(filePath: string, bearerToken: string): Promise<string | null> {
+  if (!existsSync(filePath) || !X_IMAGE_EXTS.has(extname(filePath).toLowerCase())) {
+    return null;
+  }
+  try {
+    const form = new FormData();
+    const raw = readFileSync(filePath);
+    form.append("media_data", raw.toString("base64"));
+    const uploadRes = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${bearerToken}` },
+      body: form,
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!uploadRes.ok) return null;
+    const data = (await uploadRes.json()) as { media_id_string?: string };
+    return data.media_id_string || null;
+  } catch {
+    return null;
+  }
+}
 
 export class XApiConnector implements PlatformConnector {
   id = "x";
@@ -47,13 +73,17 @@ export class XApiConnector implements PlatformConnector {
       ? `${payload.text}\n\n${payload.linkUrl}`.slice(0, 280)
       : payload.text.slice(0, 280);
 
+    const mediaId = payload.filePath ? await tryUploadXImageMedia(payload.filePath, token) : null;
+
     const res = await fetch("https://api.x.com/2/tweets", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ text: tweetText }),
+      body: JSON.stringify(
+        mediaId ? { text: tweetText, media: { media_ids: [mediaId] } } : { text: tweetText },
+      ),
       signal: AbortSignal.timeout(15_000),
     });
 

@@ -1232,12 +1232,12 @@ export default function DashboardPage() {
                 <span
                   className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold uppercase ${ liveArmed ? "bg-white text-[#333333] border border-[#cccccc]" : "bg-white text-[#333333] border border-[#cccccc]" }`}
                 >
-                  {liveArmed ? "LIVE MODE ARMED" : "DEMO / HYBRID MODE"}
+                  {liveArmed ? "LIVE MODE ARMED" : "DRY-RUN PREVIEW"}
                 </span>
                 <span className="text-[#666666] font-medium">
                   {liveArmed
-                    ? "Strict Live ON — PolyPost will only post to real connected accounts (never fake demo links)."
-                    : "Currently in Demo fallback — unconnected accounts output simulated .example.com links. Connect accounts & turn ON Strict Live below to post for real."}
+                    ? "Strict Live ON — PolyPost will only post to real connected accounts (no simulated preview links)."
+                    : "Dry-Run Preview — unconnected accounts simulate .example.com links. Enable Strict Live before real broadcasting."}
                 </span>
               </div>
               <button
@@ -1268,14 +1268,23 @@ export default function DashboardPage() {
                   {probeInfo?.exists ? "VERIFIED" : hasRealMedia ? "PATH SET" : "STAGE BELOW"}
                 </span>
               </div>
-              <div
-                className={`p-2 rounded-lg border flex items-center justify-between ${ complianceOk ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
-              >
-                <span>3. 2257 Compliance</span>
-                <span className="font-mono text-[10px] font-bold">
-                  {complianceOk ? "CONFIRMED" : "CHECK BOX"}
-                </span>
-              </div>
+              {requires2257 ? (
+                <div
+                  className={`p-2 rounded-lg border flex items-center justify-between ${ complianceOk ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
+                >
+                  <span>3. 2257 Compliance</span>
+                  <span className="font-mono text-[10px] font-bold">
+                    {complianceOk ? "CONFIRMED" : "CHECK BOX"}
+                  </span>
+                </div>
+              ) : (
+                <div className="p-2 rounded-lg border border-[#cccccc] bg-white flex items-center justify-between text-[#333333]">
+                  <span>3. Multi-Account Pacing</span>
+                  <span className="font-mono text-[10px] font-bold">
+                    {staggerSec > 0 ? `${staggerSec}s STAGGER` : "AUTO JITTER"}
+                  </span>
+                </div>
+              )}
               <button
                 type="button"
                 disabled={simulationDisabled}
@@ -1693,6 +1702,14 @@ export default function DashboardPage() {
                         className="rounded border-[#cccccc] text-[#333333] focus:ring-0"
                       />
                       <span className="font-medium truncate">{pl.name}</span>
+                      {pl.support === "registry_only" && !VAULT_BROWSER_PLATFORMS.some((vp) => vp.id === pl.id) && (
+                        <span
+                          title="Registry blueprint — configure connector or Vault browser session to publish"
+                          className="shrink-0 rounded border border-[#cccccc] bg-white px-1 py-0.5 font-mono text-[9px] text-[#999999]"
+                        >
+                          REG
+                        </span>
+                      )}
                     </label>
                     <div className="flex items-center gap-1.5 ml-2 shrink-0">
                       <button

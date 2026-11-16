@@ -49,6 +49,8 @@ import {
   VkConnector,
   WebhookConnector,
   WordPressConnector,
+  XApiConnector,
+  YouTubeApiConnector,
   type FunnelSubmission,
 } from "../src/index";
 import type { ConnectorResult, PlatformConnector, PostPayload } from "../src/connectors/types";
@@ -1123,6 +1125,95 @@ describe("BullMQ Funnel-Link FlowProducer", () => {
       expect(capturedHeaders["x-session-token"]).toBe("stoat_sess_tok");
     } finally {
       globalThis.fetch = origFetch;
+    }
+  });
+
+  it("supports YouTube OAuth resumable upload, Slack JSON webhook payloads, and X image media attachment", async () => {
+    expect(getConnectorForPlatform("youtube")).toBeInstanceOf(YouTubeApiConnector);
+    expect(getConnectorForPlatform("x")).toBeInstanceOf(XApiConnector);
+
+    const tmpDir = mkdtempSync(join(tmpdir(), "polypost-conn-"));
+    const sampleVid = join(tmpDir, "clip.mp4");
+    const sampleImg = join(tmpDir, "thumb.png");
+    writeFileSync(sampleVid, Buffer.from("FAKE_MP4_STREAM"));
+    writeFileSync(sampleImg, Buffer.from("\x89PNG\r\n"));
+
+    const origFetch = globalThis.fetch;
+    const requests: Array<{ url: string; method: string; contentType: string; body: any }> = [];
+
+    globalThis.fetch = (async (input: any, init?: any) => {
+      const url = String(input);
+      const method = init?.method || "GET";
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      const contentType = headers["Content-Type"] || headers["content-type"] || "";
+      requests.push({ url, method, contentType, body: init?.body });
+
+      if (url.includes("/api/profiles")) {
+        return new Response(JSON.stringify({ profiles: [] }), { status: 200 });
+      }
+      if (url.includes("googleapis.com/upload/youtube/v3/videos")) {
+        return new Response("", {
+          status: 200,
+          headers: { location: "https://upload.youtube.example/session/123" },
+        });
+      }
+      if (url === "https://upload.youtube.example/session/123") {
+        return new Response(JSON.stringify({ id: "yt_real_vid_99" }), { status: 200 });
+      }
+      if (url.startsWith("https://hooks.slack.com/")) {
+        return new Response("ok", { status: 200 });
+      }
+      if (url.includes("upload.twitter.com/1.1/media/upload.json")) {
+        return new Response(JSON.stringify({ media_id_string: "x_media_777" }), { status: 200 });
+      }
+      if (url === "https://api.x.com/2/tweets") {
+        return new Response(JSON.stringify({ data: { id: "tw_999" } }), { status: 200 });
+      }
+      return new Response("not found", { status: 404 });
+    }) as any;
+
+    try {
+      const ytRes = await new YouTubeApiConnector().publish({
+        platformId: "youtube",
+        accountId: "oauth_only",
+        text: "Launch Trailer\nFull details below",
+        filePath: sampleVid,
+        tags: ["trailer", "launch"],
+        strictLive: true,
+        credentials: { accessToken: "ya29_mock_token" },
+      });
+      expect(ytRes.success).toBe(true);
+      expect(ytRes.publishedUrl).toBe("https://www.youtube.com/watch?v=yt_real_vid_99");
+
+      const slackRes = await new WebhookConnector("slack_webhook").publish({
+        platformId: "slack",
+        accountId: "team",
+        text: "New drop live",
+        linkUrl: "https://example.com/v/1",
+        filePath: sampleImg,
+        strictLive: true,
+        credentials: { webhookUrl: "https://hooks.slack.com/services/T00/B00/XXX" },
+      });
+      expect(slackRes.success).toBe(true);
+      const slackCall = requests.find((r) => r.url.startsWith("https://hooks.slack.com/"));
+      expect(slackCall?.contentType).toBe("application/json");
+      expect(JSON.parse(String(slackCall?.body)).text).toContain("https://example.com/v/1");
+
+      const xRes = await new XApiConnector().publish({
+        platformId: "x",
+        accountId: "oauth_x",
+        text: "Check this drop",
+        filePath: sampleImg,
+        strictLive: true,
+        credentials: { bearerToken: "x_tok_mock" },
+      });
+      expect(xRes.success).toBe(true);
+      expect(xRes.publishedUrl).toBe("https://x.com/i/status/tw_999");
+      const tweetCall = requests.find((r) => r.url === "https://api.x.com/2/tweets");
+      expect(JSON.parse(String(tweetCall?.body)).media).toEqual({ media_ids: ["x_media_777"] });
+    } finally {
+      globalThis.fetch = origFetch;
+      rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 });
