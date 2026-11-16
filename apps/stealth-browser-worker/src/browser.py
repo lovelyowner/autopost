@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from patchright.async_api import Browser, BrowserContext, Playwright, async_playwright
 
-from .config import get_launch_args, get_proxy_for_account, load_settings
-from .session_vault import load_storage_state
+from .config import SPA_ORIGIN_PLATFORMS, get_launch_args, get_proxy_for_account, load_settings
+from .session_vault import get_profile_meta, load_storage_state
 
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -235,11 +235,16 @@ async def launch_stealth_context(
     elif account_id:
         decrypted_state = load_storage_state(account_id)
         if decrypted_state:
-            # Pass cookies only (empty origins) so Patchright does not open/close
-            # temporary tabs via visitOrigins() for other domains (e.g. instagram.com).
+            profile_meta = get_profile_meta(account_id) or {}
+            profile_platform = str(profile_meta.get("platform") or "").lower()
+            keep_origins = profile_platform in SPA_ORIGIN_PLATFORMS or (
+                not decrypted_state.get("cookies") and bool(decrypted_state.get("origins"))
+            )
+            # Strip origins for cookie-based portals so Patchright does not open/close temporary
+            # tabs via visitOrigins(); preserve origins for SPA apps that store auth in localStorage.
             context_kwargs["storage_state"] = {
                 "cookies": decrypted_state.get("cookies", []),
-                "origins": [],
+                "origins": decrypted_state.get("origins", []) if keep_origins else [],
             }
 
     context = await browser.new_context(**context_kwargs)

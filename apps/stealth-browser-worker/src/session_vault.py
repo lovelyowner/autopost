@@ -4,7 +4,9 @@ import shutil
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 from .config import (
+    SPA_ORIGIN_PLATFORMS,
     get_proxy_for_account,
     load_settings,
     mask_proxy_url,
@@ -108,6 +110,7 @@ def save_session(
         "encrypted": isinstance(encrypted_state, dict) and encrypted_state.get("__polypost_encrypted__", False),
         **(metadata or {}),
         "cookie_count": len(cookies),
+        "origin_count": len(merged_state.get("origins", [])),
     }
     with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
@@ -198,11 +201,22 @@ def normalize_imported_storage_state(raw_payload: Any) -> Dict[str, Any]:
 
     origins: List[Dict[str, Any]] = []
     if isinstance(parsed, dict):
-        cookies_raw = parsed.get("cookies")
-        if not isinstance(cookies_raw, list):
-            raise ValueError("JSON object must contain a 'cookies' array")
-        if isinstance(parsed.get("origins"), list):
-            origins = parsed["origins"]
+        if isinstance(parsed.get("origin"), str) and parsed.get("localStorage") is not None and "cookies" not in parsed:
+            raw_ls = parsed.get("localStorage")
+            ls_entries = (
+                [{"name": str(k), "value": str(v)} for k, v in raw_ls.items()]
+                if isinstance(raw_ls, dict)
+                else (raw_ls if isinstance(raw_ls, list) else [])
+            )
+            cookies_raw = []
+            if ls_entries:
+                origins = [{"origin": parsed["origin"].strip(), "localStorage": ls_entries}]
+        else:
+            cookies_raw = parsed.get("cookies")
+            if not isinstance(cookies_raw, list):
+                raise ValueError("JSON object must contain a 'cookies' array (or 'origin' + 'localStorage')")
+            if isinstance(parsed.get("origins"), list):
+                origins = [o for o in parsed["origins"] if isinstance(o, dict) and o.get("origin")]
     elif isinstance(parsed, list):
         cookies_raw = parsed
     else:
@@ -242,8 +256,8 @@ def normalize_imported_storage_state(raw_payload: Any) -> Dict[str, Any]:
             "sameSite": same_site,
         })
 
-    if not normalized:
-        raise ValueError("No valid cookies with both 'name' and 'domain' were found")
+    if not normalized and not origins:
+        raise ValueError("No valid cookies or SPA origin storage entries were found")
 
     return {"cookies": normalized, "origins": origins}
 
@@ -253,10 +267,11 @@ def import_cookies_session(
     platform: str,
     raw_payload: Any,
 ) -> Dict[str, Any]:
-    """Validate, normalize, encrypt, and save imported browser cookies into the vault."""
+    """Validate, normalize, encrypt, and save imported browser cookies/SPA storage into the vault."""
     _safe_account_id(account_id)
     state = normalize_imported_storage_state(raw_payload)
     cookie_count = len(state["cookies"])
+    origin_count = len(state.get("origins", []))
     state_path = save_session(
         account_id,
         platform,
@@ -264,6 +279,7 @@ def import_cookies_session(
         metadata={
             "import_method": "cookie_json",
             "cookie_count": cookie_count,
+            "origin_count": origin_count,
         },
     )
     return {
@@ -271,6 +287,7 @@ def import_cookies_session(
         "account_id": account_id,
         "platform": platform,
         "cookie_count": cookie_count,
+        "origin_count": origin_count,
         "state_path": str(state_path),
         "status": "imported",
     }
@@ -281,31 +298,38 @@ async def persist_refreshed_context_state(
     account_id: str,
     platform: str,
 ) -> bool:
-    """Save rotated Set-Cookie session tokens back into the vault after a live browser interaction."""
+    """Save rotated Set-Cookie or SPA origin tokens back into the vault after a live browser interaction."""
     if context is None or (not hasattr(context, "cookies") and not hasattr(context, "storage_state")):
         return False
     try:
         safe_id = _safe_account_id(account_id)
         if not (PROFILES_ROOT / safe_id).exists():
             return False
-        fresh_cookies = None
-        if hasattr(context, "cookies") and callable(context.cookies):
-            fresh_cookies = await context.cookies()
-        if fresh_cookies is not None and isinstance(fresh_cookies, list):
-            fresh_state = {"cookies": fresh_cookies, "origins": []}
-        elif hasattr(context, "storage_state") and callable(context.storage_state):
-            fresh_state = await context.storage_state()
-        else:
-            return False
-        if not isinstance(fresh_state, dict) or not fresh_state.get("cookies"):
-            return False
         existing_meta = get_profile_meta(safe_id) or {}
+        effective_platform = str(existing_meta.get("platform") or platform).lower()
+        existing_state = load_storage_state(safe_id) or {}
+        existing_origins = existing_state.get("origins", []) if effective_platform in SPA_ORIGIN_PLATFORMS else []
+
+        fresh_state: Optional[Dict[str, Any]] = None
+        if effective_platform in SPA_ORIGIN_PLATFORMS and hasattr(context, "storage_state") and callable(context.storage_state):
+            snapshot = await context.storage_state()
+            if isinstance(snapshot, dict):
+                fresh_state = snapshot
+        if fresh_state is None and hasattr(context, "cookies") and callable(context.cookies):
+            fresh_cookies = await context.cookies()
+            if isinstance(fresh_cookies, list):
+                fresh_state = {"cookies": fresh_cookies, "origins": existing_origins}
+        if fresh_state is None and hasattr(context, "storage_state") and callable(context.storage_state):
+            fresh_state = await context.storage_state()
+        if not isinstance(fresh_state, dict) or (not fresh_state.get("cookies") and not fresh_state.get("origins")):
+            return False
         extra_meta = {
             k: v
             for k, v in existing_meta.items()
             if k not in ("account_id", "platform", "updated_at", "encrypted")
         }
-        extra_meta["cookie_count"] = len(fresh_state["cookies"])
+        extra_meta["cookie_count"] = len(fresh_state.get("cookies", []))
+        extra_meta["origin_count"] = len(fresh_state.get("origins", []))
         save_session(safe_id, existing_meta.get("platform") or platform, fresh_state, metadata=extra_meta)
         return True
     except Exception:
@@ -313,7 +337,7 @@ async def persist_refreshed_context_state(
 
 
 def audit_all_profiles(check_proxies: bool = True) -> List[Dict[str, Any]]:
-    """Fast multi-account pre-flight audit of vaulted cookie expiration and sticky proxy reachability."""
+    """Fast multi-account pre-flight audit of vaulted cookie/SPA storage and sticky proxy reachability."""
     profiles = list_profiles()
     settings = load_settings()
     now = time.time()
@@ -323,11 +347,20 @@ def audit_all_profiles(check_proxies: bool = True) -> List[Dict[str, Any]]:
         acc_id = str(meta.get("account_id") or "")
         if not acc_id:
             continue
-        cookies = load_cookies(acc_id)
+        full_state = load_storage_state(acc_id)
+        cookies = full_state.get("cookies", []) if isinstance(full_state, dict) else load_cookies(acc_id)
+        origins = full_state.get("origins", []) if isinstance(full_state, dict) else []
+        origins_count = len(origins)
         total = len(cookies)
         expired_count = 0
         valid_count = 0
         domains_set = set()
+
+        for o in origins:
+            if isinstance(o, dict) and o.get("origin"):
+                dom = urlparse(str(o["origin"])).netloc.lstrip("www.").lower()
+                if dom:
+                    domains_set.add(dom)
 
         for c in cookies:
             if not isinstance(c, dict):
@@ -358,12 +391,20 @@ def audit_all_profiles(check_proxies: bool = True) -> List[Dict[str, Any]]:
             if not proxy_ok:
                 proxy_error = str(probe.get("error") or "Proxy unreachable")
 
-        healthy = valid_count > 0 and proxy_ok
+        has_auth_material = valid_count > 0 or origins_count > 0
+        healthy = has_auth_material and proxy_ok
         domains_sorted = sorted(domains_set)[:5]
         domains_label = ", ".join(domains_sorted) if domains_sorted else "no domains"
 
-        if valid_count == 0:
+        if not has_auth_material:
             reason = f"0 valid cookies ({expired_count} expired) — Re-Auth required"
+        elif valid_count == 0 and origins_count > 0:
+            if not proxy_ok:
+                reason = f"{origins_count} SPA storage origin(s) ({domains_label}), but {proxy_error}"
+            elif proxy_masked and proxy_latency_ms is not None:
+                reason = f"{origins_count} SPA storage origin(s) ({domains_label}) · Proxy OK ({proxy_latency_ms} ms)"
+            else:
+                reason = f"{origins_count} SPA storage origin(s) ({domains_label}) · Direct IP"
         elif not proxy_ok:
             reason = f"{valid_count} valid cookies ({domains_label}), but {proxy_error}"
         elif proxy_masked and proxy_latency_ms is not None:
@@ -376,6 +417,7 @@ def audit_all_profiles(check_proxies: bool = True) -> List[Dict[str, Any]]:
             "account_id": acc_id,
             "healthy": healthy,
             "cookie_count": total,
+            "origin_count": origins_count,
             "valid_cookie_count": valid_count,
             "expired_cookie_count": expired_count,
             "domains": domains_sorted,

@@ -918,6 +918,68 @@ async def test_community_and_social_browser_login_registration(tmp_path, monkeyp
     assert "SPA browser storage" in spa_health["reason"]
 
 
+@pytest.mark.asyncio
+async def test_spa_origin_persistence_and_audit(tmp_path, monkeypatch):
+    from src.browser import launch_stealth_context
+    from src.session_vault import audit_all_profiles, import_cookies_session, normalize_imported_storage_state, save_session
+
+    test_profiles = tmp_path / "spa_persist_profiles"
+    monkeypatch.setattr("src.session_vault.PROFILES_ROOT", test_profiles)
+
+    # 1. Importing Playwright storage_state JSON with empty cookies + valid origins must succeed
+    spa_payload = {
+        "cookies": [],
+        "origins": [
+            {
+                "origin": "https://discord.com",
+                "localStorage": [{"name": "token", "value": "discord_spa_tok"}],
+            }
+        ],
+    }
+    normalized = normalize_imported_storage_state(spa_payload)
+    assert normalized["cookies"] == []
+    assert len(normalized["origins"]) == 1
+
+    imported = import_cookies_session("discord_main", "discord", spa_payload)
+    assert imported["success"] is True
+    assert imported["origin_count"] == 1
+
+    # Also test shorthand localStorage export format
+    shorthand = normalize_imported_storage_state(
+        {"origin": "https://web.fluxer.app", "localStorage": {"auth": "fluxer_123"}}
+    )
+    assert shorthand["origins"][0]["localStorage"] == [{"name": "auth", "value": "fluxer_123"}]
+
+    # 2. audit_all_profiles counts SPA origins as healthy even with 0 cookies
+    save_session("discord_main", "discord", spa_payload)
+    audits = audit_all_profiles(check_proxies=False)
+    by_id = {a["account_id"]: a for a in audits}
+    assert by_id["discord_main"]["healthy"] is True
+    assert by_id["discord_main"]["origin_count"] == 1
+    assert "SPA storage origin" in by_id["discord_main"]["reason"]
+
+    # 3. launch_stealth_context preserves origins for SPA platforms like Discord
+    captured_kwargs = {}
+
+    class DummyBrowser:
+        version = "152.0.0.0"
+
+        async def new_context(self, **kwargs):
+            captured_kwargs.update(kwargs)
+            return "ctx"
+
+    class DummyPw:
+        class chromium:
+            @staticmethod
+            async def launch(**kwargs):
+                return DummyBrowser()
+
+    await launch_stealth_context(DummyPw(), account_id="discord_main", headless=True)
+    assert len(captured_kwargs["storage_state"]["origins"]) == 1
+    assert captured_kwargs["storage_state"]["origins"][0]["origin"] == "https://discord.com"
+
+
+
 
 
 

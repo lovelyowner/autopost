@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 MONOREPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CONFIG_PATH = MONOREPO_ROOT / "config" / "account-settings.json"
+SPA_ORIGIN_PLATFORMS = frozenset({"discord", "fluxer", "stoat", "revolt", "matrix", "nostr", "bluesky"})
 
 
 _LAST_ENV_MTIME: float = 0.0

@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from patchright.async_api import async_playwright
 
 from .browser import launch_stealth_context
+from .config import SPA_ORIGIN_PLATFORMS
 from .session_vault import _safe_account_id, save_session
 
 PLATFORM_LOGIN_URLS: Dict[str, str] = {
@@ -478,9 +479,6 @@ def _extract_platform_auth_tokens(
             continue
         matched.add((domain.lower().lstrip("."), name, value))
     return matched
-
-
-SPA_ORIGIN_PLATFORMS = {"discord", "fluxer", "stoat", "revolt", "matrix", "nostr", "bluesky"}
 
 
 def _is_authenticated_snapshot(

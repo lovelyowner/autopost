@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ApiCredentialsManager,
   BrowserSessionConnector,
   VAULT_BROWSER_PLATFORMS,
 } from "../../components/AccountConnectModal";
+import { LetterFilterBar, matchesSearchAndLetter } from "../../components/LetterFilterBar";
 import { OneClickConnectPanel } from "../../components/OneClickConnectPanel";
+import {
+  PLATFORM_SAFETY_CAPS,
+  detectMultiAccountProxyCollisions,
+} from "@/lib/account-safety";
 import { getClientCredentials, getSavedCompanionUrl } from "@/lib/client-vault";
 import {
   COMPANION_CHANGED_EVENT,
@@ -24,6 +29,7 @@ interface ProfileItem {
   proxy_ok?: boolean;
   proxy_latency_ms?: number | null;
   cookie_count?: number;
+  origin_count?: number;
   domains?: string[];
   updated_at?: number;
   encrypted?: boolean;
@@ -95,7 +101,23 @@ export default function AccountVaultPage() {
   const [editorPlatform, setEditorPlatform] = useState<string | null>(null);
   const [selectorForm, setSelectorForm] = useState<SelectorRecipeForm | null>(null);
   const [savingSelectors, setSavingSelectors] = useState(false);
+  const [focusApiProvider, setFocusApiProvider] = useState<string | null>(null);
+  const [capSearch, setCapSearch] = useState("");
+  const [capLetter, setCapLetter] = useState("all");
   const [banner, setBanner] = useState<{ kind: "ok" | "err" | "info"; text: string } | null>(null);
+
+  const proxyCollisions = useMemo(() => detectMultiAccountProxyCollisions(profiles), [profiles]);
+  const availableCapLetters = useMemo(
+    () => new Set(PLATFORM_SAFETY_CAPS.map((c) => c.name.trim().charAt(0).toUpperCase()).filter(Boolean)),
+    [],
+  );
+  const filteredSafetyCaps = useMemo(
+    () =>
+      PLATFORM_SAFETY_CAPS.filter((c) =>
+        matchesSearchAndLetter(c.name, c.id, capSearch, capLetter, `${c.connectionAdvice} ${c.notes}`),
+      ),
+    [capSearch, capLetter],
+  );
 
   const loadVaultState = async () => {
     try {
@@ -129,6 +151,8 @@ export default function AccountVaultPage() {
               ? [p.platform]
               : [],
             proxy: p.proxy || null,
+            cookie_count: p.cookie_count,
+            origin_count: p.origin_count,
             updated_at: p.updated_at ? p.updated_at * 1000 : Date.now(),
             encrypted: Boolean(p.encrypted),
             healthy: true,
@@ -231,6 +255,7 @@ export default function AccountVaultPage() {
             proxy_ok: hit.proxy_ok,
             proxy_latency_ms: hit.proxy_latency_ms,
             cookie_count: hit.valid_cookie_count ?? hit.cookie_count,
+            origin_count: hit.origin_count ?? prof.origin_count,
             domains: hit.domains,
             statusText: hit.reason || prof.statusText,
           };
@@ -545,10 +570,12 @@ export default function AccountVaultPage() {
         onConnected={() => {
           void loadVaultState();
         }}
-        onSelectProvider={() => {
+        onSelectProvider={(providerId) => {
+          setFocusApiProvider(providerId);
           document.getElementById("api-credentials-section")?.scrollIntoView({ behavior: "smooth" });
         }}
         onOpenBrowserLogin={(platformId) => {
+          setSelectedPlatform(platformId);
           void launchConnectWindow(newAccountId || "main_creator", platformId);
         }}
       />
@@ -610,6 +637,19 @@ export default function AccountVaultPage() {
           </div>
         </div>
 
+        {proxyCollisions.length > 0 && (
+          <div className="p-3.5 rounded-lg bg-white border border-[#cccccc] space-y-1.5 text-xs">
+            <div className="font-semibold text-[#333333]">
+              Multi-Account IP / Proxy Overlap Warning ({proxyCollisions.length})
+            </div>
+            <ul className="list-disc list-inside space-y-1 text-[#666666]">
+              {proxyCollisions.map((w) => (
+                <li key={`${w.platform}-${w.endpointLabel}`}>{w.message}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {profiles.length === 0 ? (
           <div className="p-6 rounded-lg bg-white border border-[#cccccc] text-xs text-[#999999] text-center space-y-2">
             <p className="text-[#666666] font-medium">No browser session profiles vaulted in ./profiles yet.</p>
@@ -648,6 +688,11 @@ export default function AccountVaultPage() {
                     {typeof p.cookie_count === "number" && (
                       <span className="px-2 py-0.5 rounded bg-white text-[#666666] border border-[#cccccc] font-mono text-[10px]">
                         {p.cookie_count} cookies
+                      </span>
+                    )}
+                    {typeof p.origin_count === "number" && p.origin_count > 0 && (
+                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] border border-[#cccccc] font-mono text-[10px]">
+                        {p.origin_count} SPA origins
                       </span>
                     )}
                   </div>
@@ -880,6 +925,51 @@ export default function AccountVaultPage() {
         )}
       </div>
 
+      {/* Multi-Account Anti-Ban Caps & Proxy Reference */}
+      <div className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-[#333333]">Multi-Account Anti-Ban Limits &amp; Proxy vs Wi-Fi Guide</h2>
+          <p className="text-xs text-[#666666] leading-relaxed">
+            Running 1–3+ accounts safely: prefer <strong>Official API / OAuth / Webhooks</strong> first. For browser sessions, keep 1–2 accounts max per clean Home/Mobile IP, use <strong>1 Sticky Residential Proxy per extra alias</strong> (avoid rotating datacenter VPNs), and space autoposts with human jitter.
+          </p>
+        </div>
+
+        <LetterFilterBar
+          searchQuery={capSearch}
+          onSearchChange={setCapSearch}
+          selectedLetter={capLetter}
+          onLetterChange={setCapLetter}
+          availableLetters={availableCapLetters}
+          searchPlaceholder="Filter safety rules: x, instagram, discord, fluxer, stoat, matrix, bluesky, mastodon, nostr, pinterest..."
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+          {filteredSafetyCaps.length === 0 ? (
+            <div className="col-span-full p-3 rounded-lg bg-white border border-[#cccccc] text-[#666666]">
+              No safety guide entries match &ldquo;{capSearch || capLetter}&rdquo;.
+            </div>
+          ) : (
+            filteredSafetyCaps.map((cap) => (
+              <div key={cap.id} className="p-3 rounded-lg bg-white border border-[#cccccc] space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-[#333333]">{cap.name}</span>
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white border border-[#cccccc] text-[#333333]">
+                    {cap.safeAccountsPerIp} / IP
+                  </span>
+                </div>
+                <div className="text-[11px] text-[#666666]">
+                  <strong>Daily Cap:</strong> {cap.maxPostsPerDayPerAccount} · <strong>Min Gap:</strong> &gt;= {cap.minGapMinutes}m
+                </div>
+                <div className="text-[11px] text-[#666666]">
+                  <strong>Network:</strong> {cap.connectionAdvice}
+                </div>
+                <p className="text-[10px] text-[#999999] leading-snug">{cap.notes}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       {/* REST API & Token Accounts Configuration Card */}
       <div id="api-credentials-section" className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
         <div>
@@ -889,7 +979,7 @@ export default function AccountVaultPage() {
           </p>
         </div>
 
-        <ApiCredentialsManager onChanged={() => void loadVaultState()} />
+        <ApiCredentialsManager focusProviderId={focusApiProvider} onChanged={() => void loadVaultState()} />
 
         <details className="text-xs text-[#999999] pt-2 border-t border-[#cccccc]">
           <summary className="cursor-pointer hover:text-[#333333] font-medium">

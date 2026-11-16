@@ -19,6 +19,11 @@ import {
   vaultApiFetch,
 } from "@/lib/companion-bridge";
 import { buildClientApiFlags } from "@/lib/credential-mapping";
+import {
+  normalizePlatformFamily,
+  PLATFORM_SAFETY_CAPS,
+  SPA_BROWSER_ORIGIN_PLATFORMS,
+} from "@/lib/account-safety";
 import { LetterFilterBar, matchesSearchAndLetter } from "./LetterFilterBar";
 import { OneClickConnectPanel } from "./OneClickConnectPanel";
 
@@ -526,6 +531,38 @@ export function BrowserSessionConnector({
     return VAULT_BROWSER_PLATFORMS.filter((p) => spotlightPlatformIds.includes(p.id));
   }, [filteredBrowserPlatforms, platformSearch, letterFilter]);
 
+  const [copiedSpaSnippet, setCopiedSpaSnippet] = useState(false);
+
+  const selectedSafetyCap = useMemo(() => {
+    const fam = normalizePlatformFamily(platformId);
+    return PLATFORM_SAFETY_CAPS.find((c) => c.id === fam) || null;
+  }, [platformId]);
+
+  const isSpaPlatform = useMemo(
+    () => SPA_BROWSER_ORIGIN_PLATFORMS.has(normalizePlatformFamily(platformId)),
+    [platformId],
+  );
+
+  const handleCopySpaSnippet = async () => {
+    const snippet =
+      "copy(JSON.stringify({cookies:[],origins:[{origin:location.origin,localStorage:Object.entries(localStorage).map(([name,value])=>({name,value}))}]}))";
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setCopiedSpaSnippet(true);
+      setMsg({
+        ok: true,
+        text: "Copied DevTools Console snippet! Open the logged-in site -> F12 Console -> Paste & Enter -> then Ctrl+V here.",
+      });
+      setTimeout(() => setCopiedSpaSnippet(false), 3000);
+    } catch {
+      setCookiesText(snippet);
+      setMsg({
+        ok: true,
+        text: "Clipboard blocked; snippet placed in the box temporarily for you to copy into DevTools Console.",
+      });
+    }
+  };
+
   const handleSelectBrowserPlatform = (nextId: string) => {
     setPlatformId(nextId);
     onPlatformChange?.(nextId);
@@ -784,9 +821,13 @@ export function BrowserSessionConnector({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || data.error || "Failed to import cookies");
+      const importedOrigins = Number(data.origin_count || 0);
       setMsg({
         ok: true,
-        text: `Imported ${data.cookie_count} cookies into ./profiles/${cleanAlias}! Ready to post & inspect DOM.`,
+        text:
+          importedOrigins > 0 && Number(data.cookie_count || 0) === 0
+            ? `Imported ${importedOrigins} SPA storage origin(s) into ./profiles/${cleanAlias}! Ready to post & inspect DOM.`
+            : `Imported ${data.cookie_count} cookies${importedOrigins > 0 ? ` + ${importedOrigins} SPA origins` : ""} into ./profiles/${cleanAlias}! Ready to post & inspect DOM.`,
       });
       setCookiesText("");
       onConnected?.(cleanAlias);
@@ -1002,8 +1043,15 @@ export function BrowserSessionConnector({
               className="w-full bg-white border border-[#cccccc] rounded px-3 py-2 text-[#333333] font-mono"
             />
             <p className="text-[10px] text-[#999999] mt-1">
-              Want 5–10 accounts on the same platform (e.g. X, OnlyFans, Clips4Sale)? Click <strong>+ Next Account Alias</strong> to create <code className="text-[#666666]">{platformId.split("_")[0]}_acc_1</code>, <code className="text-[#666666]">{platformId.split("_")[0]}_acc_2</code>, etc.
+              Want multiple accounts on the same platform? Click <strong>+ Next Account Alias</strong> to create <code className="text-[#666666]">{platformId.split("_")[0]}_acc_1</code>, <code className="text-[#666666]">{platformId.split("_")[0]}_acc_2</code>, etc.
             </p>
+            {selectedSafetyCap && (
+              <div className="mt-1.5 rounded border border-[#cccccc] bg-white px-2.5 py-1.5 text-[10px] text-[#666666] leading-snug">
+                <span className="font-semibold text-[#333333]">Anti-Ban Cap ({selectedSafetyCap.name}):</span>{" "}
+                {selectedSafetyCap.safeAccountsPerIp} accounts/IP · {selectedSafetyCap.maxPostsPerDayPerAccount} · &gt;= {selectedSafetyCap.minGapMinutes}m gap.{" "}
+                <span className="text-[#999999]">{selectedSafetyCap.connectionAdvice}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1087,12 +1135,27 @@ export function BrowserSessionConnector({
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="p-2.5 rounded bg-white border border-[#cccccc] text-[11px] text-[#666666] space-y-1">
-              <div className="font-semibold text-[#333333]">Fastest fallback if Chrome blocks login or runs headless:</div>
+            <div className="p-2.5 rounded bg-white border border-[#cccccc] text-[11px] text-[#666666] space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="font-semibold text-[#333333]">Fastest fallback if Chrome blocks login or runs headless:</div>
+                {isSpaPlatform && (
+                  <button
+                    type="button"
+                    onClick={() => void handleCopySpaSnippet()}
+                    className="rounded border border-[#cccccc] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#333333] cursor-pointer"
+                  >
+                    {copiedSpaSnippet ? "Copied DevTools Snippet" : "Copy DevTools SPA Extractor"}
+                  </button>
+                )}
+              </div>
               <ol className="list-decimal list-inside space-y-0.5 text-[#999999]">
                 <li>Log into your account in your everyday Chrome / Edge / Firefox browser.</li>
-                <li>Install the free <strong>Cookie-Editor</strong> extension -&gt; click <strong>Export</strong> -&gt; <strong>Export as JSON</strong>.</li>
-                <li>Paste that JSON below (or load a Playwright <code className="text-[#333333]">storage_state.json</code> file) and save.</li>
+                <li>
+                  {isSpaPlatform
+                    ? "For SPA apps (Discord, Fluxer, Stoat, Element, Primal, Bluesky), click Copy DevTools SPA Extractor, run it in F12 Console on the logged-in tab, or export Playwright storage_state.json."
+                    : "Install the free Cookie-Editor extension -> click Export -> Export as JSON (or load Playwright storage_state.json)."}
+                </li>
+                <li>Paste that JSON below (supports Cookie-Editor arrays AND Playwright <code className="text-[#333333]">origins</code> / <code className="text-[#333333]">localStorage</code>) and save.</li>
               </ol>
             </div>
             <div className="flex items-center justify-between gap-2">
