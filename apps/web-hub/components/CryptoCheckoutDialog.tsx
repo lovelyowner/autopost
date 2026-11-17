@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Check, Copy, ExternalLink, ShieldCheck, Wallet, X } from "lucide-react";
 import {
   CRYPTO_RAILS,
   type CryptoRailId,
@@ -123,7 +122,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
       setCopiedField(label);
       setTimeout(() => setCopiedField(""), 1800);
     } catch {
-      // Clipboard blocked in non-HTTPS context
+      // Clipboard blocked
     }
   };
 
@@ -285,11 +284,11 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
         }
         backdropDownRef.current = false;
       }}
-      className="m-auto w-[min(94vw,680px)] max-h-[90vh] overflow-y-auto rounded border border-[#cccccc] bg-white p-0 text-[#333333]"
+      className="m-auto w-[min(94vw,680px)] max-h-[90vh] overflow-y-auto rounded bg-white p-0 text-[#333333] shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
     >
       {plan && (
-        <div className="p-5 sm:p-6 space-y-5 bg-white">
-          <div className="flex items-start justify-between gap-4 border-b border-[#cccccc] pb-4">
+        <div className="p-6 space-y-6 bg-white">
+          <div className="flex items-start justify-between gap-4">
             <div>
               <h2 id="crypto-checkout-title" className="text-lg font-bold text-[#333333]">
                 Pay via Crypto · {plan.name} (${plan.priceUsd}/mo)
@@ -301,15 +300,13 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close checkout dialog"
-              className="rounded border border-[#cccccc] bg-white px-2.5 py-1.5 text-xs text-[#666666] hover:font-bold hover:text-[#333333] inline-flex items-center gap-1"
+              className="rounded border border-[#cccccc] bg-white px-3 py-1.5 text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
             >
-              <X className="w-3.5 h-3.5" />
               Close
             </button>
           </div>
 
-          <section className="space-y-2">
+          <section className="space-y-2.5 bg-white">
             <h3 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
               1. Choose Low-Fee Network
             </h3>
@@ -322,10 +319,10 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
                     type="button"
                     onClick={() => setRailId(rail.id)}
                     aria-pressed={active}
-                    className={`text-left rounded border bg-white p-2.5 transition-colors ${
+                    className={`text-left rounded border border-[#cccccc] bg-white p-2.5 ${
                       active
-                        ? "border-[#333333] font-bold text-[#333333]"
-                        : "border-[#cccccc] text-[#666666] hover:font-bold hover:text-[#333333]"
+                        ? "font-bold text-[#333333]"
+                        : "text-[#666666] hover:font-bold hover:text-[#333333]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-1 text-xs">
@@ -333,7 +330,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
                         {rail.name}
                       </span>
                       {rail.recommended && (
-                        <span className="text-[10px] border border-[#cccccc] px-1.5 py-0.5 text-[#666666]">
+                        <span className="text-[10px] text-[#999999] font-normal">
                           Lowest Fee
                         </span>
                       )}
@@ -347,7 +344,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
             </div>
           </section>
 
-          <section className="rounded border border-[#cccccc] bg-white p-4 space-y-3">
+          <section className="bg-white space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
                 2. Transfer Details
@@ -360,7 +357,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
             </div>
 
             {quoteData && !quoteData.configured ? (
-              <div className="rounded border border-[#cccccc] bg-white p-3 text-xs text-[#666666] space-y-1">
+              <div className="bg-white text-xs text-[#666666] space-y-1">
                 <div className="font-bold text-[#333333]">
                   Receiving Treasury Wallet Not Set on Server Yet
                 </div>
@@ -373,20 +370,15 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
             ) : (
               quoteData?.quote.recipient && (
                 <div className="space-y-2 text-xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#cccccc] pb-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[#666666]">Recipient Address:</span>
                     <div className="flex items-center gap-2 font-mono text-[#333333]">
                       <span className="break-all">{quoteData.quote.recipient}</span>
                       <button
                         type="button"
                         onClick={() => copyText("recipient", quoteData.quote.recipient || "")}
-                        className="border border-[#cccccc] bg-white px-2 py-0.5 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333] inline-flex items-center gap-1"
+                        className="rounded border border-[#cccccc] bg-white px-2.5 py-0.5 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
                       >
-                        {copiedField === "recipient" ? (
-                          <Check className="w-3 h-3" />
-                        ) : (
-                          <Copy className="w-3 h-3" />
-                        )}
                         {copiedField === "recipient" ? "Copied" : "Copy"}
                       </button>
                     </div>
@@ -399,15 +391,14 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
               )
             )}
 
-            <div className="flex flex-wrap items-center gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               {selectedRail.family === "evm" && (
                 <button
                   type="button"
                   disabled={submittingWallet || loadingQuote || !quoteData?.configured}
                   onClick={handleWalletPay}
-                  className="rounded border border-[#333333] bg-white px-3.5 py-2 text-xs font-bold text-[#333333] hover:font-bold disabled:opacity-50 inline-flex items-center gap-1.5"
+                  className="rounded border border-[#cccccc] bg-white px-3.5 py-2 text-xs font-bold text-[#333333] hover:font-bold disabled:opacity-50"
                 >
-                  <Wallet className="w-3.5 h-3.5" />
                   {submittingWallet
                     ? "Confirm in Wallet..."
                     : `Pay ${plan.priceUsd.toFixed(2)} USDC with Browser Wallet`}
@@ -421,10 +412,9 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
                 }
                 target="_blank"
                 rel="noreferrer"
-                className="rounded border border-[#cccccc] bg-white px-3.5 py-2 text-xs text-[#666666] hover:font-bold hover:text-[#333333] inline-flex items-center gap-1.5"
+                className="text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
               >
                 Open Fathom Crypto Dashboard
-                <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
           </section>
@@ -437,7 +427,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
             className="space-y-2.5"
           >
             <h3 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
-              3. Verify On-Chain Transaction Hash & Mint License
+              3. Verify On-Chain Transaction Hash &amp; Mint License
             </h3>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
@@ -450,27 +440,26 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
                     : "Paste 0x transaction hash..."
                 }
                 aria-label="Blockchain transaction hash or signature"
-                className="flex-1 rounded border border-[#cccccc] bg-white px-3 py-2 text-xs font-mono text-[#333333]"
+                className="flex-1 bg-white border-0 border-b border-[#cccccc] px-1 py-2 text-xs font-mono text-[#333333]"
               />
               <button
                 type="submit"
                 disabled={verifying || !txHash.trim()}
-                className="rounded border border-[#cccccc] bg-white px-4 py-2 text-xs font-bold text-[#333333] hover:font-bold disabled:opacity-50 inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+                className="rounded border border-[#cccccc] bg-white px-4 py-2 text-xs font-bold text-[#333333] hover:font-bold disabled:opacity-50 whitespace-nowrap"
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
                 {verifying ? "Verifying RPC..." : "Verify & Unlock"}
               </button>
             </div>
           </form>
 
           {statusMessage && (
-            <div className="rounded border border-[#cccccc] bg-white p-3 text-xs text-[#333333]">
+            <div className="bg-white text-xs text-[#333333] font-bold">
               {statusMessage}
             </div>
           )}
 
           {errorMessage && (
-            <div className="rounded border border-[#333333] bg-white p-3 text-xs font-bold text-[#333333]">
+            <div className="bg-white text-xs font-bold text-[#333333]">
               {errorMessage}
             </div>
           )}

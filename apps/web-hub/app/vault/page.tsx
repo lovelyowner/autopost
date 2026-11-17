@@ -489,7 +489,7 @@ export default function AccountVaultPage() {
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
+      <div className="bg-white rounded-xl p-6 space-y-4">
         <div>
           <h1 className="text-2xl font-bold text-[#333333] mb-2">Interactive Account Login Vault &amp; Credentials</h1>
           <p className="text-sm text-[#999999]">
@@ -497,20 +497,20 @@ export default function AccountVaultPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-2 border-t border-[#cccccc]">
-          <div className="p-3 rounded-lg bg-white border border-[#cccccc] space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-2">
+          <div className="p-3 rounded-lg bg-white space-y-1">
             <span className="text-[#333333] font-bold uppercase tracking-wider text-[10px]">Step 1A: Browser Accounts</span>
             <p className="text-[#666666]">
               For Pornhub, Fansly, OnlyFans, X, Instagram, etc.: enter an alias like <code className="font-mono text-[#333333]">main_creator</code> below and click <strong>Launch Connect Window</strong>. Log in manually (with 2FA) in the opened Chrome window; cookies auto-save.
             </p>
           </div>
-          <div className="p-3 rounded-lg bg-white border border-[#cccccc] space-y-1">
+          <div className="p-3 rounded-lg bg-white space-y-1">
             <span className="text-[#333333] font-bold uppercase tracking-wider text-[10px]">Step 1B: API / Bot Accounts</span>
             <p className="text-[#666666]">
               For Bluesky, Mastodon, Telegram, Discord, Slack, Reddit, e621, DeviantArt, Inkbunny: paste tokens directly into the <strong>Direct API &amp; Bot Accounts</strong> forms below and click <strong>Save &amp; Test Live Connection</strong>. No restarts required!
             </p>
           </div>
-          <div className="p-3 rounded-lg bg-white border border-[#cccccc] space-y-1">
+          <div className="p-3 rounded-lg bg-white space-y-1">
             <span className="text-[#333333] font-bold uppercase tracking-wider text-[10px]">Step 2: Launch Live Campaign</span>
             <p className="text-[#666666]">
               In Composer (<code className="font-mono text-[#333333]">/</code>), stage media, match your Vault alias (<code className="font-mono text-[#333333]">main_creator</code>), and enable <strong>Strict Live Only</strong> before clicking Launch.
@@ -521,10 +521,10 @@ export default function AccountVaultPage() {
 
       {banner && (
         <div
-          className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-4 ${ banner.kind === "ok" ? "bg-white border-[#cccccc] text-[#333333]" : banner.kind === "info" ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
+          className={`p-3 rounded-lg text-xs flex items-center justify-between gap-4 ${ banner.kind === "ok" ? "bg-white text-[#333333]" : banner.kind === "info" ? "bg-white text-[#333333]" : "bg-white text-[#333333]" }`}
         >
           <span>{banner.text}</span>
-          <button onClick={() => setBanner(null)} className="text-[11px] opacity-75 hover:opacity-100 whitespace-nowrap">
+          <button onClick={() => setBanner(null)} className="text-[11px] opacity-75 hover:opacity-100 whitespace-nowrap border border-[#cccccc] rounded bg-white hover:font-bold">
             Dismiss
           </button>
         </div>
@@ -532,14 +532,14 @@ export default function AccountVaultPage() {
 
       {/* System Worker Readiness Strip */}
       {readiness && (
-        <div className="bg-white border border-[#cccccc] rounded-xl p-4 space-y-2.5">
+        <div className="bg-white rounded-xl p-4 space-y-2.5">
           <h2 className="text-xs font-semibold text-[#333333] uppercase tracking-wider">Worker Services Readiness</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
             {Object.entries(readiness.services).map(([key, ok]) => (
-              <div key={key} className="flex items-center justify-between p-2 rounded bg-white border border-[#cccccc]">
+              <div key={key} className="flex items-center justify-between p-2 rounded bg-white">
                 <span className="text-[#666666] font-mono text-[10px] truncate mr-1">{key}</span>
                 <span
-                  className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${ ok ? "border border-[#cccccc] bg-white text-[#333333]" : "border border-[#cccccc] bg-white text-[#999999]" }`}
+                  className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${ ok ? "bg-white text-[#333333]" : "bg-white text-[#999999]" }`}
                 >
                   {ok ? "READY" : "OFF"}
                 </span>
@@ -566,14 +566,14 @@ export default function AccountVaultPage() {
       />
 
       {/* Connect Account Action Card */}
-      <div className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
+      <div className="bg-white rounded-xl p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-[#333333]">Connect Browser Session (Chrome Login or Cookie-Editor JSON)</h2>
           {reauthAlias && (
             <button
               type="button"
               onClick={() => void finishReauthNow()}
-              className="border border-[#cccccc] px-3 py-1.5 rounded bg-white hover:bg-white text-[#333333] text-xs font-bold cursor-pointer"
+              className="border px-3 py-1.5 rounded bg-white text-[#333333] text-xs font-bold cursor-pointer border-[#cccccc] hover:font-bold"
             >
               Finish &amp; Save Active Re-Auth ({reauthAlias})
             </button>
@@ -592,30 +592,30 @@ export default function AccountVaultPage() {
       </div>
 
       {/* Connected Profiles List */}
-      <div className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
+      <div className="bg-white rounded-xl p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-[#333333]">Vaulted Account Profiles ({profiles.length})</h2>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => void handleExportBundle()}
-              className="text-xs px-2.5 py-1.5 rounded bg-white hover:bg-white text-[#333333] border border-[#cccccc] font-medium cursor-pointer"
+              className="text-xs px-2.5 py-1.5 rounded bg-white text-[#333333] border font-medium cursor-pointer border-[#cccccc] hover:font-bold"
             >
               Export Backup (.json)
             </button>
-            <label className="text-xs px-2.5 py-1.5 rounded bg-white hover:bg-white text-[#333333] border border-[#cccccc] font-medium cursor-pointer">
+            <label className="text-xs px-2.5 py-1.5 rounded bg-white text-[#333333] border font-medium cursor-pointer border-[#cccccc]">
               Import Backup (.json)
               <input
                 type="file"
                 accept="application/json,.json"
                 onChange={handleImportBundleFile}
-                className="hidden"
+                className="hidden border-0 border-b border-[#cccccc] rounded-none bg-white"
               />
             </label>
             <button
               onClick={handleVerifyAllHealth}
               disabled={checkingHealth || profiles.length === 0}
-              className="text-xs px-3 py-1.5 rounded bg-white hover:bg-white text-[#333333] border border-[#cccccc] font-medium disabled:opacity-50 cursor-pointer"
+              className="text-xs px-3 py-1.5 rounded bg-white text-[#333333] border font-medium disabled:opacity-50 cursor-pointer border-[#cccccc] hover:font-bold"
             >
               {checkingHealth ? "Checking..." : "Pre-Flight Verify All Sessions"}
             </button>
@@ -623,7 +623,7 @@ export default function AccountVaultPage() {
         </div>
 
         {proxyCollisions.length > 0 && (
-          <div className="p-3.5 rounded-lg bg-white border border-[#cccccc] space-y-1.5 text-xs">
+          <div className="p-3.5 rounded-lg bg-white space-y-1.5 text-xs">
             <div className="font-semibold text-[#333333]">
               Multi-Account IP / Proxy Overlap Warning ({proxyCollisions.length})
             </div>
@@ -636,7 +636,7 @@ export default function AccountVaultPage() {
         )}
 
         {profiles.length === 0 ? (
-          <div className="p-6 rounded-lg bg-white border border-[#cccccc] text-xs text-[#999999] text-center space-y-2">
+          <div className="p-6 rounded-lg bg-white text-xs text-[#999999] text-center space-y-2">
             <p className="text-[#666666] font-medium">No browser session profiles vaulted in ./profiles yet.</p>
             <p>Connect an account above or run the CLI helper to authenticate your real accounts cleanly.</p>
           </div>
@@ -645,7 +645,7 @@ export default function AccountVaultPage() {
             {profiles.map((p) => (
               <div
                 key={p.account_id}
-                className="p-4 rounded-lg bg-white border border-[#cccccc] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                className="p-4 rounded-lg bg-white flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -653,35 +653,35 @@ export default function AccountVaultPage() {
                     {(p.platforms && p.platforms.length > 0 ? p.platforms : [p.platform]).map((plat) => (
                       <span
                         key={plat}
-                        className="border border-[#cccccc] px-2 py-0.5 rounded bg-white text-[#666666] font-mono text-[11px]"
+                        className="px-2 py-0.5 rounded bg-white text-[#666666] font-mono text-[11px]"
                       >
                         {plat}
                       </span>
                     ))}
                     <span
-                      className={`px-2 py-0.5 rounded font-medium text-[10px] ${ p.healthy ? "bg-white text-[#333333] border border-[#cccccc]" : "bg-white text-[#333333] border border-[#cccccc]" }`}
+                      className={`px-2 py-0.5 rounded font-medium text-[10px] ${ p.healthy ? "bg-white text-[#333333]" : "bg-white text-[#333333]" }`}
                     >
                       {p.healthy ? "HEALTHY" : "EXPIRED"}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded font-mono text-[10px] ${ p.proxy ? p.proxy_ok === false ? "bg-white text-[#333333] border border-[#cccccc]" : "bg-white text-[#333333] border border-[#cccccc]" : "bg-white text-[#999999] border border-[#cccccc]" }`}
+                      className={`px-2 py-0.5 rounded font-mono text-[10px] ${ p.proxy ? p.proxy_ok === false ? "bg-white text-[#333333]" : "bg-white text-[#333333]" : "bg-white text-[#999999]" }`}
                     >
                       {p.proxy
                         ? `PROXY: ${p.proxy}${p.proxy_latency_ms != null ? ` (${p.proxy_latency_ms}ms)` : ""}`
                         : "DIRECT IP"}
                     </span>
                     {typeof p.cookie_count === "number" && (
-                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] border border-[#cccccc] font-mono text-[10px]">
+                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]">
                         {p.cookie_count} cookies
                       </span>
                     )}
                     {typeof p.origin_count === "number" && p.origin_count > 0 && (
-                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] border border-[#cccccc] font-mono text-[10px]">
+                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]">
                         {p.origin_count} SPA origins
                       </span>
                     )}
                     {typeof p.posts_last_24h === "number" && (
-                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] border border-[#cccccc] font-mono text-[10px]">
+                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]">
                         {p.posts_last_24h} posts/24h
                       </span>
                     )}
@@ -696,7 +696,7 @@ export default function AccountVaultPage() {
                   <button
                     type="button"
                     onClick={() => handleCloneToNextAlias(p)}
-                    className="px-2.5 py-1 rounded bg-white hover:bg-white text-[#333333] border border-[#cccccc] cursor-pointer"
+                    className="px-2.5 py-1 rounded bg-white text-[#333333] border cursor-pointer border-[#cccccc] hover:font-bold"
                     title="Pre-fill the next numbered account alias (#2, #3...) for fast multi-account onboarding"
                   >
                     + Next Alias
@@ -704,19 +704,19 @@ export default function AccountVaultPage() {
                   <button
                     onClick={() => void handleInspectSelectors(p.account_id, p.platform || selectedPlatform)}
                     disabled={inspectingId === p.account_id}
-                    className="border border-[#cccccc] px-2.5 py-1 rounded bg-white hover:bg-white text-[#333333] cursor-pointer disabled:opacity-50"
+                    className="border px-2.5 py-1 rounded bg-white text-[#333333] cursor-pointer disabled:opacity-50 border-[#cccccc] hover:font-bold"
                   >
                     {inspectingId === p.account_id ? "Inspecting..." : "Inspect DOM"}
                   </button>
                   <button
                     onClick={() => launchConnectWindow(p.account_id, p.platform || selectedPlatform)}
-                    className="border border-[#cccccc] px-2.5 py-1 rounded bg-white hover:bg-white text-[#333333]"
+                    className="border px-2.5 py-1 rounded bg-white text-[#333333] border-[#cccccc] hover:font-bold"
                   >
                     Re-Auth
                   </button>
                   <button
                     onClick={() => handleDeleteProfile(p.account_id)}
-                    className="border border-[#cccccc] px-2.5 py-1 rounded bg-white hover:bg-white text-[#333333]"
+                    className="border px-2.5 py-1 rounded bg-white text-[#333333] border-[#cccccc] hover:font-bold"
                   >
                     Remove
                   </button>
@@ -726,7 +726,7 @@ export default function AccountVaultPage() {
           </div>
         )}
 
-        <div className="pt-3 border-t border-[#cccccc] space-y-2 text-xs">
+        <div className="pt-3 space-y-2 text-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="text-[#999999]">
               Optional Custom Target URL Override for DOM Selector Inspector:
@@ -734,7 +734,7 @@ export default function AccountVaultPage() {
             <button
               type="button"
               onClick={() => void openSelectorEditor(selectedPlatform)}
-              className="border border-[#cccccc] px-2.5 py-1 rounded bg-white hover:bg-white text-[#333333] font-medium cursor-pointer"
+              className="border px-2.5 py-1 rounded bg-white text-[#333333] font-medium cursor-pointer border-[#cccccc] hover:font-bold"
             >
               Edit Selector Recipe ({selectedPlatform})
             </button>
@@ -744,12 +744,12 @@ export default function AccountVaultPage() {
             value={inspectCustomUrl}
             onChange={(e) => setInspectCustomUrl(e.target.value)}
             placeholder="Leave empty to use built-in platform upload URL from recipe"
-            className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-xs text-[#333333] font-mono"
+            className="w-full bg-white px-3 py-1.5 text-xs text-[#333333] font-mono border-0 border-b border-[#cccccc] rounded-none"
           />
         </div>
 
         {inspectReport && (
-          <div className="p-4 rounded-lg bg-white border border-[#cccccc] space-y-3 text-xs">
+          <div className="p-4 rounded-lg bg-white space-y-3 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold text-[#333333]">
                 Selector Recipe Inspection: {inspectReport.platform_id} ({inspectReport.account_id})
@@ -764,7 +764,7 @@ export default function AccountVaultPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   {Object.entries(inspectReport.selectors || {}).map(([group, list]) => (
-                    <div key={group} className="p-2 rounded bg-white border border-[#cccccc] space-y-1">
+                    <div key={group} className="p-2 rounded bg-white space-y-1">
                       <span className="font-mono uppercase text-[10px] text-[#666666] font-bold block">{group}</span>
                       {list.map((entry) => (
                         <div key={entry.selector} className="flex items-center justify-between font-mono text-[10px]">
@@ -787,7 +787,7 @@ export default function AccountVaultPage() {
                           : `/api/vault/preview/${encodeURIComponent(inspectReport.preview_screenshot)}`
                       }
                       alt="DOM Inspector preview screenshot"
-                      className="w-full rounded border border-[#cccccc] bg-white"
+                      className="w-full rounded bg-white"
                     />
                   </div>
                 )}
@@ -797,7 +797,7 @@ export default function AccountVaultPage() {
         )}
 
         {editorPlatform && selectorForm && (
-          <div className="p-4 rounded-lg bg-white border border-[#cccccc] space-y-3 text-xs">
+          <div className="p-4 rounded-lg bg-white space-y-3 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="font-semibold text-[#333333]">
@@ -811,7 +811,7 @@ export default function AccountVaultPage() {
                 <button
                   type="button"
                   onClick={() => void handleResetSelectors()}
-                  className="border border-[#cccccc] px-2.5 py-1 rounded bg-white hover:bg-white text-[#666666] cursor-pointer"
+                  className="border px-2.5 py-1 rounded bg-white text-[#666666] cursor-pointer border-[#cccccc] hover:font-bold"
                 >
                   Reset Defaults
                 </button>
@@ -821,7 +821,7 @@ export default function AccountVaultPage() {
                     setEditorPlatform(null);
                     setSelectorForm(null);
                   }}
-                  className="border border-[#cccccc] px-2.5 py-1 rounded bg-white hover:bg-white text-[#999999] cursor-pointer"
+                  className="border px-2.5 py-1 rounded bg-white text-[#999999] cursor-pointer border-[#cccccc] hover:font-bold"
                 >
                   Close
                 </button>
@@ -835,7 +835,7 @@ export default function AccountVaultPage() {
                   type="text"
                   value={selectorForm.upload_url}
                   onChange={(e) => setSelectorForm({ ...selectorForm, upload_url: e.target.value })}
-                  className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 font-mono text-[#333333]"
+                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
                 />
               </div>
               <div>
@@ -844,7 +844,7 @@ export default function AccountVaultPage() {
                   type="text"
                   value={selectorForm.url_prefix}
                   onChange={(e) => setSelectorForm({ ...selectorForm, url_prefix: e.target.value })}
-                  className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 font-mono text-[#333333]"
+                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
                 />
               </div>
               <div>
@@ -853,7 +853,7 @@ export default function AccountVaultPage() {
                   rows={2}
                   value={selectorForm.file_input_selectors}
                   onChange={(e) => setSelectorForm({ ...selectorForm, file_input_selectors: e.target.value })}
-                  className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 font-mono text-[#333333]"
+                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
                 />
               </div>
               <div>
@@ -862,7 +862,7 @@ export default function AccountVaultPage() {
                   rows={2}
                   value={selectorForm.title_selectors}
                   onChange={(e) => setSelectorForm({ ...selectorForm, title_selectors: e.target.value })}
-                  className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 font-mono text-[#333333]"
+                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
                 />
               </div>
               <div>
@@ -871,7 +871,7 @@ export default function AccountVaultPage() {
                   rows={2}
                   value={selectorForm.description_selectors}
                   onChange={(e) => setSelectorForm({ ...selectorForm, description_selectors: e.target.value })}
-                  className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 font-mono text-[#333333]"
+                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
                 />
               </div>
               <div>
@@ -880,7 +880,7 @@ export default function AccountVaultPage() {
                   rows={2}
                   value={selectorForm.tag_selectors}
                   onChange={(e) => setSelectorForm({ ...selectorForm, tag_selectors: e.target.value })}
-                  className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 font-mono text-[#333333]"
+                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
                 />
               </div>
               <div>
@@ -889,7 +889,7 @@ export default function AccountVaultPage() {
                   rows={2}
                   value={selectorForm.compliance_selectors}
                   onChange={(e) => setSelectorForm({ ...selectorForm, compliance_selectors: e.target.value })}
-                  className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 font-mono text-[#333333]"
+                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
                 />
               </div>
               <div>
@@ -898,7 +898,7 @@ export default function AccountVaultPage() {
                   rows={2}
                   value={selectorForm.submit_selectors}
                   onChange={(e) => setSelectorForm({ ...selectorForm, submit_selectors: e.target.value })}
-                  className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 font-mono text-[#333333]"
+                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
                 />
               </div>
             </div>
@@ -907,7 +907,7 @@ export default function AccountVaultPage() {
               type="button"
               onClick={() => void handleSaveSelectors()}
               disabled={savingSelectors}
-              className="border border-[#cccccc] px-4 py-2 rounded bg-white hover:bg-white text-[#333333] font-semibold cursor-pointer disabled:opacity-50"
+              className="border px-4 py-2 rounded bg-white text-[#333333] font-semibold cursor-pointer disabled:opacity-50 border-[#cccccc] hover:font-bold"
             >
               {savingSelectors ? "Saving..." : "Save Selector Overrides"}
             </button>
@@ -916,7 +916,7 @@ export default function AccountVaultPage() {
       </div>
 
       {/* Multi-Account Anti-Ban Caps & Proxy Reference */}
-      <div className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
+      <div className="bg-white rounded-xl p-6 space-y-4">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold text-[#333333]">Multi-Account Anti-Ban Limits &amp; Proxy vs Wi-Fi Guide</h2>
           <p className="text-xs text-[#666666] leading-relaxed">
@@ -935,15 +935,15 @@ export default function AccountVaultPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
           {filteredSafetyCaps.length === 0 ? (
-            <div className="col-span-full p-3 rounded-lg bg-white border border-[#cccccc] text-[#666666]">
+            <div className="col-span-full p-3 rounded-lg bg-white text-[#666666]">
               No safety guide entries match &ldquo;{capSearch || capLetter}&rdquo;.
             </div>
           ) : (
             filteredSafetyCaps.map((cap) => (
-              <div key={cap.id} className="p-3 rounded-lg bg-white border border-[#cccccc] space-y-1">
+              <div key={cap.id} className="p-3 rounded-lg bg-white space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-[#333333]">{cap.name}</span>
-                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white border border-[#cccccc] text-[#333333]">
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white text-[#333333]">
                     {cap.safeAccountsPerIp} / IP
                   </span>
                 </div>
@@ -961,7 +961,7 @@ export default function AccountVaultPage() {
       </div>
 
       {/* REST API & Token Accounts Configuration Card */}
-      <div id="api-credentials-section" className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
+      <div id="api-credentials-section" className="bg-white rounded-xl p-6 space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-[#333333]">Direct API, Bot &amp; Webhook Accounts</h2>
           <p className="text-sm text-[#999999]">
@@ -971,11 +971,11 @@ export default function AccountVaultPage() {
 
         <ApiCredentialsManager focusProviderId={focusApiProvider} onChanged={() => void loadVaultState()} />
 
-        <details className="text-xs text-[#999999] pt-2 border-t border-[#cccccc]">
+        <details className="text-xs text-[#999999] pt-2">
           <summary className="cursor-pointer hover:text-[#333333] font-medium">
             Advanced: Raw CLI Browser Login Command &amp; .env Reference
           </summary>
-          <div className="mt-3 p-4 rounded-lg bg-white border border-[#cccccc] font-mono text-xs text-[#666666] space-y-1 overflow-x-auto">
+          <div className="mt-3 p-4 rounded-lg bg-white font-mono text-xs text-[#666666] space-y-1 overflow-x-auto">
             <p className="text-[#999999]"># Terminal CLI Interactive Login</p>
             <p className="text-[#333333]">
               npm run login -- --account {newAccountId || "main_creator"} --platform {selectedPlatform}

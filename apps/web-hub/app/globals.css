@@ -30,15 +30,30 @@ a:hover {
   font-weight: 700;
 }
 
-:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-  outline: 2px solid #333333;
+nav[aria-label="Primary"] a,
+nav[aria-label="Primary"] a:hover,
+nav[aria-label="Primary"] a:focus,
+nav[aria-label="Primary"] a:focus-visible {
+  border: 0;
+  outline: none;
+  font-weight: 400;
+}
+
+:where(button, input, select, textarea, summary, [tabindex]):focus-visible,
+main a:focus-visible {
+  outline: 2px solid #000000;
   outline-offset: 2px;
+}
+
+button:not(:disabled):hover {
+  font-weight: 700;
 }
 
 input,
 select,
 textarea,
-button {
+button,
+dialog {
   background-color: #ffffff;
 }
 
@@ -51,6 +66,13 @@ svg {
   color: #999999;
 }
 
+nav[aria-label="Primary"] a[aria-current="page"] svg,
+nav[aria-label="Primary"] a:hover svg,
+nav[aria-label="Primary"] a:focus-visible svg {
+  color: #333333;
+  stroke-width: 2.5;
+}
+
 dialog:modal {
   overscroll-behavior: contain;
 }
@@ -58,5 +80,5 @@ dialog:modal {
 dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;
-  background: rgba(51, 51, 51, 0.35);
+  background: rgba(255, 255, 255, 0.92);
 }

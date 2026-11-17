@@ -204,10 +204,10 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="bg-white border border-[#cccccc] rounded-xl p-6">
-        <h1 className="text-2xl font-bold text-[#333333] mb-2">
-          Visual Scheduling Calendar & CSV Bulk Scheduler
+    <div className="space-y-8 bg-white">
+      <div className="bg-white space-y-2">
+        <h1 className="text-2xl font-bold text-[#333333]">
+          Visual Scheduling Calendar &amp; CSV Bulk Scheduler
         </h1>
         <p className="text-sm text-[#999999]">
           Scheduled campaigns persist to <code className="text-[#333333] font-mono">config/schedule.json</code> and enqueue delayed BullMQ flows into Redis for staggered automated dispatch.
@@ -215,22 +215,24 @@ export default function CalendarPage() {
       </div>
 
       {banner && (
-        <div
-          className={`p-3 rounded-lg border text-xs flex items-center justify-between ${ banner.kind === "ok" ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
-        >
+        <div className="bg-white text-xs text-[#333333] flex items-center justify-between gap-3">
           <span>{banner.text}</span>
-          <button onClick={() => setBanner(null)} className="text-[11px] opacity-75 hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => setBanner(null)}
+            className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+          >
             Dismiss
           </button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Visual Calendar Agenda */}
-        <div className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
+        <div className="bg-white space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[#333333]">Upcoming Queue Timeline</h2>
-            <span className="border border-[#cccccc] text-xs px-2 py-0.5 rounded bg-white text-[#333333] font-mono">
+            <h2 className="text-lg font-bold text-[#333333]">Upcoming Queue Timeline</h2>
+            <span className="text-xs text-[#999999] font-mono">
               {scheduledPosts.length} Queued
             </span>
           </div>
@@ -240,11 +242,11 @@ export default function CalendarPage() {
           ) : scheduledPosts.length === 0 ? (
             <div className="text-xs text-[#999999] py-6 text-center">No scheduled campaigns yet.</div>
           ) : (
-            <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
               {scheduledPosts.map((post) => (
                 <div
                   key={post.id}
-                  className="p-4 rounded-lg bg-white border border-[#cccccc] space-y-2 text-xs"
+                  className="bg-white space-y-2 text-xs py-2"
                 >
                   <div className="flex justify-between items-start gap-2">
                     <div>
@@ -257,23 +259,24 @@ export default function CalendarPage() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className="border border-[#cccccc] px-2 py-0.5 rounded bg-white text-[#333333] font-medium text-[10px] uppercase">
+                      <span className="text-[#666666] font-bold text-[10px] uppercase">
                         {post.status}
                       </span>
                       <button
+                        type="button"
                         onClick={() => handleDelete(post.id)}
-                        className="border border-[#cccccc] px-2 py-0.5 rounded bg-white hover:bg-white text-[#333333] text-[10px]"
+                        className="border border-[#cccccc] px-2 py-0.5 rounded bg-white text-[#666666] hover:font-bold hover:text-[#333333] text-[10px]"
                       >
                         Cancel
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-1 pt-1">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     {post.platforms.map((pl) => (
                       <span
                         key={pl}
-                        className="px-2 py-0.5 rounded bg-white border border-[#cccccc] text-[#666666] font-mono text-[10px]"
+                        className="text-[#999999] font-mono text-[10px]"
                       >
                         {pl}
                       </span>
@@ -286,8 +289,8 @@ export default function CalendarPage() {
         </div>
 
         {/* CSV Bulk Scheduler */}
-        <div className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-[#333333]">CSV Bulk Ingestion</h2>
+        <div className="bg-white space-y-4">
+          <h2 className="text-lg font-bold text-[#333333]">CSV Bulk Ingestion</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
@@ -296,7 +299,7 @@ export default function CalendarPage() {
                 type="text"
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
-                className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-[#333333] font-mono"
+                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
               />
             </div>
             <div>
@@ -306,10 +309,10 @@ export default function CalendarPage() {
                 value={mediaPath}
                 onChange={(e) => setMediaPath(e.target.value)}
                 placeholder="/home/user/Videos/clip.mp4"
-                className="w-full bg-white border border-[#cccccc] rounded px-2.5 py-1.5 text-[#333333] font-mono"
+                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
               />
-              <label className="mt-1.5 inline-flex items-center gap-2 text-[11px] text-[#333333] hover:text-[#333333] cursor-pointer">
-                <span>{uploadingFile ? "Streaming file to disk..." : "Or pick/upload video or image from computer ->"}</span>
+              <label className="mt-2 inline-flex items-center gap-2 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333] cursor-pointer">
+                <span>{uploadingFile ? "Streaming file to disk..." : "Pick or upload video/image"}</span>
                 <input
                   type="file"
                   accept="video/*,image/*"
@@ -329,24 +332,24 @@ export default function CalendarPage() {
             placeholder={`Title, Date, Time, Platforms...\nStudio Cyberpunk Shoot, 2026-11-20, 19:00 UTC, youtube, bluesky, fansly_vault\nBehind The Scenes Teaser, 2026-11-21, 21:00 UTC, pornhub_video, x, discord`}
             value={csvContent}
             onChange={(e) => setCsvContent(e.target.value)}
-            className="w-full bg-white border border-[#cccccc] rounded-lg p-3 text-xs text-[#333333] font-mono resize-none"
+            className="w-full bg-white border-0 border-b border-[#cccccc] p-1 text-xs text-[#333333] font-mono resize-none"
           />
 
-          <div className="p-3 rounded-lg bg-white border border-[#cccccc] space-y-2 text-xs">
+          <div className="bg-white space-y-2 text-xs">
             <label className="flex items-center space-x-2 text-[#666666] cursor-pointer">
               <input
                 type="checkbox"
                 checked={strictLive}
                 onChange={(e) => setStrictLive(e.target.checked)}
-                className="rounded border-[#cccccc] text-[#333333]"
+                className="text-[#333333]"
               />
-              <span className={strictLive ? "text-[#333333] font-semibold" : "text-[#666666]"}>
+              <span className={strictLive ? "text-[#333333] font-bold" : "text-[#666666]"}>
                 Strict Live Only (fail job if real account session/API key missing — no fake demo links)
               </span>
             </label>
 
             {csvNeeds2257 && (
-              <div className="p-2.5 rounded bg-white border border-[#cccccc] space-y-2">
+              <div className="bg-white space-y-2 pt-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#333333] font-bold">
                   <span>18 U.S.C. 2257 Record-Keeping Gate Required for Adult CSV Targets</span>
                   <input
@@ -354,7 +357,7 @@ export default function CalendarPage() {
                     value={recordsId2257}
                     onChange={(e) => setRecordsId2257(e.target.value)}
                     placeholder="Records Custodian ID"
-                    className="bg-white border border-[#cccccc] rounded px-2 py-0.5 font-mono text-[#333333] font-normal"
+                    className="bg-white border-0 border-b border-[#cccccc] px-1 py-0.5 font-mono text-[#333333] font-normal"
                   />
                 </div>
                 <label className="flex items-start space-x-2 text-[#333333] cursor-pointer">
@@ -362,7 +365,7 @@ export default function CalendarPage() {
                     type="checkbox"
                     checked={confirmed2257}
                     onChange={(e) => setConfirmed2257(e.target.checked)}
-                    className="mt-0.5 rounded border-[#cccccc] text-[#333333]"
+                    className="mt-0.5 text-[#333333]"
                   />
                   <span>
                     I attest that performer age/identity records under <code className="font-mono">{recordsId2257}</code> are verified for all scheduled items.
@@ -373,8 +376,9 @@ export default function CalendarPage() {
           </div>
 
           <button
+            type="button"
             onClick={handleBulkCsvImport}
-            className="border border-[#cccccc] w-full py-2.5 rounded bg-white hover:bg-white text-[#333333] font-bold text-xs transition-colors cursor-pointer"
+            className="border border-[#cccccc] w-full py-2.5 rounded bg-white text-[#333333] font-bold text-xs cursor-pointer"
           >
             Import and Queue CSV Batch
           </button>

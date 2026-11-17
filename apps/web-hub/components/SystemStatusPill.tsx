@@ -68,7 +68,7 @@ export function SystemStatusPill() {
 
   if (!health) {
     return (
-      <span className="text-[11px] px-2 py-0.5 rounded bg-white text-[#999999] border border-[#cccccc] font-mono whitespace-nowrap shrink-0">
+      <span className="text-[11px] text-[#999999] bg-white font-mono whitespace-nowrap shrink-0">
         Checking stack...
       </span>
     );
@@ -81,21 +81,12 @@ export function SystemStatusPill() {
   const allOk = health.ok;
   const allWorkersOffline = !health.redis && !effectiveStealth && !health.ffmpeg;
 
-  let pillClass = "bg-white text-[#333333] border-[#cccccc] hover:bg-white";
-  let dotClass = "border border-[#cccccc] bg-white";
   let label = "";
-
   if (allOk) {
-    pillClass = "bg-white text-[#333333] border-[#cccccc] hover:bg-white";
-    dotClass = "border border-[#cccccc] bg-white";
     label = `Stack Online · ${effectiveVaultCount} Vault / ${effectiveApiCount} API`;
   } else if (companionOnline) {
-    pillClass = "bg-white text-[#333333] border-[#cccccc] hover:bg-white";
-    dotClass = "border border-[#cccccc] bg-white";
     label = `Cloud UI + Companion · ${effectiveVaultCount} Vault / ${effectiveApiCount} API`;
   } else if (health.cloudMode && allWorkersOffline) {
-    pillClass = "bg-white text-[#333333] border-[#cccccc] hover:bg-white";
-    dotClass = "border border-[#cccccc] bg-white";
     label =
       effectiveApiCount > 0
         ? `Cloud Direct API (${effectiveApiCount} Connected)`
@@ -121,10 +112,9 @@ export function SystemStatusPill() {
             : "Vercel hosts stateless Direct Cloud APIs & browser-isolated credentials. Connect your Companion Worker (:8001) in Vault for Chrome browser automation."
           : "Click to re-check Redis, Stealth Browser Worker, and FFmpeg health"
       }
-      className={`text-[11px] px-2.5 py-0.5 rounded border font-mono flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 ${pillClass}`}
+      className="text-[11px] px-2.5 py-1 rounded border border-[#cccccc] bg-white text-[#666666] hover:font-bold hover:text-[#333333] font-mono cursor-pointer whitespace-nowrap shrink-0"
     >
-      <span className={`border border-[#cccccc] inline-block w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
-      <span>{checking ? "Refreshing..." : label}</span>
+      {checking ? "Refreshing..." : label}
     </button>
   );
 }

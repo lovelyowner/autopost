@@ -3,35 +3,46 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  Calendar,
+  CircleDollarSign,
+  Clock,
+  KeyRound,
+  Layers,
+  SquarePen,
+} from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Composer & Funnel" },
-  { href: "/vault", label: "Connect Accounts / Vault" },
-  { href: "/presets", label: "Templates & Presets" },
-  { href: "/calendar", label: "Calendar & Bulk CSV" },
-  { href: "/history", label: "Campaign History" },
-  { href: "/plans", label: "Plans & Crypto" },
+  { href: "/", label: "Composer & Funnel", Icon: SquarePen },
+  { href: "/vault", label: "Connect Accounts / Vault", Icon: KeyRound },
+  { href: "/presets", label: "Templates & Presets", Icon: Layers },
+  { href: "/calendar", label: "Calendar & Bulk CSV", Icon: Calendar },
+  { href: "/history", label: "Campaign History", Icon: Clock },
+  { href: "/plans", label: "Plans & Crypto", Icon: CircleDollarSign },
 ];
 
 export function SiteNav() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Primary" className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-      {NAV_ITEMS.map((item) => {
-        const isCurrent = item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
+    <nav aria-label="Primary" className="flex flex-col items-center gap-6 bg-white">
+      {NAV_ITEMS.map(({ href, label, Icon }) => {
+        const isCurrent = href === "/" ? pathname === "/" : pathname?.startsWith(href);
         return (
           <Link
-            key={item.href}
-            href={item.href}
+            key={href}
+            href={href}
+            aria-label={label}
+            title={label}
             aria-current={isCurrent ? "page" : undefined}
-            className={`no-underline transition-colors ${
-              isCurrent
-                ? "font-bold text-[#333333]"
-                : "font-medium text-[#666666] hover:font-bold hover:text-[#333333]"
-            }`}
+            className="p-1.5 bg-white transition-transform hover:scale-110 focus-visible:scale-110"
           >
-            {item.label}
+            <Icon
+              aria-hidden="true"
+              strokeWidth={isCurrent ? 2.4 : 1.5}
+              className="w-5 h-5 text-[#999999]"
+            />
+            <span className="sr-only">{label}</span>
           </Link>
         );
       })}

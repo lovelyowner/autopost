@@ -93,9 +93,9 @@ export default function PresetsPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="bg-white border border-[#cccccc] rounded-xl p-6">
-        <h1 className="text-2xl font-bold text-[#333333] mb-2">
+    <div className="space-y-8 bg-white">
+      <div className="bg-white space-y-2">
+        <h1 className="text-2xl font-bold text-[#333333]">
           Templates, Pricing &amp; Compliance Preset Manager
         </h1>
         <p className="text-sm text-[#999999]">
@@ -104,48 +104,63 @@ export default function PresetsPage() {
       </div>
 
       {statusBanner && (
-        <div
-          className={`p-3 rounded-lg border text-xs flex items-center justify-between ${ statusBanner.kind === "ok" ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#333333]" }`}
-        >
+        <div className="bg-white text-xs text-[#333333] flex items-center justify-between gap-3">
           <span>{statusBanner.text}</span>
-          <button onClick={() => setStatusBanner(null)} className="text-[11px] opacity-75 hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => setStatusBanner(null)}
+            className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+          >
             Dismiss
           </button>
         </div>
       )}
 
       {loading ? (
-        <div className="p-8 text-center text-sm text-[#999999]">Loading persisted presets...</div>
+        <div className="py-8 text-center text-sm text-[#999999]">Loading persisted presets...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Preset Selector */}
           <div className="md:col-span-1 space-y-4">
-            <div className="bg-white border border-[#cccccc] rounded-xl p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-[#333333] uppercase tracking-wider">Saved Presets</h2>
+            <div className="bg-white space-y-3">
+              <h2 className="text-sm font-bold text-[#333333] uppercase tracking-wider">Saved Presets</h2>
               <div className="space-y-2">
-                {presets.map((p) => (
-                  <div
-                    key={p.id}
-                    className={`p-3 rounded-lg border text-xs transition-colors flex items-start justify-between gap-2 ${ activePreset?.id === p.id ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#999999] hover:border-[#cccccc]" }`}
-                  >
-                    <button onClick={() => setActivePreset(p)} className="text-left flex-1">
-                      <div className="font-bold text-[#333333]">{p.name}</div>
-                      <div className="font-mono text-[10px] text-[#999999] mt-1">{p.recordsId2257}</div>
-                    </button>
-                    {presets.length > 1 && (
+                {presets.map((p) => {
+                  const selected = activePreset?.id === p.id;
+                  return (
+                    <div
+                      key={p.id}
+                      className="bg-white flex items-start justify-between gap-2 text-xs"
+                    >
                       <button
-                        onClick={() => handleDelete(p.id)}
-                        className="border border-[#cccccc] text-[10px] text-[#333333] hover:text-[#333333] px-1.5 py-0.5 rounded bg-white"
-                        title="Delete preset"
+                        type="button"
+                        onClick={() => setActivePreset(p)}
+                        className={`rounded border border-[#cccccc] bg-white px-3 py-2 text-left flex-1 ${
+                          selected
+                            ? "font-bold text-[#333333]"
+                            : "text-[#666666] hover:font-bold hover:text-[#333333]"
+                        }`}
                       >
-                        Del
+                        <div className={selected ? "font-bold text-[#333333]" : "text-[#333333]"}>{p.name}</div>
+                        <div className="font-mono text-[10px] text-[#999999] mt-0.5 font-normal">{p.recordsId2257}</div>
                       </button>
-                    )}
-                  </div>
-                ))}
+                      {presets.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(p.id)}
+                          className="rounded border border-[#cccccc] text-[10px] text-[#666666] hover:font-bold hover:text-[#333333] px-2 py-1 bg-white"
+                          title="Delete preset"
+                        >
+                          Del
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <button
+                type="button"
                 onClick={() => {
                   const newP: PresetProfile = {
                     id: `preset_${Date.now()}`,
@@ -160,7 +175,7 @@ export default function PresetsPage() {
                   setPresets([...presets, newP]);
                   setActivePreset(newP);
                 }}
-                className="border border-[#cccccc] w-full py-2 rounded bg-white hover:bg-white text-[#333333] text-xs font-semibold"
+                className="border border-[#cccccc] w-full py-2 rounded bg-white text-[#333333] text-xs font-bold"
               >
                 + Create New Preset
               </button>
@@ -170,8 +185,8 @@ export default function PresetsPage() {
           {/* Preset Editor */}
           {activePreset && (
             <div className="md:col-span-2 space-y-6">
-              <div className="bg-white border border-[#cccccc] rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-semibold text-[#333333]">Preset Configuration</h2>
+              <div className="bg-white space-y-5">
+                <h2 className="text-lg font-bold text-[#333333]">Preset Configuration</h2>
 
                 <div className="space-y-4 text-xs">
                   <div>
@@ -180,12 +195,12 @@ export default function PresetsPage() {
                       type="text"
                       value={activePreset.name}
                       onChange={(e) => setActivePreset({ ...activePreset, name: e.target.value })}
-                      className="w-full bg-white border border-[#cccccc] rounded px-3 py-2 text-[#333333]"
+                      className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-2 text-[#333333]"
                     />
                   </div>
 
                   {/* 2257 Record Keeping Section */}
-                  <div className="p-4 rounded-lg bg-white border border-[#cccccc] space-y-3">
+                  <div className="bg-white space-y-3 pt-2">
                     <span className="text-[#333333] font-bold uppercase tracking-wider text-[11px] block">
                       18 U.S.C. 2257 Record-Keeping Attestation
                     </span>
@@ -196,7 +211,7 @@ export default function PresetsPage() {
                           type="text"
                           value={activePreset.recordsId2257}
                           onChange={(e) => setActivePreset({ ...activePreset, recordsId2257: e.target.value })}
-                          className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-[#333333] font-mono"
+                          className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
                         />
                       </div>
                       <div>
@@ -205,7 +220,7 @@ export default function PresetsPage() {
                           type="text"
                           value={activePreset.custodianContact}
                           onChange={(e) => setActivePreset({ ...activePreset, custodianContact: e.target.value })}
-                          className="w-full bg-white border border-[#cccccc] rounded px-3 py-1.5 text-[#333333]"
+                          className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333]"
                         />
                       </div>
                     </div>
@@ -220,7 +235,7 @@ export default function PresetsPage() {
                         step="0.01"
                         value={activePreset.ppvPriceUsd}
                         onChange={(e) => setActivePreset({ ...activePreset, ppvPriceUsd: Number(e.target.value) || 0 })}
-                        className="w-full bg-white border border-[#cccccc] rounded px-3 py-2 text-[#333333]"
+                        className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-2 text-[#333333]"
                       />
                     </div>
                     <div>
@@ -229,7 +244,7 @@ export default function PresetsPage() {
                         type="text"
                         value={activePreset.watermarkPngPath}
                         onChange={(e) => setActivePreset({ ...activePreset, watermarkPngPath: e.target.value })}
-                        className="w-full bg-white border border-[#cccccc] rounded px-3 py-2 text-[#333333] font-mono text-[11px]"
+                        className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-2 text-[#333333] font-mono text-[11px]"
                       />
                     </div>
                     <div>
@@ -242,7 +257,7 @@ export default function PresetsPage() {
                             watermarkPosition: e.target.value as PresetProfile["watermarkPosition"],
                           })
                         }
-                        className="w-full bg-white border border-[#cccccc] rounded px-3 py-2 text-[#333333]"
+                        className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-2 text-[#333333]"
                       >
                         <option value="bottom-right">Bottom Right</option>
                         <option value="bottom-left">Bottom Left</option>
@@ -253,9 +268,9 @@ export default function PresetsPage() {
                   </div>
 
                   {/* 16-Tag Niche SEO Block */}
-                  <div className="space-y-2">
-                    <label className="text-[#999999] font-semibold block">
-                      16-Tag Niche SEO Block (Applied across tube networks & clip stores):
+                  <div className="space-y-2 pt-2">
+                    <label className="text-[#999999] font-bold block">
+                      16-Tag Niche SEO Block (Applied across tube networks &amp; clip stores):
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {Array.from({ length: 16 }).map((_, i) => (
@@ -264,7 +279,7 @@ export default function PresetsPage() {
                           type="text"
                           value={activePreset.seoTags[i] || ""}
                           onChange={(e) => handleTagChange(i, e.target.value)}
-                          className="bg-white border border-[#cccccc] rounded px-2.5 py-1 text-[11px] text-[#333333]"
+                          className="bg-white border-0 border-b border-[#cccccc] px-1 py-1 text-[11px] text-[#333333]"
                           placeholder={`Tag ${i + 1}`}
                         />
                       ))}
@@ -272,10 +287,11 @@ export default function PresetsPage() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={handleSave}
-                    className="border border-[#cccccc] w-full py-2.5 rounded bg-white hover:bg-white text-[#333333] font-bold transition-colors cursor-pointer"
+                    className="border border-[#cccccc] w-full py-2.5 rounded bg-white text-[#333333] font-bold cursor-pointer"
                   >
-                    Save & Persist Preset
+                    Save &amp; Persist Preset
                   </button>
                 </div>
               </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Search, X } from "lucide-react";
 
 export const AZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -44,25 +43,24 @@ export function LetterFilterBar({
   availableLetters?: Set<string>;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2 bg-white">
       {typeof searchQuery === "string" && onSearchChange && (
-        <div className="relative flex items-center">
-          <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-[#999999]" />
+        <div className="flex items-center gap-2">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full rounded border border-[#cccccc] bg-white pl-8 pr-7 py-1.5 text-xs text-[#333333] placeholder-[#999999]"
+            aria-label={searchPlaceholder}
+            className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-xs text-[#333333] placeholder-[#999999]"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => onSearchChange("")}
-              aria-label="Clear search"
-              className="absolute right-2 text-[#999999] hover:text-[#333333] cursor-pointer"
+              className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333] cursor-pointer whitespace-nowrap"
             >
-              <X className="h-3.5 w-3.5 text-[#999999]" />
+              Clear
             </button>
           )}
         </div>
@@ -71,7 +69,7 @@ export function LetterFilterBar({
         <button
           type="button"
           onClick={() => onLetterChange("all")}
-          className={`bg-white px-2 py-0.5 font-mono text-[11px] cursor-pointer ${
+          className={`rounded border border-[#cccccc] bg-white px-2 py-0.5 font-mono text-[11px] cursor-pointer ${
             selectedLetter === "all"
               ? "font-bold text-[#333333]"
               : "text-[#666666] hover:font-bold hover:text-[#333333]"
@@ -87,7 +85,7 @@ export function LetterFilterBar({
               key={ch}
               type="button"
               onClick={() => onLetterChange(active ? "all" : ch)}
-              className={`bg-white px-1.5 py-0.5 font-mono text-[11px] cursor-pointer ${
+              className={`rounded border border-[#cccccc] bg-white px-1.5 py-0.5 font-mono text-[11px] cursor-pointer ${
                 active
                   ? "font-bold text-[#333333]"
                   : hasItems

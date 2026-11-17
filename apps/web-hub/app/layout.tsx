@@ -14,20 +14,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" >
+    <html lang="en">
       <body className="min-h-screen bg-white text-[#333333] font-sans antialiased">
-        <header className="border-b border-[#cccccc] bg-white sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 min-h-16 py-2 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center space-x-3">
-              <span className="text-xl font-bold text-[#333333]">
-                PolyPost
-              </span>
+        <div className="min-h-screen flex bg-white">
+          <aside
+            aria-label="Sidebar"
+            className="w-14 shrink-0 sticky top-0 h-screen bg-white flex flex-col items-center py-6"
+          >
+            <SiteNav />
+          </aside>
+          <main className="flex-1 min-w-0 max-w-6xl mx-auto px-4 sm:px-8 py-6 bg-white">
+            <div className="flex justify-end mb-6">
               <SystemStatusPill />
             </div>
-            <SiteNav />
-          </div>
-        </header>
-        <main className="max-w-7xl mx-auto px-4 py-8">{children}</main>
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );
