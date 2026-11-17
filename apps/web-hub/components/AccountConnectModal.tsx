@@ -906,14 +906,14 @@ export function BrowserSessionConnector({
               <button
                 type="button"
                 onClick={() => setSubMode("browser")}
-                className={`px-3 py-1.5 rounded font-semibold cursor-pointer ${ subMode === "browser" ? "border border-[#cccccc] bg-white text-[#333333]" : "bg-white text-[#666666] border border-[#cccccc] hover:bg-white" }`}
+                className={`px-3 py-1.5 bg-white cursor-pointer ${ subMode === "browser" ? "font-bold text-[#333333]" : "font-medium text-[#666666] hover:font-bold hover:text-[#333333]" }`}
               >
                 Interactive Chrome Login
               </button>
               <button
                 type="button"
                 onClick={() => setSubMode("cookies")}
-                className={`px-3 py-1.5 rounded font-semibold cursor-pointer ${ subMode === "cookies" ? "border border-[#cccccc] bg-white text-[#333333]" : "bg-white text-[#666666] border border-[#cccccc] hover:bg-white" }`}
+                className={`px-3 py-1.5 bg-white cursor-pointer ${ subMode === "cookies" ? "font-bold text-[#333333]" : "font-medium text-[#666666] hover:font-bold hover:text-[#333333]" }`}
               >
                 Paste Cookies JSON (Cookie-Editor)
               </button>
@@ -965,8 +965,8 @@ export function BrowserSessionConnector({
                     key={qp.id}
                     type="button"
                     onClick={() => handleSelectBrowserPlatform(qp.id)}
-                    className={`rounded border border-[#cccccc] bg-white px-2 py-0.5 text-[11px] cursor-pointer ${
-                      isActive ? "outline outline-1 outline-[#cccccc] font-semibold text-[#333333]" : "text-[#666666] hover:text-[#333333]"
+                    className={`bg-white px-2 py-0.5 text-[11px] cursor-pointer ${
+                      isActive ? "font-bold text-[#333333]" : "text-[#666666] hover:font-bold hover:text-[#333333]"
                     }`}
                   >
                     {qp.name.replace(/\s+Session$|\s+Web Session$/, "")}
@@ -1203,7 +1203,7 @@ export function BrowserSessionConnector({
             <span className="font-semibold text-[#333333]">
               Already Connected Browser Aliases ({vaultAliases.length}) — click to select:
             </span>
-            <a href="/vault" className="text-[#333333] underline">
+            <a href="/vault" className="text-[#333333] no-underline font-medium hover:font-bold">
               Manage Health &amp; DOM Selectors in Vault -&gt;
             </a>
           </div>
@@ -1299,28 +1299,28 @@ export function AccountConnectModal({
           <button
             type="button"
             onClick={() => setTab("oneclick")}
-            className={`px-3.5 py-2 rounded-lg border border-[#cccccc] bg-white cursor-pointer ${ tab === "oneclick" ? "font-bold text-[#333333] outline outline-1 outline-[#cccccc]" : "font-medium text-[#666666]" }`}
+            className={`px-3 py-1.5 bg-white cursor-pointer ${ tab === "oneclick" ? "font-bold text-[#333333]" : "font-medium text-[#666666] hover:font-bold hover:text-[#333333]" }`}
           >
             0. 1-Click Sign-Up
           </button>
           <button
             type="button"
             onClick={() => setTab("browser")}
-            className={`px-3.5 py-2 rounded-lg border border-[#cccccc] bg-white cursor-pointer ${ tab === "browser" ? "font-bold text-[#333333] outline outline-1 outline-[#cccccc]" : "font-medium text-[#666666]" }`}
+            className={`px-3 py-1.5 bg-white cursor-pointer ${ tab === "browser" ? "font-bold text-[#333333]" : "font-medium text-[#666666] hover:font-bold hover:text-[#333333]" }`}
           >
             1. Chrome Login Window
           </button>
           <button
             type="button"
             onClick={() => setTab("cookies")}
-            className={`px-3.5 py-2 rounded-lg border border-[#cccccc] bg-white cursor-pointer ${ tab === "cookies" ? "font-bold text-[#333333] outline outline-1 outline-[#cccccc]" : "font-medium text-[#666666]" }`}
+            className={`px-3 py-1.5 bg-white cursor-pointer ${ tab === "cookies" ? "font-bold text-[#333333]" : "font-medium text-[#666666] hover:font-bold hover:text-[#333333]" }`}
           >
             2. Paste Cookies JSON
           </button>
           <button
             type="button"
             onClick={() => setTab("api")}
-            className={`px-3.5 py-2 rounded-lg border border-[#cccccc] bg-white cursor-pointer ${ tab === "api" ? "font-bold text-[#333333] outline outline-1 outline-[#cccccc]" : "font-medium text-[#666666]" }`}
+            className={`px-3 py-1.5 bg-white cursor-pointer ${ tab === "api" ? "font-bold text-[#333333]" : "font-medium text-[#666666] hover:font-bold hover:text-[#333333]" }`}
           >
             3. All API / Bot Keys
           </button>

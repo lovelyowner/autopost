@@ -71,10 +71,10 @@ export function LetterFilterBar({
         <button
           type="button"
           onClick={() => onLetterChange("all")}
-          className={`rounded border border-[#cccccc] bg-white px-2 py-0.5 font-mono text-[10px] cursor-pointer ${
+          className={`bg-white px-2 py-0.5 font-mono text-[11px] cursor-pointer ${
             selectedLetter === "all"
-              ? "outline outline-1 outline-[#cccccc] font-bold text-[#333333]"
-              : "text-[#666666] hover:text-[#333333]"
+              ? "font-bold text-[#333333]"
+              : "text-[#666666] hover:font-bold hover:text-[#333333]"
           }`}
         >
           All
@@ -87,12 +87,12 @@ export function LetterFilterBar({
               key={ch}
               type="button"
               onClick={() => onLetterChange(active ? "all" : ch)}
-              className={`rounded border border-[#cccccc] bg-white px-1.5 py-0.5 font-mono text-[10px] cursor-pointer ${
+              className={`bg-white px-1.5 py-0.5 font-mono text-[11px] cursor-pointer ${
                 active
-                  ? "outline outline-1 outline-[#cccccc] font-bold text-[#333333]"
+                  ? "font-bold text-[#333333]"
                   : hasItems
-                    ? "text-[#666666] hover:text-[#333333]"
-                    : "text-[#999999]"
+                    ? "text-[#666666] hover:font-bold hover:text-[#333333]"
+                    : "text-[#999999] hover:font-bold hover:text-[#666666]"
               }`}
             >
               {ch}

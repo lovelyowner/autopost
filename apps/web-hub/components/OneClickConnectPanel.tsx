@@ -539,14 +539,14 @@ export function OneClickConnectPanel({
           <button
             type="button"
             onClick={() => setShowMore((v) => !v)}
-            className="rounded-lg border border-[#cccccc] bg-white px-2.5 py-1 text-xs font-medium text-[#666666] hover:text-[#333333]"
+            className="bg-white px-2.5 py-1 text-xs font-medium text-[#666666] hover:font-bold hover:text-[#333333] cursor-pointer"
           >
             {showMore ? "Fewer Providers" : `More (+${moreList.length})`}
           </button>
           {compact && (
             <Link
               href="/vault"
-              className="rounded-lg border border-[#cccccc] bg-white px-2.5 py-1 text-xs font-medium text-[#666666] hover:text-[#333333]"
+              className="bg-white px-2.5 py-1 text-xs font-medium text-[#666666] no-underline hover:font-bold hover:text-[#333333]"
             >
               All 37+ Keys & Vault
             </Link>
@@ -598,7 +598,7 @@ export function OneClickConnectPanel({
               disabled={busy}
               onClick={() => void handleQuickButtonClick(p)}
               className={`group flex flex-col items-start justify-between gap-1.5 rounded-lg border border-[#cccccc] bg-white p-2.5 text-left transition ${
-                selected ? "outline outline-1 outline-[#cccccc] font-semibold" : "hover:outline hover:outline-1 hover:outline-[#cccccc]"
+                selected ? "font-bold text-[#333333]" : "hover:font-bold"
               }`}
             >
               <div className="flex w-full items-center justify-between">
@@ -610,7 +610,13 @@ export function OneClickConnectPanel({
                 ) : null}
               </div>
               <div className="w-full">
-                <div className={`truncate text-xs font-semibold ${connected || selected ? "text-[#333333]" : "text-[#333333]"}`}>
+                <div
+                  className={`truncate text-xs ${
+                    selected || connected
+                      ? "font-bold text-[#333333]"
+                      : "font-medium text-[#333333] group-hover:font-bold"
+                  }`}
+                >
                   {p.label}
                 </div>
                 <div className="truncate text-[10px] text-[#999999]">

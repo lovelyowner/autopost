@@ -21,12 +21,25 @@ body {
   color: #333333;
 }
 
+a {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: none;
+  font-weight: 700;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid #333333;
+  outline-offset: 2px;
+}
+
 input,
 select,
 textarea,
 button {
   background-color: #ffffff;
-  outline-color: #cccccc;
 }
 
 input::placeholder,

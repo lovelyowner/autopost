@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { SiteNav } from "../components/SiteNav";
 import { SystemStatusPill } from "../components/SystemStatusPill";
 import "./globals.css";
 
@@ -24,26 +24,7 @@ export default function RootLayout({
               </span>
               <SystemStatusPill />
             </div>
-            <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium">
-              <Link href="/" className="hover:text-[#333333] text-[#666666] transition-colors">
-                Composer &amp; Funnel
-              </Link>
-              <Link
-                href="/vault"
-                className="px-2.5 py-1 rounded-md bg-white border border-[#cccccc] text-[#333333] hover:bg-white transition-colors"
-              >
-                Connect Accounts / Vault
-              </Link>
-              <Link href="/presets" className="hover:text-[#333333] text-[#666666] transition-colors">
-                Templates &amp; Presets
-              </Link>
-              <Link href="/calendar" className="hover:text-[#333333] text-[#666666] transition-colors">
-                Calendar &amp; Bulk CSV
-              </Link>
-              <Link href="/history" className="hover:text-[#333333] text-[#666666] transition-colors">
-                Campaign History
-              </Link>
-            </nav>
+            <SiteNav />
           </div>
         </header>
         <main className="max-w-7xl mx-auto px-4 py-8">{children}</main>

@@ -298,7 +298,7 @@ export default function CampaignHistoryPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setStatusFilter(tab.id)}
-                  className={`px-2.5 py-1 rounded font-medium cursor-pointer transition-colors ${ statusFilter === tab.id ? "border border-[#cccccc] bg-white text-[#333333]" : "bg-white border border-[#cccccc] text-[#999999] hover:text-[#333333]" }`}
+                  className={`px-2.5 py-1 bg-white cursor-pointer transition-colors ${ statusFilter === tab.id ? "font-bold text-[#333333]" : "font-medium text-[#666666] hover:font-bold hover:text-[#333333]" }`}
                 >
                   {tab.label}
                 </button>
@@ -426,7 +426,7 @@ export default function CampaignHistoryPage() {
               {item.liveMasterUrl && (
                 <div className="p-2 rounded bg-white border border-[#cccccc] font-mono text-[11px] break-all">
                   <span className="text-[#333333]">Master URL: </span>
-                  <a href={item.liveMasterUrl} target="_blank" rel="noreferrer" className="text-[#333333] underline">
+                  <a href={item.liveMasterUrl} target="_blank" rel="noreferrer" className="text-[#333333] no-underline hover:font-bold">
                     {item.liveMasterUrl}
                   </a>
                 </div>

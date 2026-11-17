@@ -1303,7 +1303,7 @@ export default function DashboardPage() {
                 <p className="font-semibold text-[#333333]">Exact 4 Steps to Publish Live on Your Real Accounts:</p>
                 <p>
                   <strong>Step 1 — Connect your accounts:</strong> Click <strong>1. Accounts Connected</strong> above (or open{" "}
-                  <a href="/vault" className="text-[#333333] underline">Account Vault (/vault)</a>). For web portals (Pornhub, Fansly, OnlyFans, X, Instagram, YouTube, TikTok), use <strong>1. Chrome Login Window</strong> (then click <strong>Finish &amp; Save Cookies Now</strong> or close Chrome after signing in) OR <strong>2. Paste Cookies JSON</strong> from Chrome/Firefox&apos;s Cookie-Editor extension. For API/bot targets (Bluesky, Mastodon, Discord, Telegram, Reddit, e621, DeviantArt, Inkbunny), open <strong>3. API / Bot Keys</strong>, paste your keys, and click <strong>Save &amp; Test Live Connection</strong>.
+                  <a href="/vault" className="text-[#333333] font-medium no-underline hover:font-bold">Account Vault (/vault)</a>). For web portals (Pornhub, Fansly, OnlyFans, X, Instagram, YouTube, TikTok), use <strong>1. Chrome Login Window</strong> (then click <strong>Finish &amp; Save Cookies Now</strong> or close Chrome after signing in) OR <strong>2. Paste Cookies JSON</strong> from Chrome/Firefox&apos;s Cookie-Editor extension. For API/bot targets (Bluesky, Mastodon, Discord, Telegram, Reddit, e621, DeviantArt, Inkbunny), open <strong>3. API / Bot Keys</strong>, paste your keys, and click <strong>Save &amp; Test Live Connection</strong>.
                 </p>
                 <p>
                   <strong>Step 2 — Stage your real video/image:</strong> Below under <em>Media Ingestion</em>, use{" "}
@@ -1412,7 +1412,7 @@ export default function DashboardPage() {
                       href={liveSnapshot.liveMasterUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="underline hover:text-[#333333]"
+                      className="no-underline font-medium hover:font-bold hover:text-[#333333]"
                     >
                       {liveSnapshot.liveMasterUrl}
                     </a>
@@ -1500,7 +1500,7 @@ export default function DashboardPage() {
                             href={`/api/campaigns/failures/${encodeURIComponent(t.failureScreenshot)}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-block text-[10px] text-[#333333] underline font-mono mt-0.5"
+                            className="inline-block text-[10px] text-[#333333] no-underline hover:font-bold font-mono mt-0.5"
                           >
                             View Failure Screenshot
                           </a>
@@ -1617,7 +1617,7 @@ export default function DashboardPage() {
                 <button
                   key={q}
                   onClick={() => setActiveQuadrant(q)}
-                  className={`px-2.5 py-1 rounded transition-colors ${ activeQuadrant === q ? "border border-[#cccccc] bg-white text-[#333333] font-medium" : "border border-[#cccccc] bg-white text-[#999999] hover:bg-white" }`}
+                  className={`px-2 py-1 bg-white cursor-pointer transition-colors ${ activeQuadrant === q ? "text-[#333333] font-bold" : "text-[#666666] hover:font-bold hover:text-[#333333]" }`}
                 >
                   {q.replace("_", " ").toUpperCase()}
                 </button>
@@ -1676,7 +1676,7 @@ export default function DashboardPage() {
                         }
                         togglePlatform(quick.id);
                       }}
-                      className={`px-1.5 py-0.5 rounded border font-mono cursor-pointer transition-colors ${ checked ? "bg-white border-[#cccccc] text-[#333333] font-semibold" : "bg-white border-[#cccccc] text-[#999999] hover:border-[#cccccc] hover:text-[#333333]" }`}
+                      className={`px-1.5 py-0.5 bg-white font-mono cursor-pointer transition-colors ${ checked ? "text-[#333333] font-bold" : "text-[#666666] hover:font-bold hover:text-[#333333]" }`}
                     >
                       {checked ? `✓ ${quick.label}` : `+ ${quick.label}`}
                     </button>
@@ -1838,7 +1838,7 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => openConnectForPlatform(getPlatform(masterTargetId))}
-                      className="text-[11px] text-[#333333] hover:text-[#333333] underline cursor-pointer"
+                      className="text-[11px] text-[#333333] no-underline hover:font-bold cursor-pointer"
                     >
                       + Connect / Add Account
                     </button>
@@ -2520,7 +2520,7 @@ export default function DashboardPage() {
                       value={firstCommentTemplate}
                       onChange={(e) => setFirstCommentTemplate(e.target.value)}
                       placeholder="Watch the full video here: {{LIVE_MASTER_URL}} (leave blank for automatic sibling-varied CTA)"
-                      className="w-full bg-white border border-[#cccccc] rounded-md px-2.5 py-1.5 text-xs text-[#333333] focus:outline-none focus:ring-1 focus:ring-[#cccccc]"
+                      className="w-full bg-white border border-[#cccccc] rounded-md px-2.5 py-1.5 text-xs text-[#333333]"
                     />
                   </div>
                 )}
