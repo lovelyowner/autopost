@@ -50,3 +50,13 @@ textarea::placeholder {
 svg {
   color: #999999;
 }
+
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgba(51, 51, 51, 0.35);
+}

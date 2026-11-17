@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/presets", label: "Templates & Presets" },
   { href: "/calendar", label: "Calendar & Bulk CSV" },
   { href: "/history", label: "Campaign History" },
+  { href: "/plans", label: "Plans & Crypto" },
 ];
 
 export function SiteNav() {
