@@ -157,16 +157,53 @@ def get_profile_meta(account_id: str) -> Optional[Dict[str, Any]]:
     except Exception:
         return None
 
+def count_posts_last_24h(meta: Optional[Dict[str, Any]], now: Optional[float] = None) -> int:
+    if not isinstance(meta, dict):
+        return 0
+    ts_list = meta.get("recent_post_timestamps")
+    if not isinstance(ts_list, list):
+        return 0
+    cutoff = (now if now is not None else time.time()) - 86400
+    return sum(1 for t in ts_list if isinstance(t, (int, float)) and t >= cutoff)
+
+
+def record_account_post(account_id: str, platform: Optional[str] = None) -> int:
+    """Append a live post timestamp to metadata.json (rolling 24h window) for warmup/rate visibility."""
+    safe_id = _safe_account_id(account_id)
+    pdir = PROFILES_ROOT / safe_id
+    if not pdir.exists():
+        return 0
+    now = int(time.time())
+    cutoff = now - 86400
+    meta = get_profile_meta(safe_id) or {"account_id": safe_id, "platform": platform or "generic"}
+    raw_ts = meta.get("recent_post_timestamps")
+    kept = [int(t) for t in (raw_ts if isinstance(raw_ts, list) else []) if isinstance(t, (int, float)) and t >= cutoff]
+    kept.append(now)
+    meta["recent_post_timestamps"] = kept[-200:]
+    meta["posts_last_24h"] = len(kept)
+    meta["last_post_at"] = now
+    meta_file = pdir / "metadata.json"
+    with open(meta_file, "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2)
+    try:
+        os.chmod(meta_file, 0o600)
+    except OSError:
+        pass
+    return len(kept)
+
+
 def list_profiles() -> List[Dict[str, Any]]:
     if not PROFILES_ROOT.exists():
         return []
     settings = load_settings()
+    now = time.time()
     profiles = []
     for item in PROFILES_ROOT.iterdir():
         if item.is_dir():
             meta = get_profile_meta(item.name) or {"account_id": item.name}
             proxy = get_proxy_for_account(item.name, settings)
             meta["proxy"] = mask_proxy_url(proxy) if proxy else None
+            meta["posts_last_24h"] = count_posts_last_24h(meta, now)
             profiles.append(meta)
     return profiles
 
@@ -420,6 +457,7 @@ def audit_all_profiles(check_proxies: bool = True) -> List[Dict[str, Any]]:
             "origin_count": origins_count,
             "valid_cookie_count": valid_count,
             "expired_cookie_count": expired_count,
+            "posts_last_24h": count_posts_last_24h(meta, now),
             "domains": domains_sorted,
             "proxy": proxy_masked,
             "proxy_ok": proxy_ok,

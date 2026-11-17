@@ -978,6 +978,15 @@ async def test_spa_origin_persistence_and_audit(tmp_path, monkeypatch):
     assert len(captured_kwargs["storage_state"]["origins"]) == 1
     assert captured_kwargs["storage_state"]["origins"][0]["origin"] == "https://discord.com"
 
+    # 4. Recording a live post updates rolling 24h post counter in list_profiles and audit_all_profiles
+    from src.session_vault import list_profiles, record_account_post
+    assert record_account_post("discord_main", "discord") == 1
+    assert record_account_post("discord_main", "discord") == 2
+    listed = {p["account_id"]: p for p in list_profiles()}
+    assert listed["discord_main"]["posts_last_24h"] == 2
+    audited = {p["account_id"]: p for p in audit_all_profiles(check_proxies=False)}
+    assert audited["discord_main"]["posts_last_24h"] == 2
+
 
 
 

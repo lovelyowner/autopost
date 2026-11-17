@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -61,6 +62,16 @@ describe("ffmpeg reconciler", () => {
     expect(t.title).toBeUndefined();
     expect(t.make).toBeUndefined();
     expect((await probe(out)).durationSec).toBeGreaterThan(19);
+  });
+
+  it("produces distinct image hashes across multi-account siblings in privacy_clean", async () => {
+    const outPrimary = join(dir, "img_primary.jpg");
+    const outSibling = join(dir, "img_sibling.jpg");
+    await reconcile({ mode: "privacy_clean", input: image, output: outPrimary, siblingIndex: 0 });
+    await reconcile({ mode: "privacy_clean", input: image, output: outSibling, siblingIndex: 1 });
+    const hashA = createHash("sha256").update(readFileSync(outPrimary)).digest("hex");
+    const hashB = createHash("sha256").update(readFileSync(outSibling)).digest("hex");
+    expect(hashA).not.toBe(hashB);
   });
 
   it("inserts customFfmpegArgs right before the output path", () => {

@@ -719,6 +719,7 @@ export async function prepareTeaserMedia(opts: {
       mode: "privacy_clean",
       input: filePath,
       output,
+      siblingIndex: opts.siblingIndex,
     });
     pruneStaleTeaserRenders(rendersDir);
     return { filePath: output, isStillImage: true, reconciled: true, mode: "privacy_clean" };

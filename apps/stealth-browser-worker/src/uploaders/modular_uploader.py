@@ -9,7 +9,7 @@ from patchright.async_api import async_playwright
 
 from ..browser import launch_stealth_context
 from ..config import MONOREPO_ROOT, reload_root_env_if_changed
-from ..session_vault import load_storage_state, persist_refreshed_context_state
+from ..session_vault import load_storage_state, persist_refreshed_context_state, record_account_post
 from .base import BaseUploader, UploadJobPayload
 
 FAILURES_DIR = Path(__file__).resolve().parents[4] / "data" / "failures"
@@ -913,6 +913,7 @@ class ModularBrowserUploader(BaseUploader):
                 try:
                     published_url = await self._upload_workflow(page, recipe, is_adult_platform)
                     await persist_refreshed_context_state(context, self.payload.account_id, self.payload.platform_id)
+                    record_account_post(self.payload.account_id, self.payload.platform_id)
                     preview_path = await capture_failure_screenshot(
                         page,
                         f"upload_{self.payload.job_id}",

@@ -368,127 +368,156 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        const teaserResults: TeaserProgressState[] = await Promise.all(
-          childTeasers.map(async (t): Promise<TeaserProgressState> => {
-            const pl = getPlatform(t.platformId);
-            const effectiveMasterUrl = t.targetUrlOverride?.trim() || liveMasterUrl;
-            const trackedMasterUrl = formatMasterUrlForTeaser(
-              effectiveMasterUrl,
-              t.platformId,
-              t.accountId,
-              Boolean(appendUtm),
-            );
-            const effectivePrice =
-              cleanPriceOverrides[t.platformId] ||
-              (numericPriceUsd > 0 ? numericPriceUsd : undefined);
-            const useFirstComment = shouldUseFirstComment(
-              t.platformId,
-              Boolean(postFirstComment),
-            );
-            const resolvedFirstComment = buildFirstCommentForTeaser({
-              postFirstComment: useFirstComment,
+        const runSingleTeaser = async (t: (typeof childTeasers)[number]): Promise<TeaserProgressState> => {
+          const pl = getPlatform(t.platformId);
+          const effectiveMasterUrl = t.targetUrlOverride?.trim() || liveMasterUrl;
+          const trackedMasterUrl = formatMasterUrlForTeaser(
+            effectiveMasterUrl,
+            t.platformId,
+            t.accountId,
+            Boolean(appendUtm),
+          );
+          const effectivePrice =
+            cleanPriceOverrides[t.platformId] ||
+            (numericPriceUsd > 0 ? numericPriceUsd : undefined);
+          const useFirstComment = shouldUseFirstComment(
+            t.platformId,
+            Boolean(postFirstComment),
+          );
+          const resolvedFirstComment = buildFirstCommentForTeaser({
+            postFirstComment: useFirstComment,
+            platformId: t.platformId,
+            trackedMasterUrl,
+            firstCommentTemplate: String(firstCommentTemplate || "").trim() || undefined,
+            siblingIndex: t.siblingIndex,
+            accountId: t.accountId,
+            priceUsd: effectivePrice,
+          });
+          const resolvedCaption = useFirstComment
+            ? injectPlaceholders(
+                t.captionTemplate.replace(/\{\{LIVE_MASTER_URL\}\}/g, ""),
+                trackedMasterUrl,
+                t.accountId,
+                effectivePrice,
+              )
+            : injectPlaceholders(
+                t.captionTemplate,
+                trackedMasterUrl,
+                t.accountId,
+                effectivePrice,
+              );
+          const displayCaption = useFirstComment && resolvedFirstComment
+            ? `${resolvedCaption} (1st comment: ${resolvedFirstComment})`
+            : resolvedCaption;
+
+          if (serverlessWithoutStealth && isRemoteBrowserPlatform(t.platformId)) {
+            if (deferBrowserTeasersToCompanion) {
+              return {
+                jobId: t.jobId,
+                platformId: t.platformId,
+                platformName: t.platformName,
+                accountId: t.accountId,
+                status: "queued",
+                injectedCaption: resolvedCaption || displayCaption,
+              };
+            }
+            if (!effectiveStrictLive) {
+              return {
+                jobId: t.jobId,
+                platformId: t.platformId,
+                platformName: t.platformName,
+                accountId: t.accountId,
+                status: "published",
+                simulated: true,
+                injectedCaption: displayCaption,
+                publishedUrl: `https://${t.platformId}.example.com/p/sim_${Date.now().toString().slice(-6)}`,
+              };
+            }
+            return {
+              jobId: t.jobId,
               platformId: t.platformId,
-              trackedMasterUrl,
-              firstCommentTemplate: String(firstCommentTemplate || "").trim() || undefined,
-              siblingIndex: t.siblingIndex,
+              platformName: t.platformName,
               accountId: t.accountId,
-              priceUsd: effectivePrice,
+              status: "failed",
+              injectedCaption: displayCaption,
+              error: `${pl.name} requires your local/tunnel Companion Worker URL in Vault (desktop browser platform).`,
+            };
+          }
+
+          try {
+            const teaserCreds = mapCredentialsForConnector(pl.connector, flatClientCreds);
+            const connector = getConnectorForPlatform(t.platformId);
+            const res: ConnectorResult = await connector.publish({
+              platformId: t.platformId,
+              accountId: t.accountId,
+              text: resolvedCaption || `Watch the full video on ${masterPlatform.name}`,
+              linkUrl: trackedMasterUrl,
+              filePath: resolvedMediaPath,
+              isStillImage: resolvedIsStillImage,
+              tags: rotateTagsForAccountSibling(tags, t.siblingIndex),
+              strictLive: effectiveStrictLive,
+              firstComment: resolvedFirstComment,
+              credentials: teaserCreds,
+              extraParams: t.targetSubreddit
+                ? { ...extraParams, subreddit: t.targetSubreddit }
+                : extraParams,
             });
-            const resolvedCaption = useFirstComment
-              ? injectPlaceholders(
-                  t.captionTemplate.replace(/\{\{LIVE_MASTER_URL\}\}/g, ""),
-                  trackedMasterUrl,
-                  t.accountId,
-                  effectivePrice,
-                )
-              : injectPlaceholders(
-                  t.captionTemplate,
-                  trackedMasterUrl,
-                  t.accountId,
-                  effectivePrice,
-                );
-            const displayCaption = useFirstComment && resolvedFirstComment
-              ? `${resolvedCaption} (1st comment: ${resolvedFirstComment})`
-              : resolvedCaption;
+            return {
+              jobId: t.jobId,
+              platformId: t.platformId,
+              platformName: t.platformName,
+              accountId: t.accountId,
+              status: res.success ? "published" : "failed",
+              publishedUrl: res.publishedUrl,
+              simulated: res.simulated,
+              firstCommentUrl: res.firstCommentUrl,
+              failureScreenshot: res.failureScreenshot,
+              injectedCaption: displayCaption,
+              error: res.error,
+            };
+          } catch (err: any) {
+            return {
+              jobId: t.jobId,
+              platformId: t.platformId,
+              platformName: t.platformName,
+              accountId: t.accountId,
+              status: "failed",
+              injectedCaption: displayCaption,
+              error: err?.message || `Failed to publish to ${pl.name}`,
+            };
+          }
+        };
 
-            if (serverlessWithoutStealth && isRemoteBrowserPlatform(t.platformId)) {
-              if (deferBrowserTeasersToCompanion) {
-                return {
-                  jobId: t.jobId,
-                  platformId: t.platformId,
-                  platformName: t.platformName,
-                  accountId: t.accountId,
-                  status: "queued",
-                  injectedCaption: resolvedCaption || displayCaption,
-                };
-              }
-              if (!effectiveStrictLive) {
-                return {
-                  jobId: t.jobId,
-                  platformId: t.platformId,
-                  platformName: t.platformName,
-                  accountId: t.accountId,
-                  status: "published",
-                  simulated: true,
-                  injectedCaption: displayCaption,
-                  publishedUrl: `https://${t.platformId}.example.com/p/sim_${Date.now().toString().slice(-6)}`,
-                };
-              }
-              return {
-                jobId: t.jobId,
-                platformId: t.platformId,
-                platformName: t.platformName,
-                accountId: t.accountId,
-                status: "failed",
-                injectedCaption: displayCaption,
-                error: `${pl.name} requires your local/tunnel Companion Worker URL in Vault (desktop browser platform).`,
-              };
-            }
+        const needsAntiBanPacing =
+          (numericStaggerSec > 0 || childTeasers.some((c) => c.siblingIndex > 0)) &&
+          process.env.POLYPOST_TEASER_PACING_MS !== "0";
 
-            try {
-              const teaserCreds = mapCredentialsForConnector(pl.connector, flatClientCreds);
-              const connector = getConnectorForPlatform(t.platformId);
-              const res: ConnectorResult = await connector.publish({
-                platformId: t.platformId,
-                accountId: t.accountId,
-                text: resolvedCaption || `Watch the full video on ${masterPlatform.name}`,
-                linkUrl: trackedMasterUrl,
-                filePath: resolvedMediaPath,
-                isStillImage: resolvedIsStillImage,
-                tags: rotateTagsForAccountSibling(tags, t.siblingIndex),
-                strictLive: effectiveStrictLive,
-                firstComment: resolvedFirstComment,
-                credentials: teaserCreds,
-                extraParams: t.targetSubreddit
-                  ? { ...extraParams, subreddit: t.targetSubreddit }
-                  : extraParams,
-              });
-              return {
-                jobId: t.jobId,
-                platformId: t.platformId,
-                platformName: t.platformName,
-                accountId: t.accountId,
-                status: res.success ? "published" : "failed",
-                publishedUrl: res.publishedUrl,
-                simulated: res.simulated,
-                firstCommentUrl: res.firstCommentUrl,
-                failureScreenshot: res.failureScreenshot,
-                injectedCaption: displayCaption,
-                error: res.error,
-              };
-            } catch (err: any) {
-              return {
-                jobId: t.jobId,
-                platformId: t.platformId,
-                platformName: t.platformName,
-                accountId: t.accountId,
-                status: "failed",
-                injectedCaption: displayCaption,
-                error: err?.message || `Failed to publish to ${pl.name}`,
-              };
+        let teaserResults: TeaserProgressState[] = [];
+        if (needsAntiBanPacing && childTeasers.length > 1) {
+          let elapsedWaitMs = 0;
+          const maxStatelessWaitBudgetMs = serverlessWithoutStealth ? 16_000 : 120_000;
+          for (let idx = 0; idx < childTeasers.length; idx++) {
+            const t = childTeasers[idx];
+            if (idx > 0 && elapsedWaitMs < maxStatelessWaitBudgetMs) {
+              const isSibling = t.siblingIndex > 0 || childTeasers[idx - 1]?.platformId === t.platformId;
+              const rawWaitMs =
+                numericStaggerSec > 0
+                  ? (serverlessWithoutStealth ? Math.min(numericStaggerSec, 5) : numericStaggerSec) * 1000 +
+                    Math.floor(Math.random() * 400)
+                  : isSibling
+                    ? 600 + Math.floor(Math.random() * 450)
+                    : 250 + Math.floor(Math.random() * 250);
+              const boundedWaitMs = Math.min(rawWaitMs, maxStatelessWaitBudgetMs - elapsedWaitMs);
+              if (boundedWaitMs > 0) {
+                elapsedWaitMs += boundedWaitMs;
+                await new Promise((r) => setTimeout(r, boundedWaitMs));
+              }
             }
-          }),
-        );
+            teaserResults.push(await runSingleTeaser(t));
+          }
+        } else {
+          teaserResults = await Promise.all(childTeasers.map((t) => runSingleTeaser(t)));
+        }
 
         const anySuccess = teaserResults.some((t) => t.status === "published");
         const hasQueued = teaserResults.some((t) => t.status === "queued");

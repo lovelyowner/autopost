@@ -30,6 +30,7 @@ interface ProfileItem {
   proxy_latency_ms?: number | null;
   cookie_count?: number;
   origin_count?: number;
+  posts_last_24h?: number;
   domains?: string[];
   updated_at?: number;
   encrypted?: boolean;
@@ -153,6 +154,7 @@ export default function AccountVaultPage() {
             proxy: p.proxy || null,
             cookie_count: p.cookie_count,
             origin_count: p.origin_count,
+            posts_last_24h: p.posts_last_24h,
             updated_at: p.updated_at ? p.updated_at * 1000 : Date.now(),
             encrypted: Boolean(p.encrypted),
             healthy: true,
@@ -256,6 +258,7 @@ export default function AccountVaultPage() {
             proxy_latency_ms: hit.proxy_latency_ms,
             cookie_count: hit.valid_cookie_count ?? hit.cookie_count,
             origin_count: hit.origin_count ?? prof.origin_count,
+            posts_last_24h: hit.posts_last_24h ?? prof.posts_last_24h,
             domains: hit.domains,
             statusText: hit.reason || prof.statusText,
           };
@@ -675,6 +678,11 @@ export default function AccountVaultPage() {
                     {typeof p.origin_count === "number" && p.origin_count > 0 && (
                       <span className="px-2 py-0.5 rounded bg-white text-[#666666] border border-[#cccccc] font-mono text-[10px]">
                         {p.origin_count} SPA origins
+                      </span>
+                    )}
+                    {typeof p.posts_last_24h === "number" && (
+                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] border border-[#cccccc] font-mono text-[10px]">
+                        {p.posts_last_24h} posts/24h
                       </span>
                     )}
                   </div>

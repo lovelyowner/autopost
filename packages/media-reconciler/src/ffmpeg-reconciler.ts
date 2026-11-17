@@ -24,6 +24,7 @@ export interface PrivacyCleanJob extends CommonReconcileOptions {
   mode: "privacy_clean";
   input: string;
   output: string;
+  siblingIndex?: number;
 }
 
 export interface FunnelBridgeJob extends CommonReconcileOptions {
@@ -113,7 +114,15 @@ export function buildPrivacyCleanArgs(job: PrivacyCleanJob): string[] {
   if (isImagePath(job.input)) {
     const ext = extname(job.output).toLowerCase();
     const codec = ext === ".png" ? ["-c:v", "png"] : ext === ".webp" ? ["-c:v", "libwebp", "-quality", "92"] : ["-c:v", "mjpeg", "-q:v", "2"];
-    return ["-y", "-i", job.input, "-frames:v", "1", ...codec, ...tail(job, job.output)];
+    const sibIdx = job.siblingIndex ?? 0;
+    const vfArgs =
+      sibIdx > 0
+        ? [
+            "-vf",
+            `eq=brightness=${(((sibIdx % 5) + 1) * 0.004).toFixed(3)}:contrast=${(1 + ((sibIdx % 5) + 1) * 0.005).toFixed(3)}`,
+          ]
+        : [];
+    return ["-y", "-i", job.input, ...vfArgs, "-frames:v", "1", ...codec, ...tail(job, job.output)];
   }
   return ["-y", "-i", job.input, "-map", "0", "-c", "copy", "-movflags", "+faststart", ...tail(job, job.output)];
 }
