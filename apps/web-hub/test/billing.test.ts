@@ -1,9 +1,14 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   CRYPTO_RAILS,
   ECOSYSTEM_PROJECTS,
   PLAN_TIERS,
+  buildPaymentUri,
   encodeErc20TransferCalldata,
+  evaluateCampaignPlanLimits,
+  formatTokenAmountDisplay,
+  getRailById,
   usdToTokenBaseUnits,
 } from "../lib/plans";
 import {
@@ -12,6 +17,7 @@ import {
   signEcosystemLicense,
   verifyEcosystemLicense,
   verifyEvmUsdcPayment,
+  verifyNowPaymentsIpnSignature,
   verifySolanaUsdcPayment,
 } from "../lib/crypto-verify";
 
@@ -29,7 +35,7 @@ function padUint256Hex(amount: bigint): string {
   return `0x${amount.toString(16).padStart(64, "0")}`;
 }
 
-describe("plan tiers, ERC-20 encoding, and ecosystem license tokens", () => {
+describe("plan tiers, ERC-20/EIP-681 encoding, quotas, and ecosystem license tokens", () => {
   it("defines Pro $3, VIP $5, Max $8, Extra $10 and all-projects coverage", () => {
     const byId = Object.fromEntries(PLAN_TIERS.map((p) => [p.id, p]));
     expect(byId.free.priceUsd).toBe(0);
@@ -51,16 +57,81 @@ describe("plan tiers, ERC-20 encoding, and ecosystem license tokens", () => {
     ]);
   });
 
-  it("encodes exact ERC-20 transfer(address,uint256) calldata for USDC 6-decimal amounts", () => {
+  it("encodes exact ERC-20 transfer(address,uint256) calldata and EIP-681 / Solana Pay URIs", () => {
     expect(usdToTokenBaseUnits(3, 6)).toBe("3000000");
     expect(usdToTokenBaseUnits(10, 6)).toBe("10000000");
     expect(expectedBaseUnitsForPlan("extra", "base_usdc")).toBe("10000000");
+    expect(expectedBaseUnitsForPlan("extra", "base_eth")).toBe("4000000000000000"); // 0.004 ETH in wei
 
     const calldata = encodeErc20TransferCalldata(TEST_TREASURY_EVM, "10000000");
     expect(calldata).toMatch(/^0xa9059cbb[0-9a-f]{128}$/);
     expect(calldata.slice(0, 10)).toBe("0xa9059cbb");
     expect(calldata.slice(10, 74)).toBe("1111111111111111111111111111111111111111".padStart(64, "0"));
     expect(BigInt(`0x${calldata.slice(74)}`)).toBe(10_000_000n);
+
+    const baseUsdcRail = getRailById("base_usdc")!;
+    const baseEthRail = getRailById("base_eth")!;
+    const solUsdcRail = getRailById("solana_usdc")!;
+
+    expect(
+      buildPaymentUri({
+        rail: baseUsdcRail,
+        recipient: TEST_TREASURY_EVM,
+        baseUnits: "3000000",
+        priceUsd: 3,
+      }),
+    ).toBe(`ethereum:${BASE_USDC_CONTRACT}@8453/transfer?address=${TEST_TREASURY_EVM}&uint256=3000000`);
+
+    expect(
+      buildPaymentUri({
+        rail: baseEthRail,
+        recipient: TEST_TREASURY_EVM,
+        baseUnits: "1200000000000000",
+        priceUsd: 3,
+      }),
+    ).toBe(`ethereum:${TEST_TREASURY_EVM}@8453?value=1200000000000000`);
+
+    expect(formatTokenAmountDisplay(3, baseEthRail)).toBe("0.0012 ETH ($3.00)");
+
+    const solTreasury = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV";
+    expect(
+      buildPaymentUri({
+        rail: solUsdcRail,
+        recipient: solTreasury,
+        baseUnits: "5000000",
+        priceUsd: 5,
+      }),
+    ).toContain(`solana:${solTreasury}?amount=5.00&spl-token=${solUsdcRail.contractAddress}`);
+  });
+
+  it("evaluates per-platform account caps and 24h daily run limits across tiers", () => {
+    const freeExceeded = evaluateCampaignPlanLimits({
+      planId: "free",
+      selectedPlatformIds: ["x", "bluesky"],
+      accountOverrides: { x: "x_acc_1, x_acc_2" },
+      runsLast24h: 2,
+    });
+    expect(freeExceeded.allowed).toBe(false);
+    expect(freeExceeded.offendingPlatforms).toEqual([{ platformId: "x", accountCount: 2, cap: 1 }]);
+    expect(freeExceeded.warningMessage).toContain("Free tier supports up to 1 account(s)");
+
+    const proAllowed = evaluateCampaignPlanLimits({
+      planId: "pro",
+      selectedPlatformIds: ["x", "bluesky"],
+      accountOverrides: { x: "x_acc_1, x_acc_2, x_acc_3" },
+      runsLast24h: 10,
+    });
+    expect(proAllowed.allowed).toBe(true);
+    expect(proAllowed.remainingDailyRuns).toBe(20);
+
+    const extraUnlimited = evaluateCampaignPlanLimits({
+      planId: "extra",
+      selectedPlatformIds: ["x"],
+      accountOverrides: { x: "a1, a2, a3, a4, a5, a6, a7" },
+      runsLast24h: 500,
+    });
+    expect(extraUnlimited.allowed).toBe(true);
+    expect(extraUnlimited.remainingDailyRuns).toBe("unlimited");
   });
 
   it("signs and verifies stateless HMAC-SHA256 Extra license tokens across all apps", () => {
@@ -71,6 +142,8 @@ describe("plan tiers, ERC-20 encoding, and ecosystem license tokens", () => {
         txHash: TEST_TX_HASH,
         railId: "base_usdc",
         payerAddress: TEST_PAYER_EVM,
+        recipientAddress: TEST_TREASURY_EVM,
+        treasuryMode: "owner_configured",
         nowMs: now,
       },
       TEST_SECRET,
@@ -81,6 +154,8 @@ describe("plan tiers, ERC-20 encoding, and ecosystem license tokens", () => {
     expect(payload.apps).toContain("phoenixchat");
     expect(payload.apps).toContain("fedipress-buzz");
     expect(payload.apps).toContain("voicestudio");
+    expect(payload.recipientAddress).toBe(TEST_TREASURY_EVM);
+    expect(payload.treasuryMode).toBe("owner_configured");
 
     const ok = verifyEcosystemLicense(token, TEST_SECRET, now + 1000);
     expect(ok.valid).toBe(true);
@@ -92,6 +167,27 @@ describe("plan tiers, ERC-20 encoding, and ecosystem license tokens", () => {
     const tampered = `${token.slice(0, -1)}${token.endsWith("A") ? "B" : "A"}`;
     expect(verifyEcosystemLicense(tampered, TEST_SECRET, now + 1000).valid).toBe(false);
     expect(verifyEcosystemLicense(token, TEST_SECRET, now + 40 * 24 * 60 * 60 * 1000).valid).toBe(false);
+  });
+
+  it("verifies NOWPayments HMAC-SHA512 recursively sorted JSON IPN signatures", () => {
+    const ipnSecret = "nowpayments_ipn_secret_test_key";
+    const payload = {
+      payment_status: "finished",
+      order_id: "polypost_extra_10",
+      price_amount: 10,
+      nested: { b: 2, a: 1 },
+    };
+    const canonical = JSON.stringify({
+      nested: { a: 1, b: 2 },
+      order_id: "polypost_extra_10",
+      payment_status: "finished",
+      price_amount: 10,
+    });
+    const validSig = createHmac("sha512", ipnSecret).update(canonical, "utf8").digest("hex");
+    expect(verifyNowPaymentsIpnSignature(payload, validSig, ipnSecret)).toBe(true);
+    expect(verifyNowPaymentsIpnSignature(payload, validSig.replace(/^./, "0"), ipnSecret)).toBe(
+      false,
+    );
   });
 });
 
@@ -148,6 +244,44 @@ describe("on-chain crypto RPC verification", () => {
       expect(result.payerAddress).toBe(TEST_PAYER_EVM);
       expect(result.transferredBaseUnits).toBe("10000000");
       expect(result.confirmations).toBe(6);
+    }
+  });
+
+  it("confirms direct Native ETH payment on Base via eth_getTransactionByHash and receipt", async () => {
+    const minWei = BigInt(expectedBaseUnitsForPlan("pro", "base_eth")); // 0.0012 ETH = 1200000000000000 wei
+    const fetchImpl = mockRpcFetch({
+      eth_chainId: "0x2105",
+      eth_blockNumber: "0x68",
+      eth_getTransactionByHash: {
+        hash: TEST_TX_HASH,
+        from: TEST_PAYER_EVM,
+        to: TEST_TREASURY_EVM,
+        value: `0x${minWei.toString(16)}`,
+      },
+      eth_getTransactionReceipt: {
+        transactionHash: TEST_TX_HASH,
+        status: "0x1",
+        blockNumber: "0x64",
+        from: TEST_PAYER_EVM,
+        to: TEST_TREASURY_EVM,
+        logs: [],
+      },
+    });
+
+    const result = await verifyEvmUsdcPayment(
+      {
+        railId: "base_eth",
+        txHash: TEST_TX_HASH,
+        expectedRecipient: TEST_TREASURY_EVM,
+        expectedMinBaseUnits: minWei.toString(),
+      },
+      { fetchImpl },
+    );
+
+    expect(result.status).toBe("confirmed");
+    if (result.status === "confirmed") {
+      expect(result.transferredBaseUnits).toBe(minWei.toString());
+      expect(result.confirmations).toBe(5);
     }
   });
 

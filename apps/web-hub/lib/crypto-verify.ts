@@ -1,4 +1,4 @@
-/** Server-only on-chain crypto payment verification & HMAC-SHA256 cross-app license tokens. */
+/** Server-only on-chain crypto payment verification (ERC-20, Native ETH, Solana SPL, NOWPayments IPN) & HMAC-SHA256 cross-app license tokens. */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import {
   type CryptoRailId,
@@ -60,6 +60,8 @@ export interface EcosystemLicensePayload {
   txHash: string;
   railId: CryptoRailId;
   payerAddress: string;
+  recipientAddress?: string;
+  treasuryMode?: "server_env" | "owner_configured";
   iat: number;
   exp: number;
 }
@@ -154,8 +156,13 @@ async function callJsonRpc(
 
 function resolveRpcUrl(rail: CryptoRailSpec, override?: string): string {
   if (override) return override;
-  if (rail.id === "base_usdc" && process.env.BASE_RPC_URL) return process.env.BASE_RPC_URL.trim();
-  if (rail.id === "arbitrum_usdc" && process.env.ARBITRUM_RPC_URL) {
+  if ((rail.id === "base_usdc" || rail.id === "base_eth") && process.env.BASE_RPC_URL) {
+    return process.env.BASE_RPC_URL.trim();
+  }
+  if (
+    (rail.id === "arbitrum_usdc" || rail.id === "arbitrum_usdt") &&
+    process.env.ARBITRUM_RPC_URL
+  ) {
     return process.env.ARBITRUM_RPC_URL.trim();
   }
   if (rail.id === "polygon_usdc" && process.env.POLYGON_RPC_URL) {
@@ -192,17 +199,24 @@ export async function verifyEvmUsdcPayment(
   }
 
   const rpcUrl = resolveRpcUrl(rail, req.rpcUrlOverride);
-  const [chainHex, receiptRaw, latestBlockHex] = await Promise.all([
+  const isNative = rail.assetKind === "native";
+
+  const [chainHex, receiptRaw, latestBlockHex, txRaw] = await Promise.all([
     callJsonRpc(rpcUrl, "eth_chainId", [], options),
     callJsonRpc(rpcUrl, "eth_getTransactionReceipt", [txHash], options),
     callJsonRpc(rpcUrl, "eth_blockNumber", [], options),
+    isNative ? callJsonRpc(rpcUrl, "eth_getTransactionByHash", [txHash], options) : Promise.resolve(null),
   ]);
 
-  if (typeof chainHex !== "string" || !HEX_QTY_RE.test(chainHex) || Number(BigInt(chainHex)) !== rail.chainId) {
+  if (
+    typeof chainHex !== "string" ||
+    !HEX_QTY_RE.test(chainHex) ||
+    Number(BigInt(chainHex)) !== rail.chainId
+  ) {
     return { status: "rejected", reason: `RPC endpoint chain mismatch for ${rail.name}.` };
   }
 
-  if (receiptRaw === null) {
+  if (receiptRaw === null || (isNative && txRaw === null)) {
     return {
       status: "pending",
       confirmations: 0,
@@ -214,6 +228,7 @@ export async function verifyEvmUsdcPayment(
   const receipt = receiptRaw as {
     status?: unknown;
     from?: unknown;
+    to?: unknown;
     blockNumber?: unknown;
     transactionHash?: unknown;
     logs?: Array<{
@@ -223,7 +238,10 @@ export async function verifyEvmUsdcPayment(
     }>;
   };
 
-  if (typeof receipt.transactionHash !== "string" || receipt.transactionHash.toLowerCase() !== txHash) {
+  if (
+    typeof receipt.transactionHash !== "string" ||
+    receipt.transactionHash.toLowerCase() !== txHash
+  ) {
     return { status: "rejected", reason: "Returned receipt hash does not match request." };
   }
 
@@ -234,35 +252,53 @@ export async function verifyEvmUsdcPayment(
     return { status: "rejected", reason: "This transaction reverted on-chain (status 0x0)." };
   }
 
-  const expectedContract = rail.contractAddress.toLowerCase();
   let matchedUnits = 0n;
   let matchedFrom = typeof receipt.from === "string" ? receipt.from.toLowerCase() : "";
 
-  for (const log of receipt.logs ?? []) {
-    if (
-      typeof log.address !== "string" ||
-      log.address.toLowerCase() !== expectedContract ||
-      !Array.isArray(log.topics) ||
-      log.topics.length < 3 ||
-      typeof log.topics[0] !== "string" ||
-      log.topics[0].toLowerCase() !== ERC20_TRANSFER_TOPIC ||
-      typeof log.topics[1] !== "string" ||
-      typeof log.topics[2] !== "string" ||
-      typeof log.data !== "string" ||
-      !HEX_QTY_RE.test(log.data)
-    ) {
-      continue;
+  if (isNative) {
+    const tx = (txRaw ?? {}) as { to?: unknown; from?: unknown; value?: unknown };
+    const txTo = typeof tx.to === "string" ? tx.to.toLowerCase() : "";
+    if (txTo !== expectedRecipient) {
+      return {
+        status: "rejected",
+        reason: `Native ETH transfer recipient (${txTo || "contract"}) does not match ${expectedRecipient}.`,
+      };
     }
-    const logTo = `0x${log.topics[2].slice(-40).toLowerCase()}`;
-    if (logTo !== expectedRecipient) continue;
-    matchedUnits += BigInt(log.data);
-    matchedFrom = `0x${log.topics[1].slice(-40).toLowerCase()}`;
+    if (typeof tx.value !== "string" || !HEX_QTY_RE.test(tx.value)) {
+      return { status: "rejected", reason: "Missing native ETH transaction value." };
+    }
+    matchedUnits = BigInt(tx.value);
+    if (typeof tx.from === "string") {
+      matchedFrom = tx.from.toLowerCase();
+    }
+  } else {
+    const expectedContract = rail.contractAddress.toLowerCase();
+    for (const log of receipt.logs ?? []) {
+      if (
+        typeof log.address !== "string" ||
+        log.address.toLowerCase() !== expectedContract ||
+        !Array.isArray(log.topics) ||
+        log.topics.length < 3 ||
+        typeof log.topics[0] !== "string" ||
+        log.topics[0].toLowerCase() !== ERC20_TRANSFER_TOPIC ||
+        typeof log.topics[1] !== "string" ||
+        typeof log.topics[2] !== "string" ||
+        typeof log.data !== "string" ||
+        !HEX_QTY_RE.test(log.data)
+      ) {
+        continue;
+      }
+      const logTo = `0x${log.topics[2].slice(-40).toLowerCase()}`;
+      if (logTo !== expectedRecipient) continue;
+      matchedUnits += BigInt(log.data);
+      matchedFrom = `0x${log.topics[1].slice(-40).toLowerCase()}`;
+    }
   }
 
   if (matchedUnits === 0n) {
     return {
       status: "rejected",
-      reason: `No ${rail.tokenSymbol} Transfer event to ${expectedRecipient} found on ${rail.name}.`,
+      reason: `No ${rail.tokenSymbol} transfer to ${expectedRecipient} found on ${rail.name}.`,
     };
   }
   if (matchedUnits < minUnits) {
@@ -305,6 +341,8 @@ export async function verifyEvmUsdcPayment(
     blockNumber: Number(includedBlock),
   };
 }
+
+export const verifyEvmPayment = verifyEvmUsdcPayment;
 
 export async function verifySolanaUsdcPayment(
   req: CryptoVerificationRequest,
@@ -435,7 +473,48 @@ export function expectedBaseUnitsForPlan(planId: PlanId, railId: CryptoRailId): 
   if (!plan || !rail || plan.priceUsd <= 0) {
     throw new Error("Paid plan and crypto rail required.");
   }
-  return usdToTokenBaseUnits(plan.priceUsd, rail.decimals);
+  return usdToTokenBaseUnits(plan.priceUsd, rail.decimals, rail.tokenSymbol);
+}
+
+function sortedJsonValue(value: unknown, depth = 0): unknown {
+  if (depth > 30) throw new Error("IPN payload nesting is too deep");
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) return value.map((entry) => sortedJsonValue(entry, depth + 1));
+  if (value && typeof value === "object") {
+    const sorted = Object.create(null) as Record<string, unknown>;
+    for (const key of Object.keys(value).sort()) {
+      sorted[key] = sortedJsonValue((value as Record<string, unknown>)[key], depth + 1);
+    }
+    return sorted;
+  }
+  throw new Error("IPN payload must contain only JSON values");
+}
+
+/** Verifies NOWPayments HMAC-SHA512 webhook signature over recursively key-sorted JSON (matches crypto-dashboard). */
+export function verifyNowPaymentsIpnSignature(
+  body: unknown,
+  signature: string | null | undefined,
+  ipnSecret: string,
+): boolean {
+  try {
+    if (
+      typeof signature !== "string" ||
+      !/^[a-fA-F0-9]{128}$/.test(signature) ||
+      !ipnSecret ||
+      !body ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
+      return false;
+    }
+    const canonical = JSON.stringify(sortedJsonValue(body));
+    if (Buffer.byteLength(canonical, "utf8") > MAX_RPC_BYTES) return false;
+    const expected = createHmac("sha512", ipnSecret).update(canonical, "utf8").digest();
+    return timingSafeEqual(expected, Buffer.from(signature, "hex"));
+  } catch {
+    return false;
+  }
 }
 
 export function signEcosystemLicense(
@@ -444,6 +523,8 @@ export function signEcosystemLicense(
     txHash: string;
     railId: CryptoRailId;
     payerAddress: string;
+    recipientAddress?: string;
+    treasuryMode?: "server_env" | "owner_configured";
     nowMs?: number;
     durationDays?: number;
   },
@@ -467,6 +548,8 @@ export function signEcosystemLicense(
     txHash: params.txHash,
     railId: params.railId,
     payerAddress: params.payerAddress,
+    ...(params.recipientAddress ? { recipientAddress: params.recipientAddress } : {}),
+    ...(params.treasuryMode ? { treasuryMode: params.treasuryMode } : {}),
     iat: nowMs,
     exp: nowMs + durationDays * 24 * 60 * 60 * 1000,
   };

@@ -8,6 +8,11 @@ import {
   detectActiveCompanion,
 } from "@/lib/companion-bridge";
 import { buildClientApiFlags } from "@/lib/credential-mapping";
+import {
+  LICENSE_CHANGED_EVENT,
+  type StoredLicenseState,
+  getClientPlanLicense,
+} from "@/lib/plans";
 
 interface HealthResponse {
   ok: boolean;
@@ -23,16 +28,18 @@ export function SystemStatusPill() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [companionProfilesCount, setCompanionProfilesCount] = useState<number | null>(null);
   const [clientApiCount, setClientApiCount] = useState(0);
+  const [activeLicense, setActiveLicense] = useState<StoredLicenseState | null>(null);
   const [checking, setChecking] = useState(false);
 
-  const refreshClientApiCount = () => {
+  const refreshClientState = () => {
     const flags = buildClientApiFlags(getClientCredentials(), {});
     setClientApiCount(Object.values(flags).filter(Boolean).length);
+    setActiveLicense(getClientPlanLicense());
   };
 
   const fetchHealth = async () => {
     setChecking(true);
-    refreshClientApiCount();
+    refreshClientState();
     try {
       const [res, companion] = await Promise.all([
         fetch("/api/health", { cache: "no-store" }),
@@ -52,16 +59,19 @@ export function SystemStatusPill() {
 
   useEffect(() => {
     void fetchHealth();
-    const onCredChange = () => refreshClientApiCount();
+    const onCredChange = () => refreshClientState();
     const onCompanionChange = () => void fetchHealth();
+    const onLicenseChange = () => refreshClientState();
     window.addEventListener(CREDENTIALS_CHANGED_EVENT, onCredChange);
     window.addEventListener(COMPANION_CHANGED_EVENT, onCompanionChange);
+    window.addEventListener(LICENSE_CHANGED_EVENT, onLicenseChange);
     const timer = setInterval(() => {
       void fetchHealth();
     }, 30_000);
     return () => {
       window.removeEventListener(CREDENTIALS_CHANGED_EVENT, onCredChange);
       window.removeEventListener(COMPANION_CHANGED_EVENT, onCompanionChange);
+      window.removeEventListener(LICENSE_CHANGED_EVENT, onLicenseChange);
       clearInterval(timer);
     };
   }, []);
@@ -80,19 +90,22 @@ export function SystemStatusPill() {
   const effectiveApiCount = Math.max(health.apiProvidersConfigured, clientApiCount);
   const allOk = health.ok;
   const allWorkersOffline = !health.redis && !effectiveStealth && !health.ffmpeg;
+  const tierPrefix = activeLicense
+    ? `${activeLicense.planName} ($${activeLicense.priceUsd})`
+    : "Free Tier";
 
   let label = "";
   if (allOk) {
-    label = `Stack Online · ${effectiveVaultCount} Vault / ${effectiveApiCount} API`;
+    label = `${tierPrefix} · Stack Online · ${effectiveVaultCount} Vault / ${effectiveApiCount} API`;
   } else if (companionOnline) {
-    label = `Cloud UI + Companion · ${effectiveVaultCount} Vault / ${effectiveApiCount} API`;
+    label = `${tierPrefix} · Cloud UI + Companion · ${effectiveVaultCount} Vault / ${effectiveApiCount} API`;
   } else if (health.cloudMode && allWorkersOffline) {
     label =
       effectiveApiCount > 0
-        ? `Cloud Direct API (${effectiveApiCount} Connected)`
-        : "Cloud UI · Direct API Mode";
+        ? `${tierPrefix} · Cloud Direct API (${effectiveApiCount} Connected)`
+        : `${tierPrefix} · Cloud UI · Direct API Mode`;
   } else {
-    label = `Degraded (${[
+    label = `${tierPrefix} · Degraded (${[
       !health.redis && "Redis",
       !effectiveStealth && "Stealth",
       !health.ffmpeg && "FFmpeg",

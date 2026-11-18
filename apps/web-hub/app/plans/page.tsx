@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CryptoCheckoutDialog } from "@/components/CryptoCheckoutDialog";
+import { getClientCredentials, saveClientCredentials } from "@/lib/client-vault";
+import { notifyCredentialsChanged } from "@/lib/companion-bridge";
 import {
   ECOSYSTEM_PROJECTS,
   LICENSE_CHANGED_EVENT,
@@ -10,6 +12,8 @@ import {
   type StoredLicenseState,
   clearClientPlanLicense,
   getClientPlanLicense,
+  isValidEvmAddress,
+  isValidSolanaAddress,
   saveClientPlanLicense,
 } from "@/lib/plans";
 
@@ -22,21 +26,50 @@ interface TreasurySummary {
   solanaAddress: string | null;
 }
 
+interface Eip1193Provider {
+  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
+}
+
+const CROSS_APP_VERIFIER_SNIPPET = `// Drop into Fathom Crypto Dashboard, PhoenixChat, Fedipress Buzz, Voice, or VoiceStudio
+export async function verifyPolyPostEcosystemPass(token: string) {
+  const res = await fetch("https://autopost-gilt-gamma.vercel.app/api/billing/validate-license", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const data = await res.json();
+  // Returns { valid: true, payload: { planId: "extra", apps: ["autopost", "crypto-dashboard", ...] } }
+  return Boolean(res.ok && data.valid && data.payload?.apps?.includes("crypto-dashboard"));
+}`;
+
 export default function PlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<PlanTier | null>(null);
   const [activeLicense, setActiveLicense] = useState<StoredLicenseState | null>(null);
   const [treasury, setTreasury] = useState<TreasurySummary | null>(null);
+  const [customEvmAddress, setCustomEvmAddress] = useState("");
+  const [customSolAddress, setCustomSolAddress] = useState("");
+  const [treasuryFeedback, setTreasuryFeedback] = useState("");
   const [pasteToken, setPasteToken] = useState("");
   const [tokenFeedback, setTokenFeedback] = useState("");
-  const [copiedToken, setCopiedToken] = useState(false);
+  const [copyStatusText, setCopyStatusText] = useState("");
 
-  const syncLicense = () => {
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAnnouncementRef = useRef("");
+
+  const syncLicenseAndTreasury = () => {
     setActiveLicense(getClientPlanLicense());
+    const creds = getClientCredentials();
+    if (creds.POLYPOST_TREASURY_EVM_ADDRESS) {
+      setCustomEvmAddress(creds.POLYPOST_TREASURY_EVM_ADDRESS);
+    }
+    if (creds.POLYPOST_TREASURY_SOL_ADDRESS) {
+      setCustomSolAddress(creds.POLYPOST_TREASURY_SOL_ADDRESS);
+    }
   };
 
   useEffect(() => {
-    syncLicense();
-    window.addEventListener(LICENSE_CHANGED_EVENT, syncLicense);
+    syncLicenseAndTreasury();
+    window.addEventListener(LICENSE_CHANGED_EVENT, syncLicenseAndTreasury);
     void (async () => {
       try {
         const res = await fetch("/api/billing/plans", { cache: "no-store" });
@@ -44,6 +77,8 @@ export default function PlansPage() {
           const data = (await res.json()) as { treasury?: TreasurySummary };
           if (data.treasury) {
             setTreasury(data.treasury);
+            if (data.treasury.evmAddress) setCustomEvmAddress(data.treasury.evmAddress);
+            if (data.treasury.solanaAddress) setCustomSolAddress(data.treasury.solanaAddress);
           }
         }
       } catch {
@@ -51,20 +86,100 @@ export default function PlansPage() {
       }
     })();
     return () => {
-      window.removeEventListener(LICENSE_CHANGED_EVENT, syncLicense);
+      window.removeEventListener(LICENSE_CHANGED_EVENT, syncLicenseAndTreasury);
     };
   }, []);
 
   const currentPlanId = activeLicense?.planId ?? "free";
 
-  const handleCopyToken = async () => {
-    if (!activeLicense?.token) return;
+  const copyTextWithLiveStatus = async (text: string, label: string) => {
+    if (!text) return;
+    if (copyTimerRef.current) {
+      clearTimeout(copyTimerRef.current);
+    }
+    let msg = `Copied ${label}`;
     try {
-      await navigator.clipboard.writeText(activeLicense.token);
-      setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 1800);
+      await navigator.clipboard.writeText(text);
     } catch {
-      // Ignore clipboard failures
+      msg = `Copy failed for ${label}`;
+    }
+    if (msg === lastAnnouncementRef.current) {
+      msg += "\u00A0";
+    }
+    lastAnnouncementRef.current = msg;
+    setCopyStatusText(msg);
+    copyTimerRef.current = setTimeout(() => {
+      setCopyStatusText("");
+    }, 2000);
+  };
+
+  const handleSaveTreasury = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const evm = customEvmAddress.trim();
+    const sol = customSolAddress.trim();
+    if (evm && !isValidEvmAddress(evm)) {
+      setTreasuryFeedback("Enter a valid 0x EVM receiving wallet address (42 hex characters).");
+      return;
+    }
+    if (sol && !isValidSolanaAddress(sol)) {
+      setTreasuryFeedback("Enter a valid Solana base58 receiving wallet address.");
+      return;
+    }
+    saveClientCredentials({
+      POLYPOST_TREASURY_EVM_ADDRESS: evm ? evm.toLowerCase() : null,
+      POLYPOST_TREASURY_SOL_ADDRESS: sol || null,
+    });
+    notifyCredentialsChanged();
+
+    try {
+      const res = await fetch("/api/billing/configure-treasury", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          evmAddress: evm || undefined,
+          solanaAddress: sol || undefined,
+        }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        persistedToServerEnv?: boolean;
+        treasury?: TreasurySummary;
+        error?: string;
+      };
+      if (res.ok && data.treasury) {
+        setTreasury(data.treasury);
+        setTreasuryFeedback(
+          data.persistedToServerEnv
+            ? "Saved receiving wallet to local .env and browser vault. Live crypto checkout is ready."
+            : "Saved receiving wallet in browser vault. Live crypto quotes, payment URIs, and RPC verification are ready.",
+        );
+      } else {
+        setTreasuryFeedback(data.error || "Saved receiving wallet to browser vault.");
+      }
+    } catch {
+      setTreasuryFeedback("Saved receiving wallet to browser vault.");
+    }
+  };
+
+  const handleConnectWalletAsTreasury = async () => {
+    const ethereum = (window as unknown as { ethereum?: Eip1193Provider }).ethereum;
+    if (!ethereum) {
+      setTreasuryFeedback("No browser Web3 wallet detected. Paste your 0x receiving address manually.");
+      return;
+    }
+    try {
+      const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[];
+      const addr = (accounts?.[0] || "").trim().toLowerCase();
+      if (!isValidEvmAddress(addr)) {
+        setTreasuryFeedback("Wallet did not return a valid 0x address.");
+        return;
+      }
+      setCustomEvmAddress(addr);
+      saveClientCredentials({ POLYPOST_TREASURY_EVM_ADDRESS: addr });
+      notifyCredentialsChanged();
+      setTreasuryFeedback(`Connected ${addr} as your receiving EVM treasury wallet.`);
+    } catch (err) {
+      setTreasuryFeedback(err instanceof Error ? err.message : "Could not read wallet address.");
     }
   };
 
@@ -90,6 +205,7 @@ export default function PlansPage() {
           txHash: string;
           railId: StoredLicenseState["railId"];
           payerAddress: string;
+          recipientAddress?: string;
           iat: number;
           exp: number;
         };
@@ -107,6 +223,7 @@ export default function PlansPage() {
         txHash: data.payload.txHash,
         railId: data.payload.railId,
         payerAddress: data.payload.payerAddress,
+        recipientAddress: data.payload.recipientAddress,
         issuedAt: data.payload.iat,
         expiresAt: data.payload.exp,
         verifiedOnChain: true,
@@ -122,6 +239,13 @@ export default function PlansPage() {
     }
   };
 
+  const effectiveEvmConfigured = Boolean(
+    treasury?.evmConfigured || isValidEvmAddress(customEvmAddress),
+  );
+  const effectiveSolConfigured = Boolean(
+    treasury?.solanaConfigured || isValidSolanaAddress(customSolAddress),
+  );
+
   return (
     <div className="space-y-10 bg-white">
       <section className="bg-white space-y-4">
@@ -131,7 +255,7 @@ export default function PlansPage() {
               Plans, Crypto Checkout &amp; All-Projects Pass
             </h1>
             <p className="text-sm text-[#666666]">
-              Simple creator pricing settled directly on-chain in USDC (Base, Arbitrum, Polygon, Solana) with 0% gateway markup — or unified through your own{" "}
+              Simple creator pricing settled directly on-chain in USDC, USDT, or Native ETH (Base, Arbitrum, Polygon, Solana) with 0% gateway markup — or unified through your own{" "}
               <a
                 href="https://crypto-dashboard-seven-lime.vercel.app"
                 target="_blank"
@@ -159,15 +283,6 @@ export default function PlansPage() {
           </div>
         </div>
 
-        {treasury && !treasury.evmConfigured && !treasury.solanaConfigured && (
-          <div className="bg-white text-xs text-[#666666]">
-            <span className="font-bold text-[#333333]">Owner Treasury Setup Pending:</span> Set{" "}
-            <code className="text-[#333333]">POLYPOST_TREASURY_EVM_ADDRESS</code>,{" "}
-            <code className="text-[#333333]">POLYPOST_TREASURY_SOL_ADDRESS</code>, and{" "}
-            <code className="text-[#333333]">ECOSYSTEM_LICENSE_SECRET</code> in your deployment environment variables to accept live USDC settlements to your wallet.
-          </div>
-        )}
-
         {activeLicense && (
           <div className="bg-white space-y-2 text-xs pt-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -177,10 +292,10 @@ export default function PlansPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleCopyToken}
+                  onClick={() => void copyTextWithLiveStatus(activeLicense.token, "license token")}
                   className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
                 >
-                  {copiedToken ? "Copied Token" : "Copy Token"}
+                  Copy Token
                 </button>
                 <button
                   type="button"
@@ -202,7 +317,7 @@ export default function PlansPage() {
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-bold text-[#333333]">Subscription Tiers ($0 – $10/mo)</h2>
           <span className="text-xs text-[#999999]">
-            Direct USDC L2 settlement keeps 100% of your $3 / $5 / $8 / $10 payment in your wallet.
+            Direct L2 / Solana settlement keeps 100% of your $3 / $5 / $8 / $10 payment in your wallet.
           </span>
         </div>
 
@@ -271,11 +386,11 @@ export default function PlansPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedPlan(plan)}
-                      className={`w-full rounded border border-[#cccccc] bg-white px-3 py-2 text-xs hover:font-bold hover:text-[#333333] ${
-                        isCurrent ? "font-bold text-[#333333]" : "text-[#333333] font-bold"
-                      }`}
+                      className="w-full rounded border border-[#cccccc] bg-white px-3 py-2 text-xs font-bold text-[#333333] hover:font-bold"
                     >
-                      {isCurrent ? `Extend ${plan.name} ($${plan.priceUsd})` : `Unlock ${plan.name} · $${plan.priceUsd} Crypto`}
+                      {isCurrent
+                        ? `Pay $${plan.priceUsd} · Extend ${plan.name}`
+                        : `Pay $${plan.priceUsd} Crypto · Unlock ${plan.name}`}
                     </button>
                   )}
                 </div>
@@ -285,13 +400,94 @@ export default function PlansPage() {
         </div>
       </section>
 
+      <section className="bg-white space-y-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 id="treasury-setup-heading" className="text-lg font-bold text-[#333333]">
+              Self-Custody Treasury Wallet Setup
+            </h2>
+            <p className="text-xs text-[#666666] mt-0.5">
+              Configure your own receiving EVM (Base / Arbitrum / Polygon / Ethereum) and Solana wallet addresses so direct crypto checkouts settle straight to your self-custody wallet.
+            </p>
+          </div>
+          <span className="text-xs font-mono text-[#999999]">
+            EVM: {effectiveEvmConfigured ? "Ready" : "Unset"} · Solana:{" "}
+            {effectiveSolConfigured ? "Ready" : "Unset"}
+          </span>
+        </div>
+
+        <form
+          aria-labelledby="treasury-setup-heading"
+          onSubmit={handleSaveTreasury}
+          className="space-y-3 text-xs"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="treasury-evm-input" className="text-[#999999] block mb-1">
+                Receiving EVM Wallet Address (0x... for Base / Arbitrum / Polygon USDC, USDT &amp; ETH):
+              </label>
+              <input
+                id="treasury-evm-input"
+                name="evmAddress"
+                type="text"
+                value={customEvmAddress}
+                onChange={(e) => setCustomEvmAddress(e.target.value)}
+                placeholder="0x..."
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-2 font-mono text-[#333333]"
+              />
+            </div>
+            <div>
+              <label htmlFor="treasury-sol-input" className="text-[#999999] block mb-1">
+                Receiving Solana Wallet Address (Base58 for Solana USDC):
+              </label>
+              <input
+                id="treasury-sol-input"
+                name="solanaAddress"
+                type="text"
+                value={customSolAddress}
+                onChange={(e) => setCustomSolAddress(e.target.value)}
+                placeholder="Solana base58 address..."
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-2 font-mono text-[#333333]"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="submit"
+              className="rounded border border-[#cccccc] bg-white px-3.5 py-1.5 text-xs font-bold text-[#333333] hover:font-bold"
+            >
+              Save Treasury Wallet Addresses
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleConnectWalletAsTreasury()}
+              className="rounded border border-[#cccccc] bg-white px-3.5 py-1.5 text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
+            >
+              Use Connected Browser Wallet (0x)
+            </button>
+          </div>
+          {treasuryFeedback && (
+            <p role="status" className="text-xs text-[#333333]">
+              {treasuryFeedback}
+            </p>
+          )}
+        </form>
+      </section>
+
       <section className="bg-white space-y-5">
         <div className="space-y-1">
           <h2 className="text-lg font-bold text-[#333333]">
             Extra ($10/mo) — Cross-Project Max Tier Pass
           </h2>
           <p className="text-xs text-[#666666]">
-            One on-chain $10 USDC settlement issues a signed <code className="text-[#333333]">pp_eco_v1</code> HMAC-SHA256 entitlement token recognized across all 6 of your apps via shared <code className="text-[#333333]">ECOSYSTEM_LICENSE_SECRET</code> or <code className="text-[#333333]">POST /api/billing/validate-license</code>.
+            One on-chain $10 settlement issues a signed <code className="text-[#333333]">pp_eco_v1</code> HMAC-SHA256 entitlement token recognized across all 6 of your apps via shared <code className="text-[#333333]">ECOSYSTEM_LICENSE_SECRET</code> or cross-origin <code className="text-[#333333]">POST /api/billing/validate-license</code>.
           </p>
         </div>
 
@@ -314,17 +510,53 @@ export default function PlansPage() {
           ))}
         </div>
 
-        <form onSubmit={handleImportLicenseToken} className="pt-3 space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
+        <div className="space-y-2 pt-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
+              Cross-Project Token Verifier Snippet (CORS-Enabled for All 6 Apps)
+            </h3>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  void copyTextWithLiveStatus(CROSS_APP_VERIFIER_SNIPPET, "verifier snippet")
+                }
+                className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
+              >
+                Copy Verifier Code
+              </button>
+              <span role="status" className="text-xs text-[#666666]">
+                {copyStatusText}
+              </span>
+            </div>
+          </div>
+          <pre className="bg-white text-[11px] font-mono text-[#666666] overflow-x-auto leading-relaxed">
+            <code>{CROSS_APP_VERIFIER_SNIPPET}</code>
+          </pre>
+        </div>
+
+        <form
+          aria-labelledby="restore-token-heading"
+          onSubmit={handleImportLicenseToken}
+          className="pt-3 space-y-2"
+        >
+          <h3
+            id="restore-token-heading"
+            className="text-xs font-bold uppercase tracking-wide text-[#666666]"
+          >
             Already Have an Ecosystem Token? Restore or Verify Here
           </h3>
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
+              name="ecosystemToken"
               value={pasteToken}
               onChange={(e) => setPasteToken(e.target.value)}
               placeholder="Paste pp_eco_v1.<payload>.<signature>..."
               aria-label="Ecosystem license token"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               className="flex-1 bg-white border-0 border-b border-[#cccccc] px-1 py-2 text-xs font-mono text-[#333333]"
             />
             <button
@@ -335,7 +567,11 @@ export default function PlansPage() {
               Validate Token
             </button>
           </div>
-          {tokenFeedback && <p className="text-xs text-[#666666]">{tokenFeedback}</p>}
+          {tokenFeedback && (
+            <p role="status" className="text-xs text-[#666666]">
+              {tokenFeedback}
+            </p>
+          )}
         </form>
       </section>
 
@@ -346,13 +582,13 @@ export default function PlansPage() {
         <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6 text-xs text-[#666666]">
           <div className="space-y-2 bg-white">
             <h3 className="text-sm font-bold text-[#333333]">
-              1. Direct L2 / Solana USDC + Own Verifier (Best)
+              1. Direct L2 / Solana USDC, USDT &amp; ETH + Own Verifier (Best)
             </h3>
             <p>
               Built directly into PolyPost (<code className="text-[#333333]">/api/billing/verify</code>), extending the non-custodial JSON-RPC receipt verification you already wrote in <code className="text-[#333333]">crypto-dashboard/src/lib/ethereum-payment.ts</code>.
             </p>
             <p className="text-[#333333]">
-              Base, Arbitrum, Polygon &amp; Solana USDC charge ~$0.0005–$0.005 gas, 0% processor fee, zero KYC/custody freeze risk, and exact USD pricing ($3.00 / $5.00 / $8.00 / $10.00).
+              Base, Arbitrum, Polygon &amp; Solana charge ~$0.0005–$0.005 gas, 0% processor fee, zero KYC/custody freeze risk, and exact pricing ($3.00 / $5.00 / $8.00 / $10.00).
             </p>
           </div>
 
@@ -373,7 +609,7 @@ export default function PlansPage() {
               3. NOWPayments / Gateways (Optional Fallback Only)
             </h3>
             <p>
-              Your <code className="text-[#333333]">crypto-dashboard/src/lib/nowpayments.ts</code> already validates HMAC-SHA512 webhooks cleanly — keep NOWPayments or BTCPay only when a buyer insists on BTC, LTC, or XMR.
+              Your <code className="text-[#333333]">crypto-dashboard/src/lib/nowpayments.ts</code> and PolyPost&apos;s <code className="text-[#333333]">verifyNowPaymentsIpnSignature</code> validate HMAC-SHA512 webhooks cleanly — keep NOWPayments or BTCPay only when a buyer insists on BTC, LTC, or XMR.
             </p>
             <p className="text-[#333333]">
               Avoid Ethereum L1 ($1–$5 gas ruins a $3 Pro ticket) and avoid custodial gateways as the primary rail for $3–$10 plans because minimum invoice limits &amp; spreads cut margins.
@@ -384,6 +620,8 @@ export default function PlansPage() {
 
       <CryptoCheckoutDialog
         plan={selectedPlan}
+        customEvmTreasury={customEvmAddress}
+        customSolTreasury={customSolAddress}
         onClose={() => setSelectedPlan(null)}
         onActivated={(lic) => {
           setActiveLicense(lic);

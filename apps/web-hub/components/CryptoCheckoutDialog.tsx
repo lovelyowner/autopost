@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { getClientCredentials } from "@/lib/client-vault";
 import {
   CRYPTO_RAILS,
   type CryptoRailId,
@@ -11,6 +12,7 @@ import {
 
 interface QuotePayload {
   configured: boolean;
+  treasuryMode?: "server_env" | "owner_configured" | null;
   missingEnvHint: string | null;
   quote: {
     planId: string;
@@ -18,6 +20,7 @@ interface QuotePayload {
     priceUsd: number;
     railId: CryptoRailId;
     railName: string;
+    assetKind?: "erc20" | "native" | "spl";
     chainId: number | null;
     tokenSymbol: string;
     tokenContract: string;
@@ -33,6 +36,7 @@ interface QuotePayload {
       value: string;
       data: string;
     } | null;
+    paymentUri: string | null;
     fathomDashboardUrl: string;
   };
 }
@@ -43,13 +47,23 @@ interface Eip1193Provider {
 
 interface CryptoCheckoutDialogProps {
   plan: PlanTier | null;
+  customEvmTreasury?: string;
+  customSolTreasury?: string;
   onClose: () => void;
   onActivated: (license: StoredLicenseState) => void;
 }
 
-export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheckoutDialogProps) {
+export function CryptoCheckoutDialog({
+  plan,
+  customEvmTreasury,
+  customSolTreasury,
+  onClose,
+  onActivated,
+}: CryptoCheckoutDialogProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const backdropDownRef = useRef(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCopyAnnouncementRef = useRef("");
 
   const [railId, setRailId] = useState<CryptoRailId>("base_usdc");
   const [quoteData, setQuoteData] = useState<QuotePayload | null>(null);
@@ -58,9 +72,19 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
   const [connectedWallet, setConnectedWallet] = useState("");
   const [submittingWallet, setSubmittingWallet] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [copiedField, setCopiedField] = useState("");
+  const [copyFeedback, setCopyFeedback] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  const selectedRail = CRYPTO_RAILS.find((r) => r.id === railId) || CRYPTO_RAILS[0];
+
+  const resolveClientCustomRecipient = () => {
+    const creds = getClientCredentials();
+    if (selectedRail.family === "solana") {
+      return (customSolTreasury || creds.POLYPOST_TREASURY_SOL_ADDRESS || "").trim();
+    }
+    return (customEvmTreasury || creds.POLYPOST_TREASURY_EVM_ADDRESS || "").trim();
+  };
 
   useEffect(() => {
     const dlg = dialogRef.current;
@@ -72,6 +96,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
       setTxHash("");
       setStatusMessage("");
       setErrorMessage("");
+      setCopyFeedback("");
     } else if (dlg.open) {
       dlg.close();
     }
@@ -85,12 +110,17 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
     let cancelled = false;
     setLoadingQuote(true);
     setErrorMessage("");
+    const customRecipient = resolveClientCustomRecipient();
     void (async () => {
       try {
         const res = await fetch("/api/billing/quote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planId: plan.id, railId }),
+          body: JSON.stringify({
+            planId: plan.id,
+            railId,
+            customRecipient: customRecipient || undefined,
+          }),
         });
         const data = (await res.json()) as QuotePayload & { error?: string };
         if (!cancelled) {
@@ -113,17 +143,27 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
     return () => {
       cancelled = true;
     };
-  }, [plan, railId]);
+  }, [plan, railId, customEvmTreasury, customSolTreasury]);
 
-  const copyText = async (label: string, value: string) => {
+  const copyWithAnnouncement = async (value: string, label: string) => {
     if (!value) return;
+    if (copyTimerRef.current) {
+      clearTimeout(copyTimerRef.current);
+    }
+    let message = `Copied ${label}`;
     try {
       await navigator.clipboard.writeText(value);
-      setCopiedField(label);
-      setTimeout(() => setCopiedField(""), 1800);
     } catch {
-      // Clipboard blocked
+      message = `Copy failed for ${label}`;
     }
+    if (message === lastCopyAnnouncementRef.current) {
+      message += "\u00A0";
+    }
+    lastCopyAnnouncementRef.current = message;
+    setCopyFeedback(message);
+    copyTimerRef.current = setTimeout(() => {
+      setCopyFeedback("");
+    }, 2000);
   };
 
   const verifyHashOnServer = async (hashToVerify: string, walletOverride?: string) => {
@@ -135,7 +175,8 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
     }
     setVerifying(true);
     setErrorMessage("");
-    setStatusMessage("Querying blockchain RPC receipt & verifying USDC Transfer log...");
+    setStatusMessage(`Querying ${selectedRail.name} RPC receipt...`);
+    const customRecipient = resolveClientCustomRecipient();
     try {
       const res = await fetch("/api/billing/verify", {
         method: "POST",
@@ -145,6 +186,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
           railId,
           txHash: cleanHash,
           connectedWallet: walletOverride ?? (connectedWallet || undefined),
+          customRecipient: customRecipient || undefined,
         }),
       });
       const data = (await res.json()) as {
@@ -162,6 +204,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
           txHash: string;
           railId: CryptoRailId;
           payerAddress: string;
+          recipientAddress?: string;
           iat: number;
           exp: number;
           verifiedOnChain: boolean;
@@ -191,6 +234,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
         txHash: data.license.txHash,
         railId: data.license.railId,
         payerAddress: data.license.payerAddress,
+        recipientAddress: data.license.recipientAddress,
         issuedAt: data.license.iat,
         expiresAt: data.license.exp,
         verifiedOnChain: true,
@@ -212,13 +256,13 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
     const ethereum = (window as unknown as { ethereum?: Eip1193Provider }).ethereum;
     if (!ethereum) {
       setErrorMessage(
-        "No browser Web3 wallet detected (MetaMask / Rabby / Coinbase Wallet). Send USDC manually or open Fathom Crypto Dashboard, then paste the TX hash below.",
+        "No browser Web3 wallet detected (MetaMask / Rabby / Coinbase Wallet). Send crypto manually or open Fathom Crypto Dashboard, then paste the TX hash below.",
       );
       return;
     }
     if (!quoteData?.configured || !quoteData.quote.txParams || !quoteData.quote.recipient) {
       setErrorMessage(
-        quoteData?.missingEnvHint || "Treasury receiving wallet is not configured on this server yet.",
+        quoteData?.missingEnvHint || "Treasury receiving wallet is not configured yet.",
       );
       return;
     }
@@ -249,9 +293,13 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
       }
 
       setStatusMessage(`Confirm ${quoteData.quote.amountDisplay} transfer in your wallet...`);
+      const txPayload: Record<string, string> = { from: sender, to, value };
+      if (data && data !== "0x") {
+        txPayload.data = data;
+      }
       const sentHash = (await ethereum.request({
         method: "eth_sendTransaction",
-        params: [{ from: sender, to, data, value }],
+        params: [txPayload],
       })) as string;
 
       if (typeof sentHash !== "string" || !sentHash.startsWith("0x")) {
@@ -266,8 +314,6 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
       setSubmittingWallet(false);
     }
   };
-
-  const selectedRail = CRYPTO_RAILS.find((r) => r.id === railId) || CRYPTO_RAILS[0];
 
   return (
     <dialog
@@ -294,7 +340,7 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
                 Pay via Crypto · {plan.name} (${plan.priceUsd}/mo)
               </h2>
               <p className="text-xs text-[#666666] mt-1">
-                Direct zero-fee on-chain USDC settlement verified by JSON-RPC receipt logs — no middleman markup on ${plan.priceUsd} plans.
+                Direct zero-fee on-chain settlement verified by JSON-RPC receipt logs — no middleman markup on ${plan.priceUsd} plans.
               </p>
             </div>
             <button
@@ -308,9 +354,9 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
 
           <section className="space-y-2.5 bg-white">
             <h3 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
-              1. Choose Low-Fee Network
+              1. Choose Low-Fee Network &amp; Asset
             </h3>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-2">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2">
               {CRYPTO_RAILS.map((rail) => {
                 const active = rail.id === railId;
                 return (
@@ -359,12 +405,11 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
             {quoteData && !quoteData.configured ? (
               <div className="bg-white text-xs text-[#666666] space-y-1">
                 <div className="font-bold text-[#333333]">
-                  Receiving Treasury Wallet Not Set on Server Yet
+                  Receiving Treasury Wallet Not Configured Yet
                 </div>
                 <p>
-                  {quoteData.missingEnvHint} Add <code className="text-[#333333]">POLYPOST_TREASURY_EVM_ADDRESS</code>,{" "}
-                  <code className="text-[#333333]">POLYPOST_TREASURY_SOL_ADDRESS</code>, and{" "}
-                  <code className="text-[#333333]">ECOSYSTEM_LICENSE_SECRET</code> in Vercel Project Environment Variables so real payments route strictly to your own cold/hardware wallet.
+                  {quoteData.missingEnvHint} Close this dialog and enter your wallet address in{" "}
+                  <strong className="text-[#333333]">Self-Custody Treasury Wallet Setup</strong> on this page (or set <code className="text-[#333333]">POLYPOST_TREASURY_EVM_ADDRESS</code> in environment variables).
                 </p>
               </div>
             ) : (
@@ -372,19 +417,42 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
                 <div className="space-y-2 text-xs">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[#666666]">Recipient Address:</span>
-                    <div className="flex items-center gap-2 font-mono text-[#333333]">
+                    <div className="flex flex-wrap items-center gap-2 font-mono text-[#333333]">
                       <span className="break-all">{quoteData.quote.recipient}</span>
                       <button
                         type="button"
-                        onClick={() => copyText("recipient", quoteData.quote.recipient || "")}
+                        onClick={() =>
+                          void copyWithAnnouncement(quoteData.quote.recipient || "", "recipient address")
+                        }
                         className="rounded border border-[#cccccc] bg-white px-2.5 py-0.5 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
                       >
-                        {copiedField === "recipient" ? "Copied" : "Copy"}
+                        Copy Address
                       </button>
+                      {quoteData.quote.paymentUri && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void copyWithAnnouncement(
+                              quoteData.quote.paymentUri || "",
+                              "payment URI",
+                            )
+                          }
+                          className="rounded border border-[#cccccc] bg-white px-2.5 py-0.5 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+                        >
+                          Copy Payment URI
+                        </button>
+                      )}
+                      <span role="status" className="text-[11px] text-[#666666] font-sans">
+                        {copyFeedback}
+                      </span>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#999999]">
-                    <span>Token Contract: {selectedRail.contractAddress}</span>
+                    <span>
+                      {selectedRail.assetKind === "native"
+                        ? "Asset: Native ETH (no token contract)"
+                        : `Contract: ${selectedRail.contractAddress}`}
+                    </span>
                     <span>Min confirmations: {selectedRail.requiredConfirmations}</span>
                   </div>
                 </div>
@@ -401,8 +469,17 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
                 >
                   {submittingWallet
                     ? "Confirm in Wallet..."
-                    : `Pay ${plan.priceUsd.toFixed(2)} USDC with Browser Wallet`}
+                    : `Pay $${plan.priceUsd.toFixed(2)} (${quoteData?.quote.amountDisplay || `${plan.priceUsd.toFixed(2)} ${selectedRail.tokenSymbol}`}) with Browser Wallet`}
                 </button>
+              )}
+
+              {quoteData?.quote.paymentUri && (
+                <a
+                  href={quoteData.quote.paymentUri}
+                  className="text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
+                >
+                  Open Wallet Deep Link (EIP-681 / Solana Pay)
+                </a>
               )}
 
               <a
@@ -420,18 +497,23 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
           </section>
 
           <form
+            aria-labelledby="verify-tx-heading"
             onSubmit={(e) => {
               e.preventDefault();
               void verifyHashOnServer(txHash);
             }}
             className="space-y-2.5"
           >
-            <h3 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
+            <h3
+              id="verify-tx-heading"
+              className="text-xs font-bold uppercase tracking-wide text-[#666666]"
+            >
               3. Verify On-Chain Transaction Hash &amp; Mint License
             </h3>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
+                name="txHash"
                 value={txHash}
                 onChange={(e) => setTxHash(e.target.value)}
                 placeholder={
@@ -440,6 +522,9 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
                     : "Paste 0x transaction hash..."
                 }
                 aria-label="Blockchain transaction hash or signature"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 className="flex-1 bg-white border-0 border-b border-[#cccccc] px-1 py-2 text-xs font-mono text-[#333333]"
               />
               <button
@@ -447,22 +532,23 @@ export function CryptoCheckoutDialog({ plan, onClose, onActivated }: CryptoCheck
                 disabled={verifying || !txHash.trim()}
                 className="rounded border border-[#cccccc] bg-white px-4 py-2 text-xs font-bold text-[#333333] hover:font-bold disabled:opacity-50 whitespace-nowrap"
               >
-                {verifying ? "Verifying RPC..." : "Verify & Unlock"}
+                {verifying ? "Verifying RPC..." : `Verify $${plan.priceUsd} Payment & Unlock`}
               </button>
             </div>
           </form>
 
-          {statusMessage && (
-            <div className="bg-white text-xs text-[#333333] font-bold">
-              {statusMessage}
-            </div>
-          )}
-
-          {errorMessage && (
-            <div className="bg-white text-xs font-bold text-[#333333]">
-              {errorMessage}
-            </div>
-          )}
+          <div role="status" aria-live="polite" className="space-y-1">
+            {statusMessage && (
+              <div className="bg-white text-xs text-[#333333] font-bold">
+                {statusMessage}
+              </div>
+            )}
+            {errorMessage && (
+              <div className="bg-white text-xs font-bold text-[#333333]">
+                {errorMessage}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </dialog>

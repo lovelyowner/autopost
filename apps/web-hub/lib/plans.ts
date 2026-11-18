@@ -1,10 +1,12 @@
-/** Browser-safe plan catalog, crypto rail specs, ERC-20 calldata builder, and local license helpers. */
+/** Browser-safe plan catalog, crypto rail specs, ERC-20/EIP-681 helpers, quota evaluator, and local license helpers. */
 
 export type PlanId = "free" | "pro" | "vip" | "max" | "extra";
 
 export type CryptoRailId =
   | "base_usdc"
+  | "base_eth"
   | "arbitrum_usdc"
+  | "arbitrum_usdt"
   | "polygon_usdc"
   | "solana_usdc"
   | "ethereum_usdc";
@@ -34,8 +36,9 @@ export interface CryptoRailSpec {
   id: CryptoRailId;
   name: string;
   family: "evm" | "solana";
+  assetKind: "erc20" | "native" | "spl";
   chainId: number | null;
-  tokenSymbol: "USDC";
+  tokenSymbol: "USDC" | "USDT" | "ETH";
   decimals: number;
   contractAddress: string;
   estimatedFee: string;
@@ -54,13 +57,30 @@ export interface StoredLicenseState {
   txHash: string;
   railId: CryptoRailId;
   payerAddress: string;
+  recipientAddress?: string;
   issuedAt: number;
   expiresAt: number;
   verifiedOnChain: boolean;
 }
 
+export interface CampaignQuotaEvaluation {
+  allowed: boolean;
+  effectivePlan: PlanTier;
+  maxAccountsOnSinglePlatform: number;
+  offendingPlatforms: Array<{
+    platformId: string;
+    accountCount: number;
+    cap: number;
+  }>;
+  runsLast24h: number;
+  remainingDailyRuns: number | "unlimited";
+  dailyLimitExceeded: boolean;
+  warningMessage: string | null;
+}
+
 export const LICENSE_STORAGE_KEY = "polypost_ecosystem_license_v1";
 export const LICENSE_CHANGED_EVENT = "polypost:license-changed";
+export const ETH_REFERENCE_PRICE_USD = 2500;
 
 export const FATHOM_CRYPTO_DASHBOARD_URL = "https://crypto-dashboard-seven-lime.vercel.app";
 
@@ -198,6 +218,7 @@ export const CRYPTO_RAILS: CryptoRailSpec[] = [
     id: "base_usdc",
     name: "Base · USDC",
     family: "evm",
+    assetKind: "erc20",
     chainId: 8453,
     tokenSymbol: "USDC",
     decimals: 6,
@@ -209,9 +230,24 @@ export const CRYPTO_RAILS: CryptoRailSpec[] = [
     recommended: true,
   },
   {
+    id: "base_eth",
+    name: "Base · Native ETH",
+    family: "evm",
+    assetKind: "native",
+    chainId: 8453,
+    tokenSymbol: "ETH",
+    decimals: 18,
+    contractAddress: "native",
+    estimatedFee: "~$0.001 gas · direct ETH transfer",
+    requiredConfirmations: 3,
+    explorerTxBaseUrl: "https://basescan.org/tx/",
+    defaultRpcUrl: "https://mainnet.base.org",
+  },
+  {
     id: "arbitrum_usdc",
     name: "Arbitrum · USDC",
     family: "evm",
+    assetKind: "erc20",
     chainId: 42161,
     tokenSymbol: "USDC",
     decimals: 6,
@@ -222,9 +258,24 @@ export const CRYPTO_RAILS: CryptoRailSpec[] = [
     defaultRpcUrl: "https://arb1.arbitrum.io/rpc",
   },
   {
+    id: "arbitrum_usdt",
+    name: "Arbitrum · USDT",
+    family: "evm",
+    assetKind: "erc20",
+    chainId: 42161,
+    tokenSymbol: "USDT",
+    decimals: 6,
+    contractAddress: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+    estimatedFee: "~$0.005 gas · 0% gateway fee",
+    requiredConfirmations: 3,
+    explorerTxBaseUrl: "https://arbiscan.io/tx/",
+    defaultRpcUrl: "https://arb1.arbitrum.io/rpc",
+  },
+  {
     id: "polygon_usdc",
     name: "Polygon · USDC",
     family: "evm",
+    assetKind: "erc20",
     chainId: 137,
     tokenSymbol: "USDC",
     decimals: 6,
@@ -238,6 +289,7 @@ export const CRYPTO_RAILS: CryptoRailSpec[] = [
     id: "solana_usdc",
     name: "Solana · USDC",
     family: "solana",
+    assetKind: "spl",
     chainId: null,
     tokenSymbol: "USDC",
     decimals: 6,
@@ -251,6 +303,7 @@ export const CRYPTO_RAILS: CryptoRailSpec[] = [
     id: "ethereum_usdc",
     name: "Ethereum L1 · USDC",
     family: "evm",
+    assetKind: "erc20",
     chainId: 1,
     tokenSymbol: "USDC",
     decimals: 6,
@@ -278,11 +331,27 @@ export function isValidSolanaAddress(address: string): boolean {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address.trim());
 }
 
-export function usdToTokenBaseUnits(usdAmount: number, decimals = 6): string {
+export function usdToTokenBaseUnits(
+  usdAmount: number,
+  decimals = 6,
+  tokenSymbol: "USDC" | "USDT" | "ETH" = "USDC",
+): string {
   if (!Number.isFinite(usdAmount) || usdAmount < 0) return "0";
   const cents = BigInt(Math.round(usdAmount * 100));
+  if (tokenSymbol === "ETH") {
+    const scale = 10n ** BigInt(decimals);
+    return ((cents * scale) / BigInt(ETH_REFERENCE_PRICE_USD * 100)).toString();
+  }
   const scale = 10n ** BigInt(Math.max(0, decimals - 2));
   return (cents * scale).toString();
+}
+
+export function formatTokenAmountDisplay(usdAmount: number, rail: CryptoRailSpec): string {
+  if (rail.tokenSymbol === "ETH") {
+    const ethAmount = usdAmount / ETH_REFERENCE_PRICE_USD;
+    return `${ethAmount.toFixed(4)} ETH ($${usdAmount.toFixed(2)})`;
+  }
+  return `${usdAmount.toFixed(2)} ${rail.tokenSymbol}`;
 }
 
 /** Encodes ERC-20 `transfer(address,uint256)` calldata without external dependencies. */
@@ -304,6 +373,24 @@ export function encodeErc20TransferCalldata(recipient: string, baseUnits: string
   return `0x${selector}${addrWord}${amtWord}`;
 }
 
+/** Builds standard EIP-681 (`ethereum:...`) or Solana Pay (`solana:...`) deep link URI. */
+export function buildPaymentUri(params: {
+  rail: CryptoRailSpec;
+  recipient: string;
+  baseUnits: string;
+  priceUsd: number;
+}): string {
+  const recipient = params.recipient.trim();
+  if (params.rail.family === "solana") {
+    return `solana:${recipient}?amount=${params.priceUsd.toFixed(2)}&spl-token=${params.rail.contractAddress}&label=PolyPost`;
+  }
+  const chainPart = params.rail.chainId ? `@${params.rail.chainId}` : "";
+  if (params.rail.assetKind === "native") {
+    return `ethereum:${recipient}${chainPart}?value=${params.baseUnits}`;
+  }
+  return `ethereum:${params.rail.contractAddress}${chainPart}/transfer?address=${recipient}&uint256=${params.baseUnits}`;
+}
+
 export function buildFathomDashboardPayUrl(params: {
   planId: PlanId;
   railId: CryptoRailId;
@@ -319,6 +406,67 @@ export function buildFathomDashboardPayUrl(params: {
     url.searchParams.set("to", params.recipient);
   }
   return url.toString();
+}
+
+export function evaluateCampaignPlanLimits(params: {
+  planId?: PlanId | null;
+  selectedPlatformIds: string[];
+  accountOverrides?: Record<string, string>;
+  runsLast24h?: number;
+}): CampaignQuotaEvaluation {
+  const effectivePlan = getPlanById(params.planId || "free") || PLAN_TIERS[0];
+  const runsLast24h = Math.max(0, params.runsLast24h ?? 0);
+  const cap = effectivePlan.accountsPerPlatformCap;
+  const offendingPlatforms: CampaignQuotaEvaluation["offendingPlatforms"] = [];
+  let maxAccountsOnSinglePlatform = params.selectedPlatformIds.length > 0 ? 1 : 0;
+
+  for (const platformId of params.selectedPlatformIds) {
+    const rawOverride = (params.accountOverrides?.[platformId] || "").trim();
+    const aliases = rawOverride
+      ? rawOverride
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : ["default"];
+    const count = Math.max(1, aliases.length);
+    if (count > maxAccountsOnSinglePlatform) {
+      maxAccountsOnSinglePlatform = count;
+    }
+    if (cap !== "unlimited" && count > cap) {
+      offendingPlatforms.push({
+        platformId,
+        accountCount: count,
+        cap,
+      });
+    }
+  }
+
+  const dailyLimit = effectivePlan.dailyRunsLimit;
+  const remainingDailyRuns =
+    dailyLimit === "unlimited" ? "unlimited" : Math.max(0, dailyLimit - runsLast24h);
+  const dailyLimitExceeded = dailyLimit !== "unlimited" && runsLast24h >= dailyLimit;
+  const allowed = offendingPlatforms.length === 0 && !dailyLimitExceeded;
+
+  let warningMessage: string | null = null;
+  if (offendingPlatforms.length > 0) {
+    const sample = offendingPlatforms
+      .map((o) => `${o.platformId} (${o.accountCount}/${o.cap})`)
+      .join(", ");
+    warningMessage = `${effectivePlan.name} tier supports up to ${cap} account(s) per platform. Exceeded on: ${sample}. Upgrade to Pro ($3), VIP ($5), Max ($8), or Extra ($10) on Plans & Crypto.`;
+  } else if (dailyLimitExceeded) {
+    warningMessage = `${effectivePlan.name} tier daily limit reached (${runsLast24h}/${dailyLimit} runs in last 24h). Upgrade to Pro ($3), VIP ($5), Max ($8), or Extra ($10) for higher daily throughput.`;
+  }
+
+  return {
+    allowed,
+    effectivePlan,
+    maxAccountsOnSinglePlatform,
+    offendingPlatforms,
+    runsLast24h,
+    remainingDailyRuns,
+    dailyLimitExceeded,
+    warningMessage,
+  };
 }
 
 export function getClientPlanLicense(): StoredLicenseState | null {

@@ -43,15 +43,19 @@ export function LetterFilterBar({
   availableLetters?: Set<string>;
 }) {
   return (
-    <div className="space-y-2 bg-white">
+    <search aria-label="Platform search and letter filter" className="block space-y-2 bg-white">
       {typeof searchQuery === "string" && onSearchChange && (
         <div className="flex items-center gap-2">
           <input
-            type="text"
+            type="search"
+            name="platform-filter"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
             className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-xs text-[#333333] placeholder-[#999999]"
           />
           {searchQuery && (
@@ -98,6 +102,6 @@ export function LetterFilterBar({
           );
         })}
       </div>
-    </div>
+    </search>
   );
 }

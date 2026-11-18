@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ACTIVE_PLATFORMS,
   ARCHIVED_PLATFORMS,
@@ -43,6 +44,12 @@ import {
   stageMediaToCompanion,
 } from "@/lib/companion-bridge";
 import { buildClientApiFlags } from "@/lib/credential-mapping";
+import {
+  LICENSE_CHANGED_EVENT,
+  type StoredLicenseState,
+  evaluateCampaignPlanLimits,
+  getClientPlanLicense,
+} from "@/lib/plans";
 
 interface CampaignJob {
   jobId: string;
@@ -176,6 +183,33 @@ export default function DashboardPage() {
   const [liveSnapshot, setLiveSnapshot] = useState<CampaignStateSnapshot | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedAllUrls, setCopiedAllUrls] = useState(false);
+  const [activeLicense, setActiveLicense] = useState<StoredLicenseState | null>(null);
+  const [runsLast24h, setRunsLast24h] = useState(0);
+
+  useEffect(() => {
+    const syncPlanAndUsage = () => {
+      setActiveLicense(getClientPlanLicense());
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      const recent = getClientHistory().filter((h) => (h.createdAt || h.updatedAt || 0) >= cutoff);
+      setRunsLast24h(recent.length);
+    };
+    syncPlanAndUsage();
+    window.addEventListener(LICENSE_CHANGED_EVENT, syncPlanAndUsage);
+    return () => {
+      window.removeEventListener(LICENSE_CHANGED_EVENT, syncPlanAndUsage);
+    };
+  }, [activeCampaign]);
+
+  const planQuota = useMemo(
+    () =>
+      evaluateCampaignPlanLimits({
+        planId: activeLicense?.planId ?? "free",
+        selectedPlatformIds: selectedIds,
+        accountOverrides,
+        runsLast24h,
+      }),
+    [activeLicense, selectedIds, accountOverrides, runsLast24h],
+  );
 
   const refreshCredentialsStatus = async (preferredAlias?: string) => {
     try {
@@ -1171,6 +1205,45 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Live Plan Tier & Multi-Account Safety Cap Telemetry */}
+      <div className="bg-white px-6 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-3 text-[#666666]">
+          <span>
+            Active Plan:{" "}
+            <strong className="text-[#333333]">
+              {planQuota.effectivePlan.name} (${planQuota.effectivePlan.priceUsd}/mo)
+            </strong>
+          </span>
+          <span>
+            Accounts/Platform Cap:{" "}
+            <strong className="text-[#333333]">
+              {planQuota.effectivePlan.accountsPerPlatformCap === "unlimited"
+                ? "Unlimited"
+                : `Up to ${planQuota.effectivePlan.accountsPerPlatformCap}`}
+            </strong>
+          </span>
+          <span>
+            24h Dispatches:{" "}
+            <strong className="text-[#333333]">
+              {planQuota.effectivePlan.dailyRunsLimit === "unlimited"
+                ? `${planQuota.runsLast24h} / Unlimited`
+                : `${planQuota.runsLast24h} / ${planQuota.effectivePlan.dailyRunsLimit}`}
+            </strong>
+          </span>
+        </div>
+        <Link
+          href="/plans"
+          className="text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
+        >
+          {activeLicense ? "Manage Plan & Ecosystem Pass" : "Upgrade Plan ($3 Pro / $5 VIP / $8 Max / $10 Extra)"}
+        </Link>
+        {planQuota.warningMessage && (
+          <div role="status" className="w-full text-xs font-bold text-[#333333]">
+            {planQuota.warningMessage}
+          </div>
+        )}
       </div>
 
       <AccountConnectModal
