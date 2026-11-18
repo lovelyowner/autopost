@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { getPlatform } from "@polypost/platform-registry";
 import type { ScheduledItem } from "@/lib/config-store";
 import {
@@ -8,6 +9,18 @@ import {
   deleteClientScheduledItem,
   mergeScheduleWithClient,
 } from "@/lib/client-vault";
+import {
+  formatScheduleToCsv,
+  parseScheduleCsv,
+  staggerScheduledSlots,
+} from "@/lib/schedule-utils";
+
+const QUICK_PLATFORM_SETS = [
+  { label: "Social Trio", value: "x, bluesky, mastodon" },
+  { label: "Chat Broadcast", value: "discord, fluxer, stoat, telegram" },
+  { label: "Video Funnel", value: "youtube, rumble, x, bluesky" },
+  { label: "Creator VIP", value: "onlyfans_feed, fansly_wall, manyvids_store, x" },
+];
 
 export default function CalendarPage() {
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledItem[]>([]);
@@ -21,6 +34,12 @@ export default function CalendarPage() {
   const [strictLive, setStrictLive] = useState(false);
   const [cloudMode, setCloudMode] = useState(false);
   const [banner, setBanner] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  // Quick single-drop scheduler state
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickDate, setQuickDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [quickTime, setQuickTime] = useState("18:00");
+  const [quickPlatforms, setQuickPlatforms] = useState("x, bluesky, discord");
 
   useEffect(() => {
     fetch("/api/schedule")
@@ -40,18 +59,24 @@ export default function CalendarPage() {
       .catch(() => {});
   }, []);
 
+  const parsedCsvPreview = useMemo(() => parseScheduleCsv(csvContent), [csvContent]);
+
+  const quickPlatformsList = useMemo(
+    () =>
+      quickPlatforms
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [quickPlatforms],
+  );
+
   const csvNeeds2257 = useMemo(() => {
-    const lines = csvContent.trim().split("\n");
-    for (const raw of lines) {
-      const line = raw.trim();
-      if (!line || line.startsWith("#") || line.toLowerCase().startsWith("title")) continue;
-      const parts = line.split(",").map((p) => p.trim());
-      if (parts.length >= 4 && parts.slice(3).some((pid) => getPlatform(pid).requiresAdultTaxonomy)) {
-        return true;
-      }
-    }
-    return false;
-  }, [csvContent]);
+    const csvAdult = parsedCsvPreview.items.some((item) =>
+      item.platforms.some((pid) => getPlatform(pid).requiresAdultTaxonomy),
+    );
+    const quickAdult = quickPlatformsList.some((pid) => getPlatform(pid).requiresAdultTaxonomy);
+    return csvAdult || quickAdult;
+  }, [parsedCsvPreview, quickPlatformsList]);
 
   const handleStageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -82,40 +107,14 @@ export default function CalendarPage() {
     }
   };
 
-  const handleBulkCsvImport = async () => {
-    if (!csvContent.trim()) {
-      setBanner({ kind: "err", text: "Paste CSV lines before importing." });
-      return;
-    }
-
-    const lines = csvContent.trim().split("\n");
-    const parsedItems: Array<Partial<ScheduledItem>> = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line || line.startsWith("#") || line.toLowerCase().startsWith("title")) continue;
-      const parts = line.split(",").map((p) => p.trim());
-      if (parts.length >= 4) {
-        parsedItems.push({
-          title: parts[0],
-          date: parts[1],
-          time: parts[2],
-          platforms: parts.slice(3),
-          accountId: accountId || "default",
-          mediaPath: mediaPath || undefined,
-        });
-      }
-    }
-
-    if (parsedItems.length === 0) {
-      setBanner({
-        kind: "err",
-        text: "Invalid CSV format. Expected: Title, Date (YYYY-MM-DD), Time, Platform1, Platform2...",
-      });
-      return;
-    }
-
-    if (csvNeeds2257 && !confirmed2257) {
+  const submitScheduleBatch = async (
+    batchItems: Array<Partial<ScheduledItem>>,
+    onSuccessClear: () => void,
+  ) => {
+    const needsAdultGate = batchItems.some((item) =>
+      (item.platforms || []).some((pid) => getPlatform(pid).requiresAdultTaxonomy),
+    );
+    if (needsAdultGate && !confirmed2257) {
       setBanner({
         kind: "err",
         text: "18 U.S.C. 2257 Gate: Check the adult records attestation checkbox before scheduling adult destinations.",
@@ -124,8 +123,8 @@ export default function CalendarPage() {
     }
 
     const persistBatchLocally = () => {
-      const localItems: ScheduledItem[] = parsedItems.map((r, idx) => ({
-        id: `sched_${Date.now()}_${idx}`,
+      const localItems: ScheduledItem[] = batchItems.map((r, idx) => ({
+        id: r.id || `sched_${Date.now()}_${idx}`,
         title: String(r.title),
         date: String(r.date || new Date().toISOString().slice(0, 10)),
         time: String(r.time || "12:00 UTC"),
@@ -138,7 +137,7 @@ export default function CalendarPage() {
       }));
       addClientScheduledItems(localItems);
       setScheduledPosts((prev) => mergeScheduleWithClient(prev));
-      setCsvContent("");
+      onSuccessClear();
       setBanner({
         kind: "ok",
         text: `Saved ${localItems.length} scheduled item(s) cleanly in your browser schedule (localStorage).`,
@@ -150,7 +149,7 @@ export default function CalendarPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: parsedItems,
+          items: batchItems,
           enqueueInRedis: true,
           confirmed2257Attestation: confirmed2257,
           recordsId2257,
@@ -169,7 +168,7 @@ export default function CalendarPage() {
         addClientScheduledItems(data.items);
       }
       setScheduledPosts(mergeScheduleWithClient(data.items || []));
-      setCsvContent("");
+      onSuccessClear();
       setBanner({
         kind: "ok",
         text: cloudMode
@@ -184,6 +183,78 @@ export default function CalendarPage() {
         persistBatchLocally();
       }
     }
+  };
+
+  const handleQuickAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = quickTitle.trim();
+    if (!title || quickPlatformsList.length === 0) {
+      setBanner({ kind: "err", text: "Enter a title and at least one comma-separated platform ID." });
+      return;
+    }
+    await submitScheduleBatch(
+      [
+        {
+          title,
+          date: quickDate,
+          time: `${quickTime} UTC`,
+          platforms: quickPlatformsList,
+          accountId: accountId || "default",
+          mediaPath: mediaPath || undefined,
+        },
+      ],
+      () => setQuickTitle(""),
+    );
+  };
+
+  const handleBulkCsvImport = async () => {
+    if (!csvContent.trim()) {
+      setBanner({ kind: "err", text: "Paste CSV lines before importing." });
+      return;
+    }
+    if (parsedCsvPreview.items.length === 0) {
+      const firstErr = parsedCsvPreview.skippedLines[0]?.reason;
+      setBanner({
+        kind: "err",
+        text: firstErr || "Invalid CSV format. Expected: Title, YYYY-MM-DD, HH:MM UTC, platform1, platform2...",
+      });
+      return;
+    }
+    const batch = parsedCsvPreview.items.map((row) => ({
+      ...row,
+      accountId: accountId || "default",
+      mediaPath: mediaPath || undefined,
+    }));
+    await submitScheduleBatch(batch, () => setCsvContent(""));
+  };
+
+  const handleStaggerQueue = (gapMinutes: number) => {
+    if (scheduledPosts.length < 2) {
+      setBanner({ kind: "ok", text: "Add at least 2 scheduled posts to auto-stagger slots." });
+      return;
+    }
+    const { items, shiftedCount } = staggerScheduledSlots(scheduledPosts, gapMinutes);
+    addClientScheduledItems(items);
+    setScheduledPosts(items);
+    setBanner({
+      kind: "ok",
+      text:
+        shiftedCount > 0
+          ? `Anti-spam stagger applied (+${gapMinutes}m minimum gap): shifted ${shiftedCount} overlapping drop(s).`
+          : `All ${items.length} scheduled drop(s) already have at least ${gapMinutes}m spacing.`,
+    });
+  };
+
+  const handleExportCsv = () => {
+    if (scheduledPosts.length === 0) return;
+    const csv = formatScheduleToCsv(scheduledPosts);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `polypost-schedule-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleDelete = async (id: string) => {
@@ -215,7 +286,7 @@ export default function CalendarPage() {
       </div>
 
       {banner && (
-        <div className="bg-white text-xs text-[#333333] flex items-center justify-between gap-3">
+        <div role="status" className="bg-white text-xs text-[#333333] flex items-center justify-between gap-3">
           <span>{banner.text}</span>
           <button
             type="button"
@@ -230,11 +301,38 @@ export default function CalendarPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Visual Calendar Agenda */}
         <div className="bg-white space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[#333333]">Upcoming Queue Timeline</h2>
-            <span className="text-xs text-[#999999] font-mono">
-              {scheduledPosts.length} Queued
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-[#333333]">Upcoming Queue Timeline</h2>
+              <span className="text-xs text-[#999999] font-mono">
+                {scheduledPosts.length} Queued
+              </span>
+            </div>
+            {scheduledPosts.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleStaggerQueue(30)}
+                  className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+                >
+                  Auto-Stagger +30m
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStaggerQueue(120)}
+                  className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+                >
+                  Auto-Stagger +2h
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+                >
+                  Export CSV
+                </button>
+              </div>
+            )}
           </div>
 
           {loading ? (
@@ -242,12 +340,9 @@ export default function CalendarPage() {
           ) : scheduledPosts.length === 0 ? (
             <div className="text-xs text-[#999999] py-6 text-center">No scheduled campaigns yet.</div>
           ) : (
-            <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[560px] overflow-y-auto pr-1">
               {scheduledPosts.map((post) => (
-                <div
-                  key={post.id}
-                  className="bg-white space-y-2 text-xs py-2"
-                >
+                <div key={post.id} className="bg-white space-y-2 text-xs py-2">
                   <div className="flex justify-between items-start gap-2">
                     <div>
                       <h3 className="font-bold text-[#333333] text-sm">{post.title}</h3>
@@ -258,10 +353,16 @@ export default function CalendarPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <span className="text-[#666666] font-bold text-[10px] uppercase">
                         {post.status}
                       </span>
+                      <Link
+                        href="/"
+                        className="text-[10px] text-[#666666] hover:font-bold hover:text-[#333333]"
+                      >
+                        Composer
+                      </Link>
                       <button
                         type="button"
                         onClick={() => handleDelete(post.id)}
@@ -274,10 +375,7 @@ export default function CalendarPage() {
 
                   <div className="flex flex-wrap gap-2 pt-1">
                     {post.platforms.map((pl) => (
-                      <span
-                        key={pl}
-                        className="text-[#999999] font-mono text-[10px]"
-                      >
+                      <span key={pl} className="text-[#999999] font-mono text-[10px]">
                         {pl}
                       </span>
                     ))}
@@ -288,100 +386,211 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* CSV Bulk Scheduler */}
-        <div className="bg-white space-y-4">
-          <h2 className="text-lg font-bold text-[#333333]">CSV Bulk Ingestion</h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div>
-              <label className="text-[#999999] block mb-1">Vault Account Alias:</label>
-              <input
-                type="text"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
-              />
-            </div>
-            <div>
-              <label className="text-[#999999] block mb-1">Media File Path or Upload to Stage:</label>
-              <input
-                type="text"
-                value={mediaPath}
-                onChange={(e) => setMediaPath(e.target.value)}
-                placeholder="/home/user/Videos/clip.mp4"
-                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
-              />
-              <label className="mt-2 inline-flex items-center gap-2 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333] cursor-pointer">
-                <span>{uploadingFile ? "Streaming file to disk..." : "Pick or upload video/image"}</span>
+        {/* Quick-Add & CSV Bulk Scheduler */}
+        <div className="bg-white space-y-6">
+          <form
+            aria-labelledby="quick-schedule-heading"
+            onSubmit={handleQuickAdd}
+            className="space-y-3 text-xs"
+          >
+            <h2 id="quick-schedule-heading" className="text-lg font-bold text-[#333333]">
+              Quick-Add Single Drop (UTC)
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label htmlFor="quick-title" className="text-[#999999] block mb-1">
+                  Campaign Title:
+                </label>
                 <input
-                  type="file"
-                  accept="video/*,image/*"
-                  onChange={handleStageFileUpload}
-                  className="hidden"
+                  id="quick-title"
+                  name="title"
+                  type="text"
+                  value={quickTitle}
+                  onChange={(e) => setQuickTitle(e.target.value)}
+                  placeholder="Neon Studio Drop #12"
+                  className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333]"
                 />
-              </label>
-            </div>
-          </div>
-
-          <p className="text-xs text-[#999999]">
-            Paste CSV lines: <code className="text-[#333333]">Title, YYYY-MM-DD, HH:MM UTC, platform1, platform2...</code>
-          </p>
-
-          <textarea
-            rows={8}
-            placeholder={`Title, Date, Time, Platforms...\nStudio Cyberpunk Shoot, 2026-11-20, 19:00 UTC, youtube, bluesky, fansly_vault\nBehind The Scenes Teaser, 2026-11-21, 21:00 UTC, pornhub_video, x, discord`}
-            value={csvContent}
-            onChange={(e) => setCsvContent(e.target.value)}
-            className="w-full bg-white border-0 border-b border-[#cccccc] p-1 text-xs text-[#333333] font-mono resize-none"
-          />
-
-          <div className="bg-white space-y-2 text-xs">
-            <label className="flex items-center space-x-2 text-[#666666] cursor-pointer">
-              <input
-                type="checkbox"
-                checked={strictLive}
-                onChange={(e) => setStrictLive(e.target.checked)}
-                className="text-[#333333]"
-              />
-              <span className={strictLive ? "text-[#333333] font-bold" : "text-[#666666]"}>
-                Strict Live Only (fail job if real account session/API key missing — no fake demo links)
-              </span>
-            </label>
-
-            {csvNeeds2257 && (
-              <div className="bg-white space-y-2 pt-2">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#333333] font-bold">
-                  <span>18 U.S.C. 2257 Record-Keeping Gate Required for Adult CSV Targets</span>
-                  <input
-                    type="text"
-                    value={recordsId2257}
-                    onChange={(e) => setRecordsId2257(e.target.value)}
-                    placeholder="Records Custodian ID"
-                    className="bg-white border-0 border-b border-[#cccccc] px-1 py-0.5 font-mono text-[#333333] font-normal"
-                  />
+              </div>
+              <div>
+                <label htmlFor="quick-date" className="text-[#999999] block mb-1">
+                  Date (UTC):
+                </label>
+                <input
+                  id="quick-date"
+                  name="date"
+                  type="date"
+                  value={quickDate}
+                  onChange={(e) => setQuickDate(e.target.value)}
+                  className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
+                />
+              </div>
+              <div>
+                <label htmlFor="quick-time" className="text-[#999999] block mb-1">
+                  Time (HH:MM UTC):
+                </label>
+                <input
+                  id="quick-time"
+                  name="time"
+                  type="time"
+                  value={quickTime}
+                  onChange={(e) => setQuickTime(e.target.value)}
+                  className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label htmlFor="quick-platforms" className="text-[#999999] block">
+                  Target Platforms (comma-separated):
+                </label>
+                <input
+                  id="quick-platforms"
+                  name="platforms"
+                  type="text"
+                  value={quickPlatforms}
+                  onChange={(e) => setQuickPlatforms(e.target.value)}
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {QUICK_PLATFORM_SETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setQuickPlatforms(preset.value)}
+                      className="rounded border border-[#cccccc] bg-white px-2 py-0.5 text-[10px] text-[#666666] hover:font-bold hover:text-[#333333]"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
                 </div>
-                <label className="flex items-start space-x-2 text-[#333333] cursor-pointer">
+              </div>
+            </div>
+            <button
+              type="submit"
+              className="rounded border border-[#cccccc] bg-white px-4 py-2 text-xs font-bold text-[#333333] hover:font-bold cursor-pointer"
+            >
+              Add Scheduled Drop
+            </button>
+          </form>
+
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-[#333333]">CSV Bulk Ingestion</h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="text-[#999999] block mb-1">Vault Account Alias:</label>
+                <input
+                  type="text"
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-[#999999] block mb-1">Media File Path or Upload to Stage:</label>
+                <input
+                  type="text"
+                  value={mediaPath}
+                  onChange={(e) => setMediaPath(e.target.value)}
+                  placeholder="/home/user/Videos/clip.mp4"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-[#333333] font-mono"
+                />
+                <label className="mt-2 inline-flex items-center gap-2 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333] cursor-pointer">
+                  <span>{uploadingFile ? "Streaming file to disk..." : "Pick or upload video/image"}</span>
                   <input
-                    type="checkbox"
-                    checked={confirmed2257}
-                    onChange={(e) => setConfirmed2257(e.target.checked)}
-                    className="mt-0.5 text-[#333333]"
+                    type="file"
+                    accept="video/*,image/*"
+                    onChange={handleStageFileUpload}
+                    className="hidden"
                   />
-                  <span>
-                    I attest that performer age/identity records under <code className="font-mono">{recordsId2257}</code> are verified for all scheduled items.
-                  </span>
                 </label>
               </div>
-            )}
-          </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={handleBulkCsvImport}
-            className="border border-[#cccccc] w-full py-2.5 rounded bg-white text-[#333333] font-bold text-xs cursor-pointer"
-          >
-            Import and Queue CSV Batch
-          </button>
+            <p className="text-xs text-[#999999]">
+              Paste CSV lines: <code className="text-[#333333]">Title, YYYY-MM-DD, HH:MM UTC, platform1, platform2...</code>
+            </p>
+
+            <textarea
+              rows={7}
+              placeholder={`Title, Date, Time, Platforms...\nStudio Cyberpunk Shoot, 2026-11-20, 19:00 UTC, youtube, bluesky, fansly_vault\nBehind The Scenes Teaser, 2026-11-21, 21:00 UTC, pornhub_video, x, discord`}
+              value={csvContent}
+              onChange={(e) => setCsvContent(e.target.value)}
+              className="w-full bg-white border-0 border-b border-[#cccccc] p-1 text-xs text-[#333333] font-mono resize-none"
+            />
+
+            {csvContent.trim() && (
+              <div className="text-[11px] text-[#666666] space-y-1">
+                <div>
+                  Parsed{" "}
+                  <strong className="text-[#333333]">{parsedCsvPreview.items.length}</strong> valid row(s)
+                  {parsedCsvPreview.skippedLines.length > 0
+                    ? ` · ${parsedCsvPreview.skippedLines.length} skipped line(s)`
+                    : ""}
+                </div>
+                {parsedCsvPreview.skippedLines.slice(0, 3).map((err) => (
+                  <div key={err.lineNumber} className="text-[#333333] font-mono text-[10px]">
+                    Line {err.lineNumber}: {err.reason}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="bg-white space-y-2 text-xs">
+              <label className="flex items-center space-x-2 text-[#666666] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={strictLive}
+                  onChange={(e) => setStrictLive(e.target.checked)}
+                  className="text-[#333333]"
+                />
+                <span className={strictLive ? "text-[#333333] font-bold" : "text-[#666666]"}>
+                  Strict Live Only (fail job if real account session/API key missing — no fake demo links)
+                </span>
+              </label>
+
+              {csvNeeds2257 && (
+                <div className="bg-white space-y-2 pt-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#333333] font-bold">
+                    <span>18 U.S.C. 2257 Record-Keeping Gate Required for Adult Targets</span>
+                    <input
+                      type="text"
+                      value={recordsId2257}
+                      onChange={(e) => setRecordsId2257(e.target.value)}
+                      placeholder="Records Custodian ID"
+                      className="bg-white border-0 border-b border-[#cccccc] px-1 py-0.5 font-mono text-[#333333] font-normal"
+                    />
+                  </div>
+                  <label className="flex items-start space-x-2 text-[#333333] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={confirmed2257}
+                      onChange={(e) => setConfirmed2257(e.target.checked)}
+                      className="mt-0.5 text-[#333333]"
+                    />
+                    <span>
+                      I attest that performer age/identity records under <code className="font-mono">{recordsId2257}</code> are verified for all scheduled items.
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleBulkCsvImport}
+              className="border border-[#cccccc] w-full py-2.5 rounded bg-white text-[#333333] font-bold text-xs cursor-pointer"
+            >
+              Import and Queue CSV Batch
+            </button>
+          </div>
         </div>
       </div>
     </div>

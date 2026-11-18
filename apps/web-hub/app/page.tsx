@@ -50,6 +50,11 @@ import {
   evaluateCampaignPlanLimits,
   getClientPlanLicense,
 } from "@/lib/plans";
+import {
+  analyzeSpintax,
+  auditCampaignCaptions,
+  autoFixPlatformCaption,
+} from "@/lib/caption-preflight";
 
 interface CampaignJob {
   jobId: string;
@@ -210,6 +215,50 @@ export default function DashboardPage() {
       }),
     [activeLicense, selectedIds, accountOverrides, runsLast24h],
   );
+
+  const captionPreflight = useMemo(
+    () =>
+      auditCampaignCaptions({
+        selectedPlatformIds: selectedIds,
+        generatedCaptions,
+        captionOverrides,
+        accountOverrides,
+        existingMasterUrl,
+      }),
+    [selectedIds, generatedCaptions, captionOverrides, accountOverrides, existingMasterUrl],
+  );
+
+  const activeSpintaxSummary = useMemo(() => {
+    const candidate =
+      Object.values(captionOverrides).find((v) => /(?<!\{)\{[^{}|]+\|[^{}]+\}(?!\})/.test(v || "")) ||
+      Object.values(generatedCaptions).find((v) => /(?<!\{)\{[^{}|]+\|[^{}]+\}(?!\})/.test(v || "")) ||
+      generatedCaptions.microblog ||
+      "";
+    return analyzeSpintax(candidate, 3);
+  }, [captionOverrides, generatedCaptions]);
+
+  const handleAutoFixCaptions = () => {
+    const nextOverrides: Record<string, string> = { ...captionOverrides };
+    let fixedCount = 0;
+    for (const item of captionPreflight.items) {
+      if (!item.overLimit && !item.strictViolation) continue;
+      const pl = getPlatform(item.platformId);
+      nextOverrides[item.platformId] = autoFixPlatformCaption(
+        item.rawCaption,
+        pl,
+        existingMasterUrl,
+      );
+      fixedCount++;
+    }
+    if (fixedCount > 0) {
+      setCaptionOverrides(nextOverrides);
+      setShowCaptionOverrides(true);
+      setBanner({
+        kind: "ok",
+        text: `Auto-fitted & cleaned captions for ${fixedCount} platform(s) into Per-Platform Caption Overrides.`,
+      });
+    }
+  };
 
   const refreshCredentialsStatus = async (preferredAlias?: string) => {
     try {
@@ -2426,6 +2475,87 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Live Caption Preflight, Character Limits & Spintax Uniqueness Check */}
+            <div className="bg-white pt-2 space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[#666666]">
+                  Caption Preflight:{" "}
+                  <strong className="text-[#333333]">
+                    {captionPreflight.allOk
+                      ? `All ${captionPreflight.items.length} destination(s) within char limits & SFW policy`
+                      : `${captionPreflight.overLimitCount} over char limit · ${captionPreflight.strictViolationCount} strict-SFW flag(s) · ${captionPreflight.duplicateSiblingRiskCount} sibling duplicate risk(s)`}
+                  </strong>
+                  {activeSpintaxSummary.hasSpintax && (
+                    <span className="ml-2 font-mono text-[11px] text-[#999999]">
+                      ({activeSpintaxSummary.permutations.toLocaleString()} spintax variants)
+                    </span>
+                  )}
+                </div>
+                {(captionPreflight.overLimitCount > 0 || captionPreflight.strictViolationCount > 0) && (
+                  <button
+                    type="button"
+                    onClick={handleAutoFixCaptions}
+                    className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] font-bold text-[#333333] hover:font-bold cursor-pointer"
+                  >
+                    Auto-Fit Overlong &amp; Clean Strict-SFW
+                  </button>
+                )}
+              </div>
+
+              <details className="bg-white text-[11px] text-[#666666]">
+                <summary className="cursor-pointer text-[#666666] hover:font-bold hover:text-[#333333]">
+                  Inspect per-platform character limits &amp; live spintax samples ({captionPreflight.items.length})
+                </summary>
+                <div className="mt-2 space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {captionPreflight.items.map((item) => (
+                      <div key={item.platformId} className="bg-white py-1 space-y-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={item.ok ? "text-[#333333]" : "font-bold text-[#333333]"}>
+                            {item.platformName}
+                          </span>
+                          <span
+                            className={`font-mono text-[10px] ${
+                              item.overLimit ? "font-bold text-[#333333]" : "text-[#999999]"
+                            }`}
+                          >
+                            {item.resolvedLength} / {item.maxChars} chars
+                          </span>
+                        </div>
+                        {item.strictViolation && (
+                          <div className="text-[10px] font-bold text-[#333333]">
+                            Strict-SFW term flagged: &ldquo;{item.strictViolation}&rdquo;
+                          </div>
+                        )}
+                        {item.duplicateSiblingRisk && (
+                          <div className="text-[10px] text-[#666666]">
+                            {item.accountCount} sibling accounts but only {item.spintaxPermutations} spintax variant(s) — add {"{opt1|opt2|opt3}"}
+                          </div>
+                        )}
+                        {item.unbalancedBraces && (
+                          <div className="text-[10px] font-bold text-[#333333]">
+                            Unbalanced spintax braces detected
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {activeSpintaxSummary.hasSpintax && (
+                    <div className="pt-2 space-y-1">
+                      <div className="font-bold text-[#333333]">
+                        Spintax Sample Permutations ({activeSpintaxSummary.blockCount} block(s), {activeSpintaxSummary.permutations.toLocaleString()} total):
+                      </div>
+                      {activeSpintaxSummary.samples.map((sample, idx) => (
+                        <div key={idx} className="font-mono text-[10px] text-[#666666] break-words">
+                          #{idx + 1}: {sample}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </details>
             </div>
           </div>
 

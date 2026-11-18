@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ApiCredentialsManager,
   BrowserSessionConnector,
@@ -11,6 +12,7 @@ import { OneClickConnectPanel } from "../../components/OneClickConnectPanel";
 import {
   PLATFORM_SAFETY_CAPS,
   detectMultiAccountProxyCollisions,
+  normalizePlatformFamily,
 } from "@/lib/account-safety";
 import { getClientCredentials, getSavedCompanionUrl } from "@/lib/client-vault";
 import {
@@ -20,6 +22,13 @@ import {
   vaultApiFetch,
 } from "@/lib/companion-bridge";
 import { buildClientApiFlags } from "@/lib/credential-mapping";
+import {
+  LICENSE_CHANGED_EVENT,
+  PLAN_TIERS,
+  type StoredLicenseState,
+  getClientPlanLicense,
+  getPlanById,
+} from "@/lib/plans";
 
 interface ProfileItem {
   account_id: string;
@@ -105,7 +114,42 @@ export default function AccountVaultPage() {
   const [focusApiProvider, setFocusApiProvider] = useState<string | null>(null);
   const [capSearch, setCapSearch] = useState("");
   const [capLetter, setCapLetter] = useState("all");
+  const [activeLicense, setActiveLicense] = useState<StoredLicenseState | null>(null);
   const [banner, setBanner] = useState<{ kind: "ok" | "err" | "info"; text: string } | null>(null);
+
+  useEffect(() => {
+    const syncLic = () => setActiveLicense(getClientPlanLicense());
+    syncLic();
+    window.addEventListener(LICENSE_CHANGED_EVENT, syncLic);
+    return () => window.removeEventListener(LICENSE_CHANGED_EVENT, syncLic);
+  }, []);
+
+  const activePlan = useMemo(
+    () => getPlanById(activeLicense?.planId ?? "free") || PLAN_TIERS[0],
+    [activeLicense],
+  );
+
+  const vaultPlanCapWarnings = useMemo(() => {
+    if (activePlan.accountsPerPlatformCap === "unlimited") return [];
+    const cap = activePlan.accountsPerPlatformCap;
+    const byFamily = new Map<string, string[]>();
+    for (const p of profiles) {
+      const plats = p.platforms && p.platforms.length > 0 ? p.platforms : p.platform ? [p.platform] : [];
+      for (const rawPlat of plats) {
+        const fam = normalizePlatformFamily(rawPlat);
+        const list = byFamily.get(fam) || [];
+        if (!list.includes(p.account_id)) list.push(p.account_id);
+        byFamily.set(fam, list);
+      }
+    }
+    const warnings: Array<{ platform: string; count: number; cap: number; accounts: string[] }> = [];
+    for (const [platform, accounts] of byFamily.entries()) {
+      if (accounts.length > cap) {
+        warnings.push({ platform, count: accounts.length, cap, accounts });
+      }
+    }
+    return warnings;
+  }, [profiles, activePlan]);
 
   const proxyCollisions = useMemo(() => detectMultiAccountProxyCollisions(profiles), [profiles]);
   const availableCapLetters = useMemo(
@@ -621,6 +665,39 @@ export default function AccountVaultPage() {
             </button>
           </div>
         </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#666666]">
+          <span>
+            Active Tier:{" "}
+            <strong className="text-[#333333]">
+              {activePlan.name} (${activePlan.priceUsd}/mo)
+            </strong>{" "}
+            · Account Cap:{" "}
+            <strong className="text-[#333333]">
+              {activePlan.accountsPerPlatformCap === "unlimited"
+                ? "Unlimited"
+                : `Up to ${activePlan.accountsPerPlatformCap} / platform`}
+            </strong>
+          </span>
+          <Link href="/plans" className="text-[#666666] hover:font-bold hover:text-[#333333]">
+            Upgrade Tier ($3 Pro / $5 VIP / $8 Max / $10 Extra)
+          </Link>
+        </div>
+
+        {vaultPlanCapWarnings.length > 0 && (
+          <div className="bg-white space-y-1 text-xs">
+            <div className="font-bold text-[#333333]">
+              Plan Account-Per-Platform Cap Exceeded ({vaultPlanCapWarnings.length})
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 text-[#666666]">
+              {vaultPlanCapWarnings.map((w) => (
+                <li key={w.platform}>
+                  <strong className="text-[#333333]">{w.platform}</strong>: {w.count} vaulted accounts ({w.accounts.join(", ")}) exceeds {activePlan.name} cap of {w.cap}.
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {proxyCollisions.length > 0 && (
           <div className="p-3.5 rounded-lg bg-white space-y-1.5 text-xs">
