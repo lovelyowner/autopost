@@ -2466,7 +2466,7 @@ export default function DashboardPage() {
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-[5px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
                 {CAPTION_PROFILES.map((profile) => (
                   <div key={profile} className="ui-cell space-y-1">
                     <span className="text-[11px] font-mono uppercase text-[#333333] font-bold block">

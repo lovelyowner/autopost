@@ -414,7 +414,7 @@ export default function PlansPage() {
           onSubmit={handleSaveTreasury}
           className="space-y-3 text-xs"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-[5px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
             <div>
               <label htmlFor="treasury-evm-input" className="text-[#999999] block mb-1">
                 Receiving EVM Wallet Address (0x... for Base / Arbitrum / Polygon USDC, USDT &amp; ETH):
@@ -524,7 +524,7 @@ export default function PlansPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-[5px]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-0">
           {ECOSYSTEM_PROJECTS.map((project) => (
             <div key={project.id} className="ui-cell space-y-1">
               <div className="flex items-center justify-between gap-2">

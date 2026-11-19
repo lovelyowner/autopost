@@ -23,8 +23,8 @@ export default function RootLayout({
           >
             <SiteNav />
           </aside>
-          <main className="flex-1 min-w-0 py-[5px] pr-[5px] pl-0 bg-white space-y-[5px]">
-            <div className="flex justify-end">
+          <main className="flex-1 min-w-0 bg-white space-y-0 p-0">
+            <div className="flex justify-end p-1.5 border-b border-[#cccccc] bg-white">
               <SystemStatusPill />
             </div>
             {children}

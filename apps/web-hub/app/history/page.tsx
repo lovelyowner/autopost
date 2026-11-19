@@ -455,7 +455,7 @@ export default function CampaignHistoryPage() {
                 )}
 
                 {item.teasers.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-[5px]">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
                     {item.teasers.map((t) => (
                       <div
                         key={t.jobId}

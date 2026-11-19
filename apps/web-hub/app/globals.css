@@ -70,11 +70,11 @@ nav[aria-label="Primary"] a:active {
   font-weight: 400;
 }
 
-/* 3 content columns alongside Column 1 left menu = 4 columns total, 5px row/col indent, 1px #cccccc outline */
+/* 3 content columns alongside Column 1 left menu = 4 columns total, 0 space between outlines, 1px #cccccc outline */
 .ui-grid-3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 5px;
+  gap: 0;
   background-color: #ffffff;
 }
 
@@ -91,13 +91,20 @@ nav[aria-label="Primary"] a:active {
   padding: 12px;
 }
 
+.ui-grid-3 > :not([data-modal-overlay="true"]) {
+  margin-top: -1px;
+  margin-left: -1px;
+}
+
 .ui-grid-3 > .ui-stack {
   border: 0;
   padding: 0;
   background-color: transparent;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 0;
+  margin-top: -1px;
+  margin-left: -1px;
 }
 
 .ui-stack > * {
@@ -106,10 +113,14 @@ nav[aria-label="Primary"] a:active {
   padding: 12px;
 }
 
+.ui-stack > * + * {
+  margin-top: -1px;
+}
+
 .ui-row-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 0;
 }
 
 .ui-row-list > * {
@@ -118,10 +129,19 @@ nav[aria-label="Primary"] a:active {
   padding: 10px;
 }
 
+.ui-row-list > * + * {
+  margin-top: -1px;
+}
+
+.grid > .ui-cell {
+  margin-top: -1px;
+  margin-left: -1px;
+}
+
 :where(button, input, select, textarea, summary, [tabindex]):focus-visible,
 main a:focus-visible {
   outline: 1px solid #cccccc;
-  outline-offset: 1px;
+  outline-offset: 0;
 }
 
 button:not(:disabled) {

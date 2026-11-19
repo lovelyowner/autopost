@@ -202,7 +202,7 @@ export default function PresetsPage() {
                   <span className="text-[#333333] font-bold uppercase tracking-wider text-[11px] block">
                     18 U.S.C. 2257 Record-Keeping Attestation
                   </span>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-[5px]">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
                     <div>
                       <label className="text-[#999999] block mb-1">Verified Records Vault ID:</label>
                       <input
@@ -225,7 +225,7 @@ export default function PresetsPage() {
                 </div>
 
                 {/* Pricing & Watermark */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-[5px]">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
                   <div>
                     <label className="text-[#999999] block mb-1">PPV Store Price (USD):</label>
                     <input
@@ -270,7 +270,7 @@ export default function PresetsPage() {
                   <label className="text-[#999999] font-bold block">
                     16-Tag Niche SEO Block (Applied across tube networks &amp; clip stores):
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-[5px]">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-0">
                     {Array.from({ length: 16 }).map((_, i) => (
                       <input
                         key={i}

@@ -542,7 +542,7 @@ export default function AccountVaultPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-[5px] text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 text-xs">
           <div className="ui-cell space-y-1">
             <span className="text-[#333333] font-bold uppercase tracking-wider text-[10px]">Step 1A: Browser Accounts</span>
             <p className="text-[#666666]">
@@ -589,7 +589,7 @@ export default function AccountVaultPage() {
           </div>
         </div>
         {readiness && (
-          <div className="grid grid-cols-2 gap-[5px] text-xs">
+          <div className="grid grid-cols-2 gap-0 text-xs">
             {Object.entries(readiness.services).map(([key, ok]) => (
               <div key={key} className="ui-cell !p-1.5 flex items-center justify-between">
                 <span className="text-[#666666] font-mono text-[10px] truncate mr-1">{key}</span>
@@ -845,7 +845,7 @@ export default function AccountVaultPage() {
           {inspectReport.error ? (
             <p className="text-[#333333] font-mono">{inspectReport.error}</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-[5px]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
               <div className="ui-row-list">
                 {Object.entries(inspectReport.selectors || {}).map(([group, list]) => (
                   <div key={group} className="bg-white space-y-1">
@@ -913,7 +913,7 @@ export default function AccountVaultPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-[5px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
             <div className="ui-cell">
               <label className="text-[#999999] block mb-1">Upload Page URL:</label>
               <input
