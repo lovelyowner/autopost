@@ -30,20 +30,26 @@ a:hover {
   font-weight: 700;
 }
 
-/* Left menu (Column 1 of 4): strictly no borders or outlines in any state */
+/* Left menu (Column 1 of 4): strictly no borders, outlines, rings, or shadows in any state */
 aside[aria-label="Sidebar"],
 aside[aria-label="Sidebar"] *,
 aside[aria-label="Sidebar"] *:hover,
 aside[aria-label="Sidebar"] *:focus,
 aside[aria-label="Sidebar"] *:focus-visible,
 aside[aria-label="Sidebar"] *:active,
+nav[aria-label="Primary"],
 nav[aria-label="Primary"] a,
 nav[aria-label="Primary"] a:hover,
 nav[aria-label="Primary"] a:focus,
-nav[aria-label="Primary"] a:focus-visible {
-  border: 0 !important;
-  outline: none !important;
+nav[aria-label="Primary"] a:focus-visible,
+nav[aria-label="Primary"] a:active {
+  border: 0 none transparent !important;
+  border-width: 0 !important;
+  outline: 0 none transparent !important;
+  outline-width: 0 !important;
+  outline-offset: 0 !important;
   box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent;
   font-weight: 400;
 }
 

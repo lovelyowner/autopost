@@ -2271,12 +2271,12 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Teaser Keyframe Scrubber & Watermark Burn Controls */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
-                  <div>
+                <div className="grid grid-cols-1 gap-[5px] pt-1 text-xs">
+                  <div className="min-w-0">
                     <label className="text-[#999999] block mb-1">
                       Teaser Offset ({startSec.toFixed(1)}s):
                     </label>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-[5px] min-w-0">
                       <input
                         type="range"
                         min={0}
@@ -2284,58 +2284,60 @@ export default function DashboardPage() {
                         step={0.5}
                         value={startSec}
                         onChange={(e) => setStartSec(Number(e.target.value) || 0)}
-                        className="flex-1 accent-[#333333] border-0 border-b border-[#cccccc] rounded-none bg-white"
+                        className="min-w-0 flex-1 accent-[#333333] border-0 border-b border-[#cccccc] rounded-none bg-white"
                       />
                       <button
                         type="button"
                         onClick={() => void handleProbeMedia(startSec, false)}
                         disabled={probingMedia}
-                        className="border px-2 py-1 rounded bg-white text-[10px] text-[#333333] cursor-pointer border-[#cccccc] hover:font-bold"
+                        className="shrink-0 border px-2 py-1 rounded bg-white text-[10px] text-[#333333] cursor-pointer border-[#cccccc] hover:font-bold"
                       >
                         Preview
                       </button>
                     </div>
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[#999999]">Watermark Burn Text:</label>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setWatermarkText((prev) =>
-                            prev.includes("{{ACCOUNT_ID}}")
-                              ? prev
-                              : prev.trim()
-                                ? `${prev.trim()} @{{ACCOUNT_ID}}`
-                                : "@{{ACCOUNT_ID}}",
-                          )
-                        }
-                        className="text-[10px] text-[#333333] hover:text-[#333333] font-mono cursor-pointer border border-[#cccccc] rounded bg-white hover:font-bold"
-                        title="Burn each account's own alias into its video teaser"
-                      >
-                        + @&#123;&#123;ACCOUNT_ID&#125;&#125;
-                      </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-[5px]">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                        <label className="text-[#999999]">Watermark Burn Text:</label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setWatermarkText((prev) =>
+                              prev.includes("{{ACCOUNT_ID}}")
+                                ? prev
+                                : prev.trim()
+                                  ? `${prev.trim()} @{{ACCOUNT_ID}}`
+                                  : "@{{ACCOUNT_ID}}",
+                            )
+                          }
+                          className="text-[10px] px-1.5 py-0.5 text-[#333333] hover:text-[#333333] font-mono cursor-pointer border border-[#cccccc] rounded bg-white hover:font-bold"
+                          title="Burn each account's own alias into its video teaser"
+                        >
+                          + @&#123;&#123;ACCOUNT_ID&#125;&#125;
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={watermarkText}
+                        onChange={(e) => setWatermarkText(e.target.value)}
+                        placeholder="e.g. @StudioNova or @{{ACCOUNT_ID}}"
+                        className="w-full bg-white px-2.5 py-1.5 text-xs text-[#333333] font-mono border-0 border-b border-[#cccccc] rounded-none"
+                      />
                     </div>
-                    <input
-                      type="text"
-                      value={watermarkText}
-                      onChange={(e) => setWatermarkText(e.target.value)}
-                      placeholder="e.g. @StudioNova or @{{ACCOUNT_ID}}"
-                      className="w-full bg-white px-2.5 py-1.5 text-xs text-[#333333] font-mono border-0 border-b border-[#cccccc] rounded-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[#999999] block mb-1">Watermark Position:</label>
-                    <select
-                      value={watermarkPosition}
-                      onChange={(e) => setWatermarkPosition(e.target.value as any)}
-                      className="w-full bg-white px-2.5 py-1.5 text-xs text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
-                    >
-                      <option value="bottom-right">Bottom Right</option>
-                      <option value="bottom-left">Bottom Left</option>
-                      <option value="top-right">Top Right</option>
-                      <option value="top-left">Top Left</option>
-                    </select>
+                    <div className="min-w-0">
+                      <label className="text-[#999999] block mb-1">Watermark Position:</label>
+                      <select
+                        value={watermarkPosition}
+                        onChange={(e) => setWatermarkPosition(e.target.value as any)}
+                        className="w-full bg-white px-2.5 py-1.5 text-xs text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+                      >
+                        <option value="bottom-right">Bottom Right</option>
+                        <option value="bottom-left">Bottom Left</option>
+                        <option value="top-right">Top Right</option>
+                        <option value="top-left">Top Left</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -96,19 +96,19 @@ export function SiteNav() {
   const renderItem = ({ href, label, shortcut, Icon }: NavItemSpec) => {
     const isCurrent = href === "/" ? pathname === "/" : pathname?.startsWith(href);
     return (
-      <li key={href} className="flex items-center justify-center">
+      <li key={href} className="m-0 p-0 flex items-center justify-center">
         <Link
           href={href}
           aria-label={label}
           aria-keyshortcuts={shortcut}
           title={`${label} (${shortcut})`}
           aria-current={isCurrent ? "page" : undefined}
-          className="min-w-10 min-h-10 flex items-center justify-center bg-white transition-transform duration-150 ease-out hover:scale-110 focus-visible:scale-110 active:scale-95"
+          className="w-[20px] h-[20px] m-0 p-0 border-0 outline-none shadow-none flex items-center justify-center bg-white transition-transform duration-150 ease-out hover:scale-110 focus-visible:scale-110 active:scale-95"
         >
           <Icon
             aria-hidden="true"
             strokeWidth={isCurrent ? 2.5 : 1.5}
-            className="w-5 h-5 text-[#999999]"
+            className="w-[20px] h-[20px] block text-[#999999]"
           />
           <span className="sr-only">{label}</span>
         </Link>
@@ -119,12 +119,12 @@ export function SiteNav() {
   return (
     <nav
       aria-label="Primary"
-      className="flex-1 flex flex-col items-center justify-between w-full bg-white"
+      className="flex-1 flex flex-col items-center justify-between w-full m-0 p-0 bg-white"
     >
-      <ul className="flex flex-col items-center gap-4 bg-white">
+      <ul className="flex flex-col items-center gap-[5px] m-0 p-0 list-none bg-white">
         {primaryItems.map(renderItem)}
       </ul>
-      <ul className="flex flex-col items-center gap-4 bg-white pt-4">
+      <ul className="flex flex-col items-center gap-[5px] m-0 p-0 pt-[5px] list-none bg-white">
         {bottomItems.map(renderItem)}
       </ul>
     </nav>
