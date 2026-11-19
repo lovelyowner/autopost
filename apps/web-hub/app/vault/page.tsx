@@ -532,29 +532,30 @@ export default function AccountVaultPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="bg-white rounded-xl p-6 space-y-4">
+    <div className="ui-grid-3">
+      {/* Row 1: Important Header & 3-Step Guide (2 cols) + Worker Services Readiness & Active Tier (1 col) */}
+      <div className="md:col-span-2 bg-white space-y-3">
         <div>
-          <h1 className="text-2xl font-bold text-[#333333] mb-2">Interactive Account Login Vault &amp; Credentials</h1>
-          <p className="text-sm text-[#999999]">
+          <h1 className="text-xl font-bold text-[#333333] mb-1">Interactive Account Login Vault &amp; Credentials</h1>
+          <p className="text-xs text-[#999999]">
             Connect browser-session platforms via a one-time visible Patchright Chromium window (<code className="text-[#333333] font-mono">./profiles/&lt;alias&gt;</code>), or configure direct REST API tokens in <code className="text-[#333333] font-mono">.env</code>.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-2">
-          <div className="p-3 rounded-lg bg-white space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-[5px] text-xs">
+          <div className="ui-cell space-y-1">
             <span className="text-[#333333] font-bold uppercase tracking-wider text-[10px]">Step 1A: Browser Accounts</span>
             <p className="text-[#666666]">
               For Pornhub, Fansly, OnlyFans, X, Instagram, etc.: enter an alias like <code className="font-mono text-[#333333]">main_creator</code> below and click <strong>Launch Connect Window</strong>. Log in manually (with 2FA) in the opened Chrome window; cookies auto-save.
             </p>
           </div>
-          <div className="p-3 rounded-lg bg-white space-y-1">
+          <div className="ui-cell space-y-1">
             <span className="text-[#333333] font-bold uppercase tracking-wider text-[10px]">Step 1B: API / Bot Accounts</span>
             <p className="text-[#666666]">
-              For Bluesky, Mastodon, Telegram, Discord, Slack, Reddit, e621, DeviantArt, Inkbunny: paste tokens directly into the <strong>Direct API &amp; Bot Accounts</strong> forms below and click <strong>Save &amp; Test Live Connection</strong>. No restarts required!
+              For Bluesky, Mastodon, Telegram, Discord, Slack, Reddit, e621, DeviantArt, Inkbunny: paste tokens directly into the <strong>Direct API &amp; Bot Accounts</strong> forms below and click <strong>Save &amp; Test Live Connection</strong>.
             </p>
           </div>
-          <div className="p-3 rounded-lg bg-white space-y-1">
+          <div className="ui-cell space-y-1">
             <span className="text-[#333333] font-bold uppercase tracking-wider text-[10px]">Step 2: Launch Live Campaign</span>
             <p className="text-[#666666]">
               In Composer (<code className="font-mono text-[#333333]">/</code>), stage media, match your Vault alias (<code className="font-mono text-[#333333]">main_creator</code>), and enable <strong>Strict Live Only</strong> before clicking Launch.
@@ -563,56 +564,80 @@ export default function AccountVaultPage() {
         </div>
       </div>
 
-      {banner && (
-        <div
-          className={`p-3 rounded-lg text-xs flex items-center justify-between gap-4 ${ banner.kind === "ok" ? "bg-white text-[#333333]" : banner.kind === "info" ? "bg-white text-[#333333]" : "bg-white text-[#333333]" }`}
-        >
-          <span>{banner.text}</span>
-          <button onClick={() => setBanner(null)} className="text-[11px] opacity-75 hover:opacity-100 whitespace-nowrap border border-[#cccccc] rounded bg-white hover:font-bold">
-            Dismiss
-          </button>
+      {/* Column 4: System Worker Readiness & Active Tier Cap (1 col) */}
+      <div className="md:col-span-1 bg-white space-y-2.5 flex flex-col justify-between">
+        <div className="space-y-2">
+          <h2 className="text-xs font-bold text-[#333333] uppercase tracking-wider">Worker Services &amp; Tier Cap</h2>
+          <div className="ui-cell text-xs text-[#666666] space-y-1">
+            <div>
+              Active Tier:{" "}
+              <strong className="text-[#333333]">
+                {activePlan.name} (${activePlan.priceUsd}/mo)
+              </strong>
+            </div>
+            <div>
+              Account Cap:{" "}
+              <strong className="text-[#333333]">
+                {activePlan.accountsPerPlatformCap === "unlimited"
+                  ? "Unlimited"
+                  : `Up to ${activePlan.accountsPerPlatformCap} / platform`}
+              </strong>
+            </div>
+            <Link href="/plans" className="block text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]">
+              Upgrade Tier ($3 Pro / $5 VIP / $8 Max / $10 Extra)
+            </Link>
+          </div>
         </div>
-      )}
-
-      {/* System Worker Readiness Strip */}
-      {readiness && (
-        <div className="bg-white rounded-xl p-4 space-y-2.5">
-          <h2 className="text-xs font-semibold text-[#333333] uppercase tracking-wider">Worker Services Readiness</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+        {readiness && (
+          <div className="grid grid-cols-2 gap-[5px] text-xs">
             {Object.entries(readiness.services).map(([key, ok]) => (
-              <div key={key} className="flex items-center justify-between p-2 rounded bg-white">
+              <div key={key} className="ui-cell !p-1.5 flex items-center justify-between">
                 <span className="text-[#666666] font-mono text-[10px] truncate mr-1">{key}</span>
                 <span
-                  className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${ ok ? "bg-white text-[#333333]" : "bg-white text-[#999999]" }`}
+                  className={`px-1 py-0.5 font-mono text-[10px] ${ ok ? "bg-white text-[#333333] font-bold" : "bg-white text-[#999999]" }`}
                 >
                   {ok ? "READY" : "OFF"}
                 </span>
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {banner && (
+        <div
+          className="md:col-span-3 text-xs flex items-center justify-between gap-4 bg-white text-[#333333]"
+        >
+          <span>{banner.text}</span>
+          <button onClick={() => setBanner(null)} className="text-[11px] px-2 py-1 whitespace-nowrap border border-[#cccccc] rounded bg-white hover:font-bold">
+            Dismiss
+          </button>
         </div>
       )}
 
-      <OneClickConnectPanel
-        apiFlags={readiness?.apiCredentials}
-        cloudMode={Boolean(readiness?.cloudMode)}
-        onConnected={() => {
-          void loadVaultState();
-        }}
-        onSelectProvider={(providerId) => {
-          setFocusApiProvider(providerId);
-          document.getElementById("api-credentials-section")?.scrollIntoView({ behavior: "smooth" });
-        }}
-        onOpenBrowserLogin={(platformId) => {
-          setSelectedPlatform(platformId);
-          void launchConnectWindow(newAccountId || "main_creator", platformId);
-        }}
-      />
+      {/* Row 2: OneClickConnectPanel across 3 content columns */}
+      <div className="md:col-span-3 bg-white">
+        <OneClickConnectPanel
+          apiFlags={readiness?.apiCredentials}
+          cloudMode={Boolean(readiness?.cloudMode)}
+          onConnected={() => {
+            void loadVaultState();
+          }}
+          onSelectProvider={(providerId) => {
+            setFocusApiProvider(providerId);
+            document.getElementById("api-credentials-section")?.scrollIntoView({ behavior: "smooth" });
+          }}
+          onOpenBrowserLogin={(platformId) => {
+            setSelectedPlatform(platformId);
+            void launchConnectWindow(newAccountId || "main_creator", platformId);
+          }}
+        />
+      </div>
 
-      {/* Connect Account Action Card */}
-      <div className="bg-white rounded-xl p-6 space-y-4">
+      {/* Row 3: Important Connect Browser Session (2 cols) + Vaulted Account Profiles List (1 col) */}
+      <div className="md:col-span-2 bg-white space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-[#333333]">Connect Browser Session (Chrome Login or Cookie-Editor JSON)</h2>
+          <h2 className="text-sm font-bold text-[#333333]">Connect Browser Session (Chrome Login or Cookie-Editor JSON)</h2>
           {reauthAlias && (
             <button
               type="button"
@@ -635,20 +660,20 @@ export default function AccountVaultPage() {
         />
       </div>
 
-      {/* Connected Profiles List */}
-      <div className="bg-white rounded-xl p-6 space-y-4">
+      {/* Column 4: Vaulted Account Profiles List (1 col) */}
+      <div className="md:col-span-1 bg-white space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-[#333333]">Vaulted Account Profiles ({profiles.length})</h2>
-          <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-sm font-bold text-[#333333]">Vaulted Profiles ({profiles.length})</h2>
+          <div className="flex flex-wrap items-center gap-[5px]">
             <button
               type="button"
               onClick={() => void handleExportBundle()}
-              className="text-xs px-2.5 py-1.5 rounded bg-white text-[#333333] border font-medium cursor-pointer border-[#cccccc] hover:font-bold"
+              className="text-[11px] px-2 py-1 rounded bg-white text-[#333333] border font-medium cursor-pointer border-[#cccccc] hover:font-bold"
             >
-              Export Backup (.json)
+              Export (.json)
             </button>
-            <label className="text-xs px-2.5 py-1.5 rounded bg-white text-[#333333] border font-medium cursor-pointer border-[#cccccc]">
-              Import Backup (.json)
+            <label className="text-[11px] px-2 py-1 rounded bg-white text-[#333333] border font-medium cursor-pointer border-[#cccccc] hover:font-bold">
+              Import (.json)
               <input
                 type="file"
                 accept="application/json,.json"
@@ -659,33 +684,15 @@ export default function AccountVaultPage() {
             <button
               onClick={handleVerifyAllHealth}
               disabled={checkingHealth || profiles.length === 0}
-              className="text-xs px-3 py-1.5 rounded bg-white text-[#333333] border font-medium disabled:opacity-50 cursor-pointer border-[#cccccc] hover:font-bold"
+              className="text-[11px] px-2 py-1 rounded bg-white text-[#333333] border font-medium disabled:opacity-50 cursor-pointer border-[#cccccc] hover:font-bold"
             >
-              {checkingHealth ? "Checking..." : "Pre-Flight Verify All Sessions"}
+              {checkingHealth ? "Checking..." : "Verify All"}
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#666666]">
-          <span>
-            Active Tier:{" "}
-            <strong className="text-[#333333]">
-              {activePlan.name} (${activePlan.priceUsd}/mo)
-            </strong>{" "}
-            · Account Cap:{" "}
-            <strong className="text-[#333333]">
-              {activePlan.accountsPerPlatformCap === "unlimited"
-                ? "Unlimited"
-                : `Up to ${activePlan.accountsPerPlatformCap} / platform`}
-            </strong>
-          </span>
-          <Link href="/plans" className="text-[#666666] hover:font-bold hover:text-[#333333]">
-            Upgrade Tier ($3 Pro / $5 VIP / $8 Max / $10 Extra)
-          </Link>
-        </div>
-
         {vaultPlanCapWarnings.length > 0 && (
-          <div className="bg-white space-y-1 text-xs">
+          <div className="ui-cell space-y-1 text-xs">
             <div className="font-bold text-[#333333]">
               Plan Account-Per-Platform Cap Exceeded ({vaultPlanCapWarnings.length})
             </div>
@@ -700,7 +707,7 @@ export default function AccountVaultPage() {
         )}
 
         {proxyCollisions.length > 0 && (
-          <div className="p-3.5 rounded-lg bg-white space-y-1.5 text-xs">
+          <div className="ui-cell space-y-1.5 text-xs">
             <div className="font-semibold text-[#333333]">
               Multi-Account IP / Proxy Overlap Warning ({proxyCollisions.length})
             </div>
@@ -713,67 +720,65 @@ export default function AccountVaultPage() {
         )}
 
         {profiles.length === 0 ? (
-          <div className="p-6 rounded-lg bg-white text-xs text-[#999999] text-center space-y-2">
+          <div className="ui-cell text-xs text-[#999999] text-center space-y-1">
             <p className="text-[#666666] font-medium">No browser session profiles vaulted in ./profiles yet.</p>
-            <p>Connect an account above or run the CLI helper to authenticate your real accounts cleanly.</p>
+            <p>Connect an account or run the CLI helper to authenticate your real accounts cleanly.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="ui-row-list">
             {profiles.map((p) => (
               <div
                 key={p.account_id}
-                className="p-4 rounded-lg bg-white flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                className="bg-white space-y-2 text-xs"
               >
                 <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-[#333333] text-sm">{p.account_id}</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-bold text-[#333333] text-xs">{p.account_id}</span>
                     {(p.platforms && p.platforms.length > 0 ? p.platforms : [p.platform]).map((plat) => (
                       <span
                         key={plat}
-                        className="px-2 py-0.5 rounded bg-white text-[#666666] font-mono text-[11px]"
+                        className="px-1.5 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]"
                       >
                         {plat}
                       </span>
                     ))}
-                    <span
-                      className={`px-2 py-0.5 rounded font-medium text-[10px] ${ p.healthy ? "bg-white text-[#333333]" : "bg-white text-[#333333]" }`}
-                    >
+                    <span className="px-1.5 py-0.5 rounded font-bold text-[10px] bg-white text-[#333333]">
                       {p.healthy ? "HEALTHY" : "EXPIRED"}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded font-mono text-[10px] ${ p.proxy ? p.proxy_ok === false ? "bg-white text-[#333333]" : "bg-white text-[#333333]" : "bg-white text-[#999999]" }`}
+                      className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${ p.proxy ? "bg-white text-[#333333]" : "bg-white text-[#999999]" }`}
                     >
                       {p.proxy
                         ? `PROXY: ${p.proxy}${p.proxy_latency_ms != null ? ` (${p.proxy_latency_ms}ms)` : ""}`
                         : "DIRECT IP"}
                     </span>
                     {typeof p.cookie_count === "number" && (
-                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]">
                         {p.cookie_count} cookies
                       </span>
                     )}
                     {typeof p.origin_count === "number" && p.origin_count > 0 && (
-                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]">
                         {p.origin_count} SPA origins
                       </span>
                     )}
                     {typeof p.posts_last_24h === "number" && (
-                      <span className="px-2 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded bg-white text-[#666666] font-mono text-[10px]">
                         {p.posts_last_24h} posts/24h
                       </span>
                     )}
                   </div>
-                  <p className="text-[#999999]">{p.statusText || "Active"}</p>
+                  <p className="text-[#999999] text-[11px]">{p.statusText || "Active"}</p>
                 </div>
 
-                <div className="flex items-center space-x-2 text-[#999999]">
-                  <span className="font-mono text-[11px]">
-                    Updated: {new Date(p.updated_at || Date.now()).toLocaleTimeString()}
+                <div className="flex flex-wrap items-center gap-[5px] text-[#999999]">
+                  <span className="font-mono text-[10px] mr-auto">
+                    {new Date(p.updated_at || Date.now()).toLocaleTimeString()}
                   </span>
                   <button
                     type="button"
                     onClick={() => handleCloneToNextAlias(p)}
-                    className="px-2.5 py-1 rounded bg-white text-[#333333] border cursor-pointer border-[#cccccc] hover:font-bold"
+                    className="px-2 py-0.5 rounded bg-white text-[#333333] border cursor-pointer border-[#cccccc] hover:font-bold text-[11px]"
                     title="Pre-fill the next numbered account alias (#2, #3...) for fast multi-account onboarding"
                   >
                     + Next Alias
@@ -781,19 +786,19 @@ export default function AccountVaultPage() {
                   <button
                     onClick={() => void handleInspectSelectors(p.account_id, p.platform || selectedPlatform)}
                     disabled={inspectingId === p.account_id}
-                    className="border px-2.5 py-1 rounded bg-white text-[#333333] cursor-pointer disabled:opacity-50 border-[#cccccc] hover:font-bold"
+                    className="border px-2 py-0.5 rounded bg-white text-[#333333] cursor-pointer disabled:opacity-50 border-[#cccccc] hover:font-bold text-[11px]"
                   >
                     {inspectingId === p.account_id ? "Inspecting..." : "Inspect DOM"}
                   </button>
                   <button
                     onClick={() => launchConnectWindow(p.account_id, p.platform || selectedPlatform)}
-                    className="border px-2.5 py-1 rounded bg-white text-[#333333] border-[#cccccc] hover:font-bold"
+                    className="border px-2 py-0.5 rounded bg-white text-[#333333] border-[#cccccc] hover:font-bold text-[11px]"
                   >
                     Re-Auth
                   </button>
                   <button
                     onClick={() => handleDeleteProfile(p.account_id)}
-                    className="border px-2.5 py-1 rounded bg-white text-[#333333] border-[#cccccc] hover:font-bold"
+                    className="border px-2 py-0.5 rounded bg-white text-[#333333] border-[#cccccc] hover:font-bold text-[11px]"
                   >
                     Remove
                   </button>
@@ -803,201 +808,227 @@ export default function AccountVaultPage() {
           </div>
         )}
 
-        <div className="pt-3 space-y-2 text-xs">
+        <div className="ui-cell space-y-1.5 text-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="text-[#999999]">
-              Optional Custom Target URL Override for DOM Selector Inspector:
+            <label className="text-[#999999] text-[11px]">
+              DOM Selector Inspector Override URL:
             </label>
             <button
               type="button"
               onClick={() => void openSelectorEditor(selectedPlatform)}
-              className="border px-2.5 py-1 rounded bg-white text-[#333333] font-medium cursor-pointer border-[#cccccc] hover:font-bold"
+              className="border px-2 py-0.5 rounded bg-white text-[#333333] font-medium cursor-pointer border-[#cccccc] hover:font-bold text-[11px]"
             >
-              Edit Selector Recipe ({selectedPlatform})
+              Edit Recipe ({selectedPlatform})
             </button>
           </div>
           <input
             type="text"
             value={inspectCustomUrl}
             onChange={(e) => setInspectCustomUrl(e.target.value)}
-            placeholder="Leave empty to use built-in platform upload URL from recipe"
-            className="w-full bg-white px-3 py-1.5 text-xs text-[#333333] font-mono border-0 border-b border-[#cccccc] rounded-none"
+            placeholder="Leave empty for built-in platform upload URL"
+            className="w-full bg-white px-2 py-1 text-xs text-[#333333] font-mono border-0 border-b border-[#cccccc] rounded-none"
           />
         </div>
-
-        {inspectReport && (
-          <div className="p-4 rounded-lg bg-white space-y-3 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-semibold text-[#333333]">
-                Selector Recipe Inspection: {inspectReport.platform_id} ({inspectReport.account_id})
-              </span>
-              <span className="font-mono text-[11px] text-[#999999] truncate max-w-md">
-                {inspectReport.current_url || inspectReport.target_url}
-              </span>
-            </div>
-            {inspectReport.error ? (
-              <p className="text-[#333333] font-mono">{inspectReport.error}</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  {Object.entries(inspectReport.selectors || {}).map(([group, list]) => (
-                    <div key={group} className="p-2 rounded bg-white space-y-1">
-                      <span className="font-mono uppercase text-[10px] text-[#666666] font-bold block">{group}</span>
-                      {list.map((entry) => (
-                        <div key={entry.selector} className="flex items-center justify-between font-mono text-[10px]">
-                          <span className="text-[#999999] truncate mr-2">{entry.selector}</span>
-                          <span className={entry.count > 0 ? "text-[#333333] font-semibold" : "text-[#999999]"}>
-                            {entry.count > 0 ? `FOUND (${entry.count})` : "MISS"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-                {inspectReport.preview_screenshot && (
-                  <div className="space-y-1">
-                    <span className="text-[#999999] font-mono text-[11px] block">Rendered Page Preview:</span>
-                    <img
-                      src={
-                        getSavedCompanionUrl()
-                          ? `${getSavedCompanionUrl()}/api/previews/${encodeURIComponent(inspectReport.preview_screenshot)}`
-                          : `/api/vault/preview/${encodeURIComponent(inspectReport.preview_screenshot)}`
-                      }
-                      alt="DOM Inspector preview screenshot"
-                      className="w-full rounded bg-white"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {editorPlatform && selectorForm && (
-          <div className="p-4 rounded-lg bg-white space-y-3 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="font-semibold text-[#333333]">
-                  Selector Override Editor: {editorPlatform}
-                </h3>
-                <p className="text-[11px] text-[#999999]">
-                  Saved to <code className="font-mono text-[#333333]">config/selector-overrides.json</code> (one CSS selector per line; overrides built-in Python uploader selectors).
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleResetSelectors()}
-                  className="border px-2.5 py-1 rounded bg-white text-[#666666] cursor-pointer border-[#cccccc] hover:font-bold"
-                >
-                  Reset Defaults
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditorPlatform(null);
-                    setSelectorForm(null);
-                  }}
-                  className="border px-2.5 py-1 rounded bg-white text-[#999999] cursor-pointer border-[#cccccc] hover:font-bold"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[#999999] block mb-1">Upload Page URL:</label>
-                <input
-                  type="text"
-                  value={selectorForm.upload_url}
-                  onChange={(e) => setSelectorForm({ ...selectorForm, upload_url: e.target.value })}
-                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
-                />
-              </div>
-              <div>
-                <label className="text-[#999999] block mb-1">Published URL Prefix:</label>
-                <input
-                  type="text"
-                  value={selectorForm.url_prefix}
-                  onChange={(e) => setSelectorForm({ ...selectorForm, url_prefix: e.target.value })}
-                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
-                />
-              </div>
-              <div>
-                <label className="text-[#999999] block mb-1">File Input Selectors:</label>
-                <textarea
-                  rows={2}
-                  value={selectorForm.file_input_selectors}
-                  onChange={(e) => setSelectorForm({ ...selectorForm, file_input_selectors: e.target.value })}
-                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
-                />
-              </div>
-              <div>
-                <label className="text-[#999999] block mb-1">Title Input Selectors:</label>
-                <textarea
-                  rows={2}
-                  value={selectorForm.title_selectors}
-                  onChange={(e) => setSelectorForm({ ...selectorForm, title_selectors: e.target.value })}
-                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
-                />
-              </div>
-              <div>
-                <label className="text-[#999999] block mb-1">Description Selectors:</label>
-                <textarea
-                  rows={2}
-                  value={selectorForm.description_selectors}
-                  onChange={(e) => setSelectorForm({ ...selectorForm, description_selectors: e.target.value })}
-                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
-                />
-              </div>
-              <div>
-                <label className="text-[#999999] block mb-1">Tag Selectors:</label>
-                <textarea
-                  rows={2}
-                  value={selectorForm.tag_selectors}
-                  onChange={(e) => setSelectorForm({ ...selectorForm, tag_selectors: e.target.value })}
-                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
-                />
-              </div>
-              <div>
-                <label className="text-[#999999] block mb-1">2257 Compliance Checkbox Selectors:</label>
-                <textarea
-                  rows={2}
-                  value={selectorForm.compliance_selectors}
-                  onChange={(e) => setSelectorForm({ ...selectorForm, compliance_selectors: e.target.value })}
-                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
-                />
-              </div>
-              <div>
-                <label className="text-[#999999] block mb-1">Submit / Publish Button Selectors:</label>
-                <textarea
-                  rows={2}
-                  value={selectorForm.submit_selectors}
-                  onChange={(e) => setSelectorForm({ ...selectorForm, submit_selectors: e.target.value })}
-                  className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void handleSaveSelectors()}
-              disabled={savingSelectors}
-              className="border px-4 py-2 rounded bg-white text-[#333333] font-semibold cursor-pointer disabled:opacity-50 border-[#cccccc] hover:font-bold"
-            >
-              {savingSelectors ? "Saving..." : "Save Selector Overrides"}
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Multi-Account Anti-Ban Caps & Proxy Reference */}
-      <div className="bg-white rounded-xl p-6 space-y-4">
+      {/* Optional Selector Inspection Report (spans 3 cols when active) */}
+      {inspectReport && (
+        <div className="md:col-span-3 bg-white space-y-3 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-semibold text-[#333333]">
+              Selector Recipe Inspection: {inspectReport.platform_id} ({inspectReport.account_id})
+            </span>
+            <span className="font-mono text-[11px] text-[#999999] truncate max-w-md">
+              {inspectReport.current_url || inspectReport.target_url}
+            </span>
+          </div>
+          {inspectReport.error ? (
+            <p className="text-[#333333] font-mono">{inspectReport.error}</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-[5px]">
+              <div className="ui-row-list">
+                {Object.entries(inspectReport.selectors || {}).map(([group, list]) => (
+                  <div key={group} className="bg-white space-y-1">
+                    <span className="font-mono uppercase text-[10px] text-[#666666] font-bold block">{group}</span>
+                    {list.map((entry) => (
+                      <div key={entry.selector} className="flex items-center justify-between font-mono text-[10px]">
+                        <span className="text-[#999999] truncate mr-2">{entry.selector}</span>
+                        <span className={entry.count > 0 ? "text-[#333333] font-semibold" : "text-[#999999]"}>
+                          {entry.count > 0 ? `FOUND (${entry.count})` : "MISS"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              {inspectReport.preview_screenshot && (
+                <div className="ui-cell space-y-1">
+                  <span className="text-[#999999] font-mono text-[11px] block">Rendered Page Preview:</span>
+                  <img
+                    src={
+                      getSavedCompanionUrl()
+                        ? `${getSavedCompanionUrl()}/api/previews/${encodeURIComponent(inspectReport.preview_screenshot)}`
+                        : `/api/vault/preview/${encodeURIComponent(inspectReport.preview_screenshot)}`
+                    }
+                    alt="DOM Inspector preview screenshot"
+                    className="w-full rounded bg-white"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Optional Selector Override Editor (spans 3 cols when active) */}
+      {editorPlatform && selectorForm && (
+        <div className="md:col-span-3 bg-white space-y-3 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="font-semibold text-[#333333]">
+                Selector Override Editor: {editorPlatform}
+              </h3>
+              <p className="text-[11px] text-[#999999]">
+                Saved to <code className="font-mono text-[#333333]">config/selector-overrides.json</code> (one CSS selector per line; overrides built-in Python uploader selectors).
+              </p>
+            </div>
+            <div className="flex items-center gap-[5px]">
+              <button
+                type="button"
+                onClick={() => void handleResetSelectors()}
+                className="border px-2.5 py-1 rounded bg-white text-[#666666] cursor-pointer border-[#cccccc] hover:font-bold"
+              >
+                Reset Defaults
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditorPlatform(null);
+                  setSelectorForm(null);
+                }}
+                className="border px-2.5 py-1 rounded bg-white text-[#999999] cursor-pointer border-[#cccccc] hover:font-bold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-[5px]">
+            <div className="ui-cell">
+              <label className="text-[#999999] block mb-1">Upload Page URL:</label>
+              <input
+                type="text"
+                value={selectorForm.upload_url}
+                onChange={(e) => setSelectorForm({ ...selectorForm, upload_url: e.target.value })}
+                className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+              />
+            </div>
+            <div className="ui-cell">
+              <label className="text-[#999999] block mb-1">Published URL Prefix:</label>
+              <input
+                type="text"
+                value={selectorForm.url_prefix}
+                onChange={(e) => setSelectorForm({ ...selectorForm, url_prefix: e.target.value })}
+                className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+              />
+            </div>
+            <div className="ui-cell">
+              <label className="text-[#999999] block mb-1">File Input Selectors:</label>
+              <textarea
+                rows={2}
+                value={selectorForm.file_input_selectors}
+                onChange={(e) => setSelectorForm({ ...selectorForm, file_input_selectors: e.target.value })}
+                className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+              />
+            </div>
+            <div className="ui-cell">
+              <label className="text-[#999999] block mb-1">Title Input Selectors:</label>
+              <textarea
+                rows={2}
+                value={selectorForm.title_selectors}
+                onChange={(e) => setSelectorForm({ ...selectorForm, title_selectors: e.target.value })}
+                className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+              />
+            </div>
+            <div className="ui-cell">
+              <label className="text-[#999999] block mb-1">Description Selectors:</label>
+              <textarea
+                rows={2}
+                value={selectorForm.description_selectors}
+                onChange={(e) => setSelectorForm({ ...selectorForm, description_selectors: e.target.value })}
+                className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+              />
+            </div>
+            <div className="ui-cell">
+              <label className="text-[#999999] block mb-1">Tag Selectors:</label>
+              <textarea
+                rows={2}
+                value={selectorForm.tag_selectors}
+                onChange={(e) => setSelectorForm({ ...selectorForm, tag_selectors: e.target.value })}
+                className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+              />
+            </div>
+            <div className="ui-cell">
+              <label className="text-[#999999] block mb-1">2257 Compliance Checkbox Selectors:</label>
+              <textarea
+                rows={2}
+                value={selectorForm.compliance_selectors}
+                onChange={(e) => setSelectorForm({ ...selectorForm, compliance_selectors: e.target.value })}
+                className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+              />
+            </div>
+            <div className="ui-cell">
+              <label className="text-[#999999] block mb-1">Submit / Publish Button Selectors:</label>
+              <textarea
+                rows={2}
+                value={selectorForm.submit_selectors}
+                onChange={(e) => setSelectorForm({ ...selectorForm, submit_selectors: e.target.value })}
+                className="w-full bg-white px-2.5 py-1.5 font-mono text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void handleSaveSelectors()}
+            disabled={savingSelectors}
+            className="border px-4 py-2 rounded bg-white text-[#333333] font-semibold cursor-pointer disabled:opacity-50 border-[#cccccc] hover:font-bold"
+          >
+            {savingSelectors ? "Saving..." : "Save Selector Overrides"}
+          </button>
+        </div>
+      )}
+
+      {/* Row 5: Important Direct API, Bot & Webhook Accounts (2 cols) + Multi-Account Anti-Ban Guide (1 col) */}
+      <div id="api-credentials-section" className="md:col-span-2 bg-white space-y-3">
+        <div>
+          <h2 className="text-sm font-bold text-[#333333]">Direct API, Bot &amp; Webhook Accounts</h2>
+          <p className="text-xs text-[#999999]">
+            Enter your keys directly here—PolyPost saves them safely to <code className="text-[#333333] font-mono">.env</code> and activates them immediately for live publishing (you can also verify live logins right away).
+          </p>
+        </div>
+
+        <ApiCredentialsManager focusProviderId={focusApiProvider} onChanged={() => void loadVaultState()} />
+
+        <details className="text-xs text-[#999999] pt-2">
+          <summary className="cursor-pointer hover:text-[#333333] font-medium">
+            Advanced: Raw CLI Browser Login Command &amp; .env Reference
+          </summary>
+          <div className="mt-2 ui-cell font-mono text-xs text-[#666666] space-y-1 overflow-x-auto">
+            <p className="text-[#999999]"># Terminal CLI Interactive Login</p>
+            <p className="text-[#333333]">
+              npm run login -- --account {newAccountId || "main_creator"} --platform {selectedPlatform}
+            </p>
+          </div>
+        </details>
+      </div>
+
+      {/* Column 4: Multi-Account Anti-Ban Caps & Proxy Reference (1 col) */}
+      <div className="md:col-span-1 bg-white space-y-3">
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-[#333333]">Multi-Account Anti-Ban Limits &amp; Proxy vs Wi-Fi Guide</h2>
-          <p className="text-xs text-[#666666] leading-relaxed">
-            Running 1–3+ accounts safely: prefer <strong>Official API / OAuth / Webhooks</strong> first. For browser sessions, keep 1–2 accounts max per clean Home/Mobile IP, use <strong>1 Sticky Residential Proxy per extra alias</strong> (avoid rotating datacenter VPNs), and space autoposts with human jitter.
+          <h2 className="text-sm font-bold text-[#333333]">Multi-Account Anti-Ban Limits &amp; Proxy Guide</h2>
+          <p className="text-[11px] text-[#666666] leading-relaxed">
+            Prefer <strong>Official API / OAuth / Webhooks</strong> first. For browser sessions, keep 1–2 accounts max per clean Home/Mobile IP and use <strong>1 Sticky Residential Proxy per extra alias</strong>.
           </p>
         </div>
 
@@ -1007,20 +1038,20 @@ export default function AccountVaultPage() {
           selectedLetter={capLetter}
           onLetterChange={setCapLetter}
           availableLetters={availableCapLetters}
-          searchPlaceholder="Filter safety rules: x, instagram, discord, fluxer, stoat, matrix, bluesky, mastodon, nostr, pinterest..."
+          searchPlaceholder="Filter safety rules: x, instagram, discord, matrix..."
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+        <div className="ui-row-list max-h-[520px] overflow-y-auto text-xs">
           {filteredSafetyCaps.length === 0 ? (
-            <div className="col-span-full p-3 rounded-lg bg-white text-[#666666]">
+            <div className="bg-white text-[#666666]">
               No safety guide entries match &ldquo;{capSearch || capLetter}&rdquo;.
             </div>
           ) : (
             filteredSafetyCaps.map((cap) => (
-              <div key={cap.id} className="p-3 rounded-lg bg-white space-y-1">
+              <div key={cap.id} className="bg-white space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-[#333333]">{cap.name}</span>
-                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white text-[#333333]">
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white text-[#333333]">
                     {cap.safeAccountsPerIp} / IP
                   </span>
                 </div>
@@ -1035,30 +1066,6 @@ export default function AccountVaultPage() {
             ))
           )}
         </div>
-      </div>
-
-      {/* REST API & Token Accounts Configuration Card */}
-      <div id="api-credentials-section" className="bg-white rounded-xl p-6 space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold text-[#333333]">Direct API, Bot &amp; Webhook Accounts</h2>
-          <p className="text-sm text-[#999999]">
-            Enter your keys directly here—PolyPost saves them safely to <code className="text-[#333333] font-mono">.env</code> and activates them immediately for live publishing (you can also verify live logins right away).
-          </p>
-        </div>
-
-        <ApiCredentialsManager focusProviderId={focusApiProvider} onChanged={() => void loadVaultState()} />
-
-        <details className="text-xs text-[#999999] pt-2">
-          <summary className="cursor-pointer hover:text-[#333333] font-medium">
-            Advanced: Raw CLI Browser Login Command &amp; .env Reference
-          </summary>
-          <div className="mt-3 p-4 rounded-lg bg-white font-mono text-xs text-[#666666] space-y-1 overflow-x-auto">
-            <p className="text-[#999999]"># Terminal CLI Interactive Login</p>
-            <p className="text-[#333333]">
-              npm run login -- --account {newAccountId || "main_creator"} --platform {selectedPlatform}
-            </p>
-          </div>
-        </details>
       </div>
     </div>
   );

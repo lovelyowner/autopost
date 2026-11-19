@@ -38,7 +38,6 @@ export async function verifyPolyPostEcosystemPass(token: string) {
     body: JSON.stringify({ token }),
   });
   const data = await res.json();
-  // Returns { valid: true, payload: { planId: "extra", apps: ["autopost", "crypto-dashboard", ...] } }
   return Boolean(res.ok && data.valid && data.payload?.apps?.includes("crypto-dashboard"));
 }`;
 
@@ -247,44 +246,27 @@ export default function PlansPage() {
   );
 
   return (
-    <div className="space-y-10 bg-white">
-      <section className="bg-white space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1.5 max-w-3xl">
-            <h1 className="text-2xl font-bold text-[#333333]">
-              Plans, Crypto Checkout &amp; All-Projects Pass
-            </h1>
-            <p className="text-sm text-[#666666]">
-              Simple creator pricing settled directly on-chain in USDC, USDT, or Native ETH (Base, Arbitrum, Polygon, Solana) with 0% gateway markup — or unified through your own{" "}
-              <a
-                href="https://crypto-dashboard-seven-lime.vercel.app"
-                target="_blank"
-                rel="noreferrer"
-                className="font-bold text-[#333333] hover:font-bold"
-              >
-                Fathom Crypto Dashboard
-              </a>
-              .
-            </p>
-          </div>
-
-          <div className="bg-white text-xs space-y-1 min-w-[200px]">
-            <div className="text-[#999999] uppercase tracking-wide font-bold">Active Tier</div>
-            <div className="text-sm font-bold text-[#333333]">
-              {activeLicense
-                ? `${activeLicense.planName} ($${activeLicense.priceUsd}/mo)`
-                : "Free ($0/mo)"}
-            </div>
-            <div className="text-[#666666]">
-              {activeLicense
-                ? `Valid until ${new Date(activeLicense.expiresAt).toLocaleDateString()} · ${activeLicense.apps.length} app(s)`
-                : "1 account per platform · Upgrade anytime"}
-            </div>
-          </div>
-        </div>
+    <div className="ui-grid-3">
+      {/* Row 1: Important Overview (2 cols) + Active Tier Summary (1 col) */}
+      <section className="md:col-span-2 bg-white space-y-2">
+        <h1 className="text-xl font-bold text-[#333333]">
+          Plans, Crypto Checkout &amp; All-Projects Pass
+        </h1>
+        <p className="text-xs text-[#666666]">
+          Simple creator pricing settled directly on-chain in USDC, USDT, or Native ETH (Base, Arbitrum, Polygon, Solana) with 0% gateway markup — or unified through your own{" "}
+          <a
+            href="https://crypto-dashboard-seven-lime.vercel.app"
+            target="_blank"
+            rel="noreferrer"
+            className="font-bold text-[#333333] hover:font-bold"
+          >
+            Fathom Crypto Dashboard
+          </a>
+          .
+        </p>
 
         {activeLicense && (
-          <div className="bg-white space-y-2 text-xs pt-2">
+          <div className="bg-white space-y-1.5 text-xs pt-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-bold text-[#333333]">
                 Verified Portable Ecosystem Token (Use across PolyPost &amp; connected apps)
@@ -313,97 +295,108 @@ export default function PlansPage() {
         )}
       </section>
 
-      <section className="space-y-5 bg-white">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-bold text-[#333333]">Subscription Tiers ($0 – $10/mo)</h2>
-          <span className="text-xs text-[#999999]">
-            Direct L2 / Solana settlement keeps 100% of your $3 / $5 / $8 / $10 payment in your wallet.
-          </span>
+      <section className="md:col-span-1 bg-white text-xs space-y-1 flex flex-col justify-between">
+        <div>
+          <div className="text-[#999999] uppercase tracking-wide font-bold">Active Tier</div>
+          <div className="text-base font-bold text-[#333333] mt-1">
+            {activeLicense
+              ? `${activeLicense.planName} ($${activeLicense.priceUsd}/mo)`
+              : "Free ($0/mo)"}
+          </div>
+          <div className="text-[#666666] mt-0.5">
+            {activeLicense
+              ? `Valid until ${new Date(activeLicense.expiresAt).toLocaleDateString()} · ${activeLicense.apps.length} app(s)`
+              : "1 account per platform · 5 daily runs"}
+          </div>
         </div>
-
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(215px,1fr))] gap-6">
-          {PLAN_TIERS.map((plan) => {
-            const isCurrent = currentPlanId === plan.id;
-            return (
-              <article
-                key={plan.id}
-                className="bg-white flex flex-col justify-between gap-5 py-2"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-base font-bold text-[#333333]">{plan.name}</h3>
-                      <div className="mt-1 flex items-baseline gap-1">
-                        <span className="text-2xl font-bold text-[#333333]">${plan.priceUsd}</span>
-                        <span className="text-xs text-[#999999]">{plan.billingCycle}</span>
-                      </div>
-                    </div>
-                    {plan.badge && (
-                      <span className="text-[11px] font-bold text-[#999999]">{plan.badge}</span>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-[#666666] leading-relaxed">{plan.summary}</p>
-
-                  <div className="pt-2 text-xs space-y-1 text-[#666666]">
-                    <div>
-                      Accounts / platform:{" "}
-                      <span className="font-bold text-[#333333]">
-                        {plan.accountsPerPlatformCap === "unlimited"
-                          ? "Unlimited (safety warnings active)"
-                          : `Up to ${plan.accountsPerPlatformCap}`}
-                      </span>
-                    </div>
-                    <div>
-                      Daily runs:{" "}
-                      <span className="font-bold text-[#333333]">
-                        {plan.dailyRunsLimit === "unlimited"
-                          ? "Unlimited"
-                          : `${plan.dailyRunsLimit} / day`}
-                      </span>
-                    </div>
-                  </div>
-
-                  <ul className="space-y-1.5 text-xs text-[#666666] pt-2">
-                    {plan.features.map((feat) => (
-                      <li key={feat} className="leading-snug">
-                        - {feat}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  {plan.priceUsd === 0 ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full rounded border border-[#cccccc] bg-white px-3 py-2 text-xs text-[#999999]"
-                    >
-                      {isCurrent ? "Current Default Tier" : "Included Always"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPlan(plan)}
-                      className="w-full rounded border border-[#cccccc] bg-white px-3 py-2 text-xs font-bold text-[#333333] hover:font-bold"
-                    >
-                      {isCurrent
-                        ? `Pay $${plan.priceUsd} · Extend ${plan.name}`
-                        : `Pay $${plan.priceUsd} Crypto · Unlock ${plan.name}`}
-                    </button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
+        <div className="text-[11px] text-[#999999] pt-2">
+          Direct L2 / Solana settlement keeps 100% of your $3 / $5 / $8 / $10 payment in your wallet.
         </div>
       </section>
 
-      <section className="bg-white space-y-4">
+      {/* Rows 2A & 2B: 5 Plan Tiers across 3 columns (Extra $10 flagship spans 2 columns!) */}
+      {PLAN_TIERS.map((plan) => {
+        const isCurrent = currentPlanId === plan.id;
+        const spanClass = plan.includesEcosystemMax ? "md:col-span-2" : "md:col-span-1";
+        return (
+          <article
+            key={plan.id}
+            className={`${spanClass} bg-white flex flex-col justify-between gap-4`}
+          >
+            <div className="space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-[#333333]">{plan.name}</h2>
+                  <div className="mt-0.5 flex items-baseline gap-1">
+                    <span className="text-2xl font-bold text-[#333333]">${plan.priceUsd}</span>
+                    <span className="text-xs text-[#999999]">{plan.billingCycle}</span>
+                  </div>
+                </div>
+                {plan.badge && (
+                  <span className="text-[11px] font-bold text-[#999999]">{plan.badge}</span>
+                )}
+              </div>
+
+              <p className="text-xs text-[#666666] leading-relaxed">{plan.summary}</p>
+
+              <div className="text-xs space-y-1 text-[#666666]">
+                <div>
+                  Accounts / platform:{" "}
+                  <span className="font-bold text-[#333333]">
+                    {plan.accountsPerPlatformCap === "unlimited"
+                      ? "Unlimited (safety warnings active)"
+                      : `Up to ${plan.accountsPerPlatformCap}`}
+                  </span>
+                </div>
+                <div>
+                  Daily runs:{" "}
+                  <span className="font-bold text-[#333333]">
+                    {plan.dailyRunsLimit === "unlimited"
+                      ? "Unlimited"
+                      : `${plan.dailyRunsLimit} / day`}
+                  </span>
+                </div>
+              </div>
+
+              <ul className="space-y-1 text-xs text-[#666666]">
+                {plan.features.map((feat) => (
+                  <li key={feat} className="leading-snug">
+                    - {feat}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              {plan.priceUsd === 0 ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full rounded border border-[#cccccc] bg-white px-3 py-2 text-xs text-[#999999]"
+                >
+                  {isCurrent ? "Current Default Tier" : "Included Always"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlan(plan)}
+                  className="w-full rounded border border-[#cccccc] bg-white px-3 py-2 text-xs font-bold text-[#333333] hover:font-bold"
+                >
+                  {isCurrent
+                    ? `Pay $${plan.priceUsd} · Extend ${plan.name}`
+                    : `Pay $${plan.priceUsd} Crypto · Unlock ${plan.name}`}
+                </button>
+              )}
+            </div>
+          </article>
+        );
+      })}
+
+      {/* Row 3: Self-Custody Treasury Setup (2 cols) + Restore Ecosystem Token (1 col) */}
+      <section className="md:col-span-2 bg-white space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <h2 id="treasury-setup-heading" className="text-lg font-bold text-[#333333]">
+            <h2 id="treasury-setup-heading" className="text-sm font-bold text-[#333333]">
               Self-Custody Treasury Wallet Setup
             </h2>
             <p className="text-xs text-[#666666] mt-0.5">
@@ -421,7 +414,7 @@ export default function PlansPage() {
           onSubmit={handleSaveTreasury}
           className="space-y-3 text-xs"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-[5px]">
             <div>
               <label htmlFor="treasury-evm-input" className="text-[#999999] block mb-1">
                 Receiving EVM Wallet Address (0x... for Base / Arbitrum / Polygon USDC, USDT &amp; ETH):
@@ -436,7 +429,7 @@ export default function PlansPage() {
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-2 font-mono text-[#333333]"
+                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 font-mono text-[#333333]"
               />
             </div>
             <div>
@@ -453,12 +446,12 @@ export default function PlansPage() {
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-2 font-mono text-[#333333]"
+                className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 font-mono text-[#333333]"
               />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="submit"
               className="rounded border border-[#cccccc] bg-white px-3.5 py-1.5 text-xs font-bold text-[#333333] hover:font-bold"
@@ -481,92 +474,37 @@ export default function PlansPage() {
         </form>
       </section>
 
-      <section className="bg-white space-y-5">
-        <div className="space-y-1">
-          <h2 className="text-lg font-bold text-[#333333]">
-            Extra ($10/mo) — Cross-Project Max Tier Pass
-          </h2>
-          <p className="text-xs text-[#666666]">
-            One on-chain $10 settlement issues a signed <code className="text-[#333333]">pp_eco_v1</code> HMAC-SHA256 entitlement token recognized across all 6 of your apps via shared <code className="text-[#333333]">ECOSYSTEM_LICENSE_SECRET</code> or cross-origin <code className="text-[#333333]">POST /api/billing/validate-license</code>.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5">
-          {ECOSYSTEM_PROJECTS.map((project) => (
-            <div key={project.id} className="bg-white space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <a
-                  href={project.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-bold text-[#333333] hover:font-bold"
-                >
-                  {project.name}
-                </a>
-                <span className="text-[11px] text-[#999999]">{project.tierGranted}</span>
-              </div>
-              <p className="text-xs text-[#666666]">{project.summary}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-2 pt-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
-              Cross-Project Token Verifier Snippet (CORS-Enabled for All 6 Apps)
-            </h3>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  void copyTextWithLiveStatus(CROSS_APP_VERIFIER_SNIPPET, "verifier snippet")
-                }
-                className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
-              >
-                Copy Verifier Code
-              </button>
-              <span role="status" className="text-xs text-[#666666]">
-                {copyStatusText}
-              </span>
-            </div>
-          </div>
-          <pre className="bg-white text-[11px] font-mono text-[#666666] overflow-x-auto leading-relaxed">
-            <code>{CROSS_APP_VERIFIER_SNIPPET}</code>
-          </pre>
-        </div>
-
+      <section className="md:col-span-1 bg-white space-y-2">
         <form
           aria-labelledby="restore-token-heading"
           onSubmit={handleImportLicenseToken}
-          className="pt-3 space-y-2"
+          className="space-y-2.5 text-xs"
         >
-          <h3
-            id="restore-token-heading"
-            className="text-xs font-bold uppercase tracking-wide text-[#666666]"
+          <h2 id="restore-token-heading" className="text-sm font-bold text-[#333333]">
+            Restore or Verify Ecosystem Pass
+          </h2>
+          <p className="text-xs text-[#666666]">
+            Paste an existing <code className="text-[#333333]">pp_eco_v1</code> token to unlock your tier in this browser.
+          </p>
+          <input
+            type="text"
+            name="ecosystemToken"
+            value={pasteToken}
+            onChange={(e) => setPasteToken(e.target.value)}
+            placeholder="pp_eco_v1.<payload>.<signature>..."
+            aria-label="Ecosystem license token"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            className="w-full bg-white border-0 border-b border-[#cccccc] px-1 py-1.5 text-xs font-mono text-[#333333]"
+          />
+          <button
+            type="submit"
+            disabled={!pasteToken.trim()}
+            className="w-full rounded border border-[#cccccc] bg-white px-3 py-1.5 text-xs font-bold text-[#333333] hover:font-bold disabled:opacity-50"
           >
-            Already Have an Ecosystem Token? Restore or Verify Here
-          </h3>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              name="ecosystemToken"
-              value={pasteToken}
-              onChange={(e) => setPasteToken(e.target.value)}
-              placeholder="Paste pp_eco_v1.<payload>.<signature>..."
-              aria-label="Ecosystem license token"
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              className="flex-1 bg-white border-0 border-b border-[#cccccc] px-1 py-2 text-xs font-mono text-[#333333]"
-            />
-            <button
-              type="submit"
-              disabled={!pasteToken.trim()}
-              className="rounded border border-[#cccccc] bg-white px-4 py-2 text-xs font-bold text-[#333333] hover:font-bold disabled:opacity-50"
-            >
-              Validate Token
-            </button>
-          </div>
+            Validate Token
+          </button>
           {tokenFeedback && (
             <p role="status" className="text-xs text-[#666666]">
               {tokenFeedback}
@@ -575,47 +513,97 @@ export default function PlansPage() {
         </form>
       </section>
 
-      <section className="bg-white space-y-4">
-        <h2 className="text-lg font-bold text-[#333333]">
-          Recommended Crypto Payment Stack ($3–$10 SaaS Tiers)
-        </h2>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6 text-xs text-[#666666]">
-          <div className="space-y-2 bg-white">
-            <h3 className="text-sm font-bold text-[#333333]">
-              1. Direct L2 / Solana USDC, USDT &amp; ETH + Own Verifier (Best)
-            </h3>
-            <p>
-              Built directly into PolyPost (<code className="text-[#333333]">/api/billing/verify</code>), extending the non-custodial JSON-RPC receipt verification you already wrote in <code className="text-[#333333]">crypto-dashboard/src/lib/ethereum-payment.ts</code>.
-            </p>
-            <p className="text-[#333333]">
-              Base, Arbitrum, Polygon &amp; Solana charge ~$0.0005–$0.005 gas, 0% processor fee, zero KYC/custody freeze risk, and exact pricing ($3.00 / $5.00 / $8.00 / $10.00).
-            </p>
-          </div>
+      {/* Row 4: Connected Ecosystem Apps (2 cols) + Cross-Project Verifier Code (1 col) */}
+      <section className="md:col-span-2 bg-white space-y-2.5">
+        <div>
+          <h2 className="text-sm font-bold text-[#333333]">
+            Extra ($10/mo) — 6 Connected Ecosystem Projects
+          </h2>
+          <p className="text-xs text-[#666666]">
+            One $10 settlement unlocks Max Tier across all 6 deployments via shared <code className="text-[#333333]">ECOSYSTEM_LICENSE_SECRET</code> or <code className="text-[#333333]">POST /api/billing/validate-license</code>.
+          </p>
+        </div>
 
-          <div className="space-y-2 bg-white">
-            <h3 className="text-sm font-bold text-[#333333]">
-              2. Connect Your Fathom Crypto Dashboard Hub
-            </h3>
-            <p>
-              Instead of maintaining 6 separate billing backends, <code className="text-[#333333]">crypto-dashboard</code> can act as your central Ecosystem Checkout &amp; License Issuer for PolyPost, PhoenixChat, Fedipress Buzz, Voice, and VoiceStudio.
-            </p>
-            <p className="text-[#333333]">
-              Share one <code className="text-[#333333]">ECOSYSTEM_LICENSE_SECRET</code> env var across Vercel projects so a single $10 Extra verification unlocks Max tier everywhere offline in microseconds.
-            </p>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-[5px]">
+          {ECOSYSTEM_PROJECTS.map((project) => (
+            <div key={project.id} className="ui-cell space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <a
+                  href={project.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-bold text-[#333333] hover:font-bold"
+                >
+                  {project.name}
+                </a>
+                <span className="text-[10px] text-[#999999]">{project.tierGranted}</span>
+              </div>
+              <p className="text-[11px] text-[#666666]">{project.summary}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          <div className="space-y-2 bg-white">
-            <h3 className="text-sm font-bold text-[#333333]">
-              3. NOWPayments / Gateways (Optional Fallback Only)
-            </h3>
-            <p>
-              Your <code className="text-[#333333]">crypto-dashboard/src/lib/nowpayments.ts</code> and PolyPost&apos;s <code className="text-[#333333]">verifyNowPaymentsIpnSignature</code> validate HMAC-SHA512 webhooks cleanly — keep NOWPayments or BTCPay only when a buyer insists on BTC, LTC, or XMR.
-            </p>
-            <p className="text-[#333333]">
-              Avoid Ethereum L1 ($1–$5 gas ruins a $3 Pro ticket) and avoid custodial gateways as the primary rail for $3–$10 plans because minimum invoice limits &amp; spreads cut margins.
-            </p>
+      <section className="md:col-span-1 bg-white space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
+            Cross-Project Verifier Code
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                void copyTextWithLiveStatus(CROSS_APP_VERIFIER_SNIPPET, "verifier snippet")
+              }
+              className="rounded border border-[#cccccc] bg-white px-2 py-0.5 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+            >
+              Copy Verifier Code
+            </button>
+            <span role="status" className="text-[11px] text-[#666666]">
+              {copyStatusText}
+            </span>
           </div>
         </div>
+        <pre className="bg-white text-[10px] font-mono text-[#666666] overflow-x-auto leading-relaxed">
+          <code>{CROSS_APP_VERIFIER_SNIPPET}</code>
+        </pre>
+      </section>
+
+      {/* Row 5: 3 Crypto Payment Stack Comparison Columns */}
+      <section className="md:col-span-1 bg-white space-y-1.5 text-xs text-[#666666]">
+        <h3 className="text-xs font-bold text-[#333333]">
+          1. Direct L2 / Solana USDC, USDT &amp; ETH + Own Verifier
+        </h3>
+        <p>
+          Built directly into PolyPost (<code className="text-[#333333]">/api/billing/verify</code>), extending the non-custodial JSON-RPC receipt verification in <code className="text-[#333333]">crypto-dashboard/src/lib/ethereum-payment.ts</code>.
+        </p>
+        <p className="text-[#333333]">
+          Base, Arbitrum, Polygon &amp; Solana charge ~$0.0005–$0.005 gas and 0% processor fee.
+        </p>
+      </section>
+
+      <section className="md:col-span-1 bg-white space-y-1.5 text-xs text-[#666666]">
+        <h3 className="text-xs font-bold text-[#333333]">
+          2. Connect Your Fathom Crypto Dashboard Hub
+        </h3>
+        <p>
+          Instead of maintaining 6 separate billing backends, <code className="text-[#333333]">crypto-dashboard</code> acts as your central Ecosystem Checkout &amp; License Issuer.
+        </p>
+        <p className="text-[#333333]">
+          Share one <code className="text-[#333333]">ECOSYSTEM_LICENSE_SECRET</code> env var across Vercel projects.
+        </p>
+      </section>
+
+      <section className="md:col-span-1 bg-white space-y-1.5 text-xs text-[#666666]">
+        <h3 className="text-xs font-bold text-[#333333]">
+          3. NOWPayments / Gateways (Optional Fallback Only)
+        </h3>
+        <p>
+          <code className="text-[#333333]">verifyNowPaymentsIpnSignature</code> validates HMAC-SHA512 webhooks cleanly when a buyer insists on BTC, LTC, or XMR.
+        </p>
+        <p className="text-[#333333]">
+          Avoid Ethereum L1 ($1–$5 gas) for $3–$10 plans.
+        </p>
       </section>
 
       <CryptoCheckoutDialog

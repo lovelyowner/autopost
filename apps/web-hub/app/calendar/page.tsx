@@ -275,119 +275,116 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="space-y-8 bg-white">
-      <div className="bg-white space-y-2">
-        <h1 className="text-2xl font-bold text-[#333333]">
+    <div className="ui-grid-3">
+      <div className="md:col-span-2 bg-white space-y-1.5">
+        <h1 className="text-xl font-bold text-[#333333]">
           Visual Scheduling Calendar &amp; CSV Bulk Scheduler
         </h1>
-        <p className="text-sm text-[#999999]">
+        <p className="text-xs text-[#999999]">
           Scheduled campaigns persist to <code className="text-[#333333] font-mono">config/schedule.json</code> and enqueue delayed BullMQ flows into Redis for staggered automated dispatch.
         </p>
+        {banner && (
+          <div role="status" className="bg-white pt-1 text-xs text-[#333333] flex items-center justify-between gap-3">
+            <span>{banner.text}</span>
+            <button
+              type="button"
+              onClick={() => setBanner(null)}
+              className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
       </div>
 
-      {banner && (
-        <div role="status" className="bg-white text-xs text-[#333333] flex items-center justify-between gap-3">
-          <span>{banner.text}</span>
+      <div className="md:col-span-1 bg-white flex flex-col justify-between gap-2 text-xs">
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-[#333333]">Queue Spacing &amp; Export</span>
+          <span className="font-mono text-[#999999]">{scheduledPosts.length} Queued</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setBanner(null)}
+            onClick={() => handleStaggerQueue(30)}
             className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
           >
-            Dismiss
+            Auto-Stagger +30m
+          </button>
+          <button
+            type="button"
+            onClick={() => handleStaggerQueue(120)}
+            className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+          >
+            Auto-Stagger +2h
+          </button>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={scheduledPosts.length === 0}
+            className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333] disabled:opacity-50"
+          >
+            Export CSV
           </button>
         </div>
-      )}
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Visual Calendar Agenda */}
-        <div className="bg-white space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-bold text-[#333333]">Upcoming Queue Timeline</h2>
-              <span className="text-xs text-[#999999] font-mono">
-                {scheduledPosts.length} Queued
-              </span>
-            </div>
-            {scheduledPosts.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleStaggerQueue(30)}
-                  className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
-                >
-                  Auto-Stagger +30m
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleStaggerQueue(120)}
-                  className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
-                >
-                  Auto-Stagger +2h
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportCsv}
-                  className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
-                >
-                  Export CSV
-                </button>
-              </div>
-            )}
-          </div>
+      {/* Column 2 (1 col): Visual Calendar Agenda with 5px row indent & 1px #cccccc outline */}
+      <div className="md:col-span-1 bg-white space-y-2.5">
+        <h2 className="text-sm font-bold text-[#333333]">Upcoming Queue Timeline</h2>
 
-          {loading ? (
-            <div className="text-xs text-[#999999] py-6 text-center">Loading schedule...</div>
-          ) : scheduledPosts.length === 0 ? (
-            <div className="text-xs text-[#999999] py-6 text-center">No scheduled campaigns yet.</div>
-          ) : (
-            <div className="space-y-4 max-h-[560px] overflow-y-auto pr-1">
-              {scheduledPosts.map((post) => (
-                <div key={post.id} className="bg-white space-y-2 text-xs py-2">
-                  <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <h3 className="font-bold text-[#333333] text-sm">{post.title}</h3>
-                      <div className="text-[#999999] font-mono text-[11px] mt-0.5">
-                        {post.date} at {post.time}
-                        {post.queuedJobId && (
-                          <span className="ml-2 text-[#333333]">(Redis Job #{post.queuedJobId})</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#666666] font-bold text-[10px] uppercase">
-                        {post.status}
-                      </span>
-                      <Link
-                        href={`/?scheduledTitle=${encodeURIComponent(post.title)}&scheduledPlatforms=${encodeURIComponent(post.platforms.join(","))}&scheduledMaster=${encodeURIComponent(post.masterPlatformId || post.platforms[0] || "")}&scheduledAccount=${encodeURIComponent(post.accountId || accountId)}&scheduledMedia=${encodeURIComponent(post.mediaPath || "")}`}
-                        className="text-[10px] text-[#666666] hover:font-bold hover:text-[#333333]"
-                      >
-                        Load in Composer
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(post.id)}
-                        className="border border-[#cccccc] px-2 py-0.5 rounded bg-white text-[#666666] hover:font-bold hover:text-[#333333] text-[10px]"
-                      >
-                        Cancel
-                      </button>
+        {loading ? (
+          <div className="text-xs text-[#999999] py-6 text-center">Loading schedule...</div>
+        ) : scheduledPosts.length === 0 ? (
+          <div className="text-xs text-[#999999] py-6 text-center">No scheduled campaigns yet.</div>
+        ) : (
+          <div className="ui-row-list max-h-[600px] overflow-y-auto pr-1">
+            {scheduledPosts.map((post) => (
+              <div key={post.id} className="bg-white space-y-1.5 text-xs">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <h3 className="font-bold text-[#333333] text-xs">{post.title}</h3>
+                    <div className="text-[#999999] font-mono text-[10px] mt-0.5">
+                      {post.date} at {post.time}
+                      {post.queuedJobId && (
+                        <span className="ml-1 text-[#333333]">(Job #{post.queuedJobId})</span>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {post.platforms.map((pl) => (
-                      <span key={pl} className="text-[#999999] font-mono text-[10px]">
-                        {pl}
-                      </span>
-                    ))}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#666666] font-bold text-[10px] uppercase">
+                      {post.status}
+                    </span>
+                    <Link
+                      href={`/?scheduledTitle=${encodeURIComponent(post.title)}&scheduledPlatforms=${encodeURIComponent(post.platforms.join(","))}&scheduledMaster=${encodeURIComponent(post.masterPlatformId || post.platforms[0] || "")}&scheduledAccount=${encodeURIComponent(post.accountId || accountId)}&scheduledMedia=${encodeURIComponent(post.mediaPath || "")}`}
+                      className="text-[10px] text-[#666666] hover:font-bold hover:text-[#333333]"
+                    >
+                      Load in Composer
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(post.id)}
+                      className="border border-[#cccccc] px-2 py-0.5 rounded bg-white text-[#666666] hover:font-bold hover:text-[#333333] text-[10px]"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Quick-Add & CSV Bulk Scheduler */}
-        <div className="bg-white space-y-6">
+                <div className="flex flex-wrap gap-1.5">
+                  {post.platforms.map((pl) => (
+                    <span key={pl} className="text-[#999999] font-mono text-[10px]">
+                      {pl}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Columns 3-4 (2 cols): Important Quick-Add & CSV Bulk Scheduler */}
+      <div className="md:col-span-2 bg-white space-y-4">
           <form
             aria-labelledby="quick-schedule-heading"
             onSubmit={handleQuickAdd}
@@ -598,7 +595,6 @@ export default function CalendarPage() {
               Import and Queue CSV Batch
             </button>
           </div>
-        </div>
       </div>
     </div>
   );

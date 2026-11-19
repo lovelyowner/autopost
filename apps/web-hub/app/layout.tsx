@@ -15,16 +15,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-white text-[#333333] font-sans antialiased">
-        <div className="min-h-screen flex bg-white">
+      <body className="min-h-dvh bg-white text-[#333333] font-sans antialiased">
+        <div className="min-h-dvh flex bg-white">
           <aside
             aria-label="Sidebar"
-            className="w-14 shrink-0 sticky top-0 h-screen bg-white flex flex-col items-center py-6 select-none"
+            className="w-14 shrink-0 sticky top-0 h-dvh bg-white flex flex-col items-center py-4 select-none"
           >
             <SiteNav />
           </aside>
-          <main className="flex-1 min-w-0 max-w-6xl mx-auto px-4 sm:px-8 py-6 bg-white">
-            <div className="flex justify-end mb-6">
+          <main className="flex-1 min-w-0 p-[5px] bg-white space-y-[5px]">
+            <div className="flex justify-end">
               <SystemStatusPill />
             </div>
             {children}

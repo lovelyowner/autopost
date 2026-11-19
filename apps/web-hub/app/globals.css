@@ -30,19 +30,75 @@ a:hover {
   font-weight: 700;
 }
 
+/* Left menu (Column 1 of 4): strictly no borders or outlines in any state */
+aside[aria-label="Sidebar"],
+aside[aria-label="Sidebar"] *,
+aside[aria-label="Sidebar"] *:hover,
+aside[aria-label="Sidebar"] *:focus,
+aside[aria-label="Sidebar"] *:focus-visible,
+aside[aria-label="Sidebar"] *:active,
 nav[aria-label="Primary"] a,
 nav[aria-label="Primary"] a:hover,
 nav[aria-label="Primary"] a:focus,
 nav[aria-label="Primary"] a:focus-visible {
-  border: 0;
-  outline: none;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
   font-weight: 400;
+}
+
+/* 3 content columns alongside Column 1 left menu = 4 columns total, 5px row/col indent, 1px #cccccc outline */
+.ui-grid-3 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  background-color: #ffffff;
+}
+
+@media (min-width: 768px) {
+  .ui-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ui-grid-3 > :not([data-modal-overlay="true"]),
+.ui-cell {
+  border: 1px solid #cccccc;
+  background-color: #ffffff;
+  padding: 12px;
+}
+
+.ui-grid-3 > .ui-stack {
+  border: 0;
+  padding: 0;
+  background-color: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ui-stack > * {
+  border: 1px solid #cccccc;
+  background-color: #ffffff;
+  padding: 12px;
+}
+
+.ui-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ui-row-list > * {
+  border: 1px solid #cccccc;
+  background-color: #ffffff;
+  padding: 10px;
 }
 
 :where(button, input, select, textarea, summary, [tabindex]):focus-visible,
 main a:focus-visible {
-  outline: 2px solid #000000;
-  outline-offset: 2px;
+  outline: 1px solid #cccccc;
+  outline-offset: 1px;
 }
 
 button:not(:disabled) {

@@ -1285,42 +1285,53 @@ export default function DashboardPage() {
   const publishedCount = teaserStates.filter((t) => t.status === "published").length;
 
   return (
-    <div className="space-y-8 relative">
-      {/* Top Banner */}
-      <div className="bg-white rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <>
+      <AccountConnectModal
+        open={connectModalOpen}
+        initialTab={connectTab}
+        initialPlatformId={connectPlatformId}
+        initialProviderId={connectProviderId}
+        initialAlias={accountId}
+        vaultAliases={vaultAliases}
+        onClose={() => setConnectModalOpen(false)}
+        onConnected={(newAlias) => void refreshCredentialsStatus(newAlias)}
+      />
+      <div className="ui-grid-3 relative">
+      {/* Row 1: Important Top Banner & Preset Sync (2 cols) + Live Plan Tier & Cap Telemetry (1 col) */}
+      <div className="md:col-span-2 bg-white flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[#333333] mb-2">
-            Unified Autoposting Composer & Funnel Engine
+          <h1 className="text-xl font-bold text-[#333333] mb-1">
+            Unified Autoposting Composer &amp; Funnel Engine
           </h1>
-          <p className="text-sm text-[#999999]">
+          <p className="text-xs text-[#999999]">
             Targeting {ACTIVE_PLATFORMS.length} active destinations across 4 quadrants ({ARCHIVED_PLATFORMS.length} discontinued archived) with reactive size ceilings, local AI caption spinning, and real-time BullMQ funnel SSE tracking.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-[5px]">
           <button
             type="button"
             onClick={() => openConnectForPlatform()}
-            className="border px-4 py-2 rounded-lg bg-white text-[#333333] text-xs font-bold shadow cursor-pointer whitespace-nowrap border-[#cccccc] hover:font-bold"
+            className="border px-3 py-1.5 rounded bg-white text-[#333333] text-xs font-bold cursor-pointer whitespace-nowrap border-[#cccccc] hover:font-bold"
           >
             + Add / Connect Accounts
           </button>
 
           {/* Preset Selector Sync */}
           {presets.length > 0 && (
-            <div className="min-w-[260px] space-y-1">
+            <div className="min-w-[240px] space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <label className="text-[11px] text-[#999999] font-medium block">
-                  Load / Save Roster & 2257 Preset:
+                <label className="text-[10px] text-[#999999] font-medium block">
+                  Roster &amp; 2257 Preset:
                 </label>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={handleSaveCurrentMatrixAsPreset}
                     disabled={savingPreset}
-                    className="text-[10px] px-2 py-0.5 rounded bg-white border text-[#333333] font-semibold cursor-pointer disabled:opacity-50 border-[#cccccc] hover:font-bold"
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-white border text-[#333333] font-semibold cursor-pointer disabled:opacity-50 border-[#cccccc] hover:font-bold"
                   >
-                    {savingPreset ? "Saving..." : "+ Save Current Matrix"}
+                    {savingPreset ? "Saving..." : "+ Save Matrix"}
                   </button>
                   {presets.length > 1 && (
                     <button
@@ -1337,7 +1348,7 @@ export default function DashboardPage() {
               <select
                 value={selectedPresetId}
                 onChange={(e) => applyPreset(e.target.value)}
-                className="w-full bg-white px-3 py-1.5 text-xs text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
+                className="w-full bg-white px-2.5 py-1 text-xs text-[#333333] border-0 border-b border-[#cccccc] rounded-none"
               >
                 {presets.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -1350,90 +1361,82 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Live Plan Tier & Multi-Account Safety Cap Telemetry */}
-      <div className="bg-white px-6 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex flex-wrap items-center gap-3 text-[#666666]">
-          <span>
-            Active Plan:{" "}
+      {/* Column 4: Live Plan Tier & Multi-Account Safety Cap Telemetry (1 col) */}
+      <div className="md:col-span-1 bg-white flex flex-col justify-between gap-2 text-xs">
+        <div className="space-y-1 text-[#666666]">
+          <div className="flex items-center justify-between">
+            <span>Active Plan:</span>
             <strong className="text-[#333333]">
               {planQuota.effectivePlan.name} (${planQuota.effectivePlan.priceUsd}/mo)
             </strong>
-          </span>
-          <span>
-            Accounts/Platform Cap:{" "}
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Accounts/Platform Cap:</span>
             <strong className="text-[#333333]">
               {planQuota.effectivePlan.accountsPerPlatformCap === "unlimited"
                 ? "Unlimited"
                 : `Up to ${planQuota.effectivePlan.accountsPerPlatformCap}`}
             </strong>
-          </span>
-          <span>
-            24h Dispatches:{" "}
+          </div>
+          <div className="flex items-center justify-between">
+            <span>24h Dispatches:</span>
             <strong className="text-[#333333]">
               {planQuota.effectivePlan.dailyRunsLimit === "unlimited"
                 ? `${planQuota.runsLast24h} / Unlimited`
                 : `${planQuota.runsLast24h} / ${planQuota.effectivePlan.dailyRunsLimit}`}
             </strong>
-          </span>
+          </div>
         </div>
         <Link
           href="/plans"
-          className="text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
+          className="text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
         >
           {activeLicense ? "Manage Plan & Ecosystem Pass" : "Upgrade Plan ($3 Pro / $5 VIP / $8 Max / $10 Extra)"}
         </Link>
         {planQuota.warningMessage && (
-          <div role="status" className="w-full text-xs font-bold text-[#333333]">
+          <div role="status" className="w-full text-[11px] font-bold text-[#333333]">
             {planQuota.warningMessage}
           </div>
         )}
       </div>
 
-      <AccountConnectModal
-        open={connectModalOpen}
-        initialTab={connectTab}
-        initialPlatformId={connectPlatformId}
-        initialProviderId={connectProviderId}
-        initialAlias={accountId}
-        vaultAliases={vaultAliases}
-        onClose={() => setConnectModalOpen(false)}
-        onConnected={(newAlias) => void refreshCredentialsStatus(newAlias)}
-      />
-
       {banner && (
         <div
-          className={`p-3 rounded-lg text-xs flex items-center justify-between gap-4 ${ banner.kind === "ok" ? "bg-white text-[#333333]" : banner.kind === "info" ? "bg-white text-[#333333]" : "bg-white text-[#333333]" }`}
+          className="md:col-span-3 text-xs flex items-center justify-between gap-4 bg-white text-[#333333]"
         >
           <span>{banner.text}</span>
-          <button onClick={() => setBanner(null)} className="text-[11px] opacity-75 hover:opacity-100 whitespace-nowrap border border-[#cccccc] rounded bg-white hover:font-bold">
+          <button onClick={() => setBanner(null)} className="text-[11px] px-2 py-1 whitespace-nowrap border border-[#cccccc] rounded bg-white hover:font-bold">
             Dismiss
           </button>
         </div>
       )}
 
-      <OneClickConnectPanel
-        compact
-        apiFlags={apiCredentials}
-        cloudMode={cloudMode}
-        onConnected={() => {
-          notifyCredentialsChanged();
-          void refreshCredentialsStatus();
-        }}
-        onSelectProvider={(providerId) => {
-          setConnectTab("api");
-          setConnectPlatformId(null);
-          setConnectProviderId(providerId);
-          setConnectModalOpen(true);
-        }}
-        onOpenBrowserLogin={(platformId) => {
-          setConnectTab("browser");
-          setConnectPlatformId(platformId);
-          setConnectProviderId(null);
-          setConnectModalOpen(true);
-        }}
-      />
+      {/* Row 2: Important OneClickConnectPanel (2 cols) + Go-Live Readiness Checklist (1 col) */}
+      <div className="md:col-span-2 bg-white">
+        <OneClickConnectPanel
+          compact
+          apiFlags={apiCredentials}
+          cloudMode={cloudMode}
+          onConnected={() => {
+            notifyCredentialsChanged();
+            void refreshCredentialsStatus();
+          }}
+          onSelectProvider={(providerId) => {
+            setConnectTab("api");
+            setConnectPlatformId(null);
+            setConnectProviderId(providerId);
+            setConnectModalOpen(true);
+          }}
+          onOpenBrowserLogin={(platformId) => {
+            setConnectTab("browser");
+            setConnectPlatformId(platformId);
+            setConnectProviderId(null);
+            setConnectModalOpen(true);
+          }}
+        />
+      </div>
 
-      {/* Interactive Real-Account Go-Live Readiness Checklist */}
+      {/* Column 4: Interactive Real-Account Go-Live Readiness Checklist (1 col) */}
       {(() => {
         const hasAnyAccount =
           vaultAliases.length > 0 ||
@@ -1442,59 +1445,46 @@ export default function DashboardPage() {
         const complianceOk = !requires2257 || confirmed2257Attestation;
         const liveArmed = strictLive || simulationDisabled;
         return (
-          <div className="bg-white rounded-xl p-4 space-y-3 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold uppercase ${ liveArmed ? "bg-white text-[#333333]" : "bg-white text-[#333333]" }`}
-                >
-                  {liveArmed ? "LIVE MODE ARMED" : "DRY-RUN PREVIEW"}
-                </span>
-                <span className="text-[#666666] font-medium">
-                  {liveArmed
-                    ? "Strict Live ON — PolyPost will only post to real connected accounts (no simulated preview links)."
-                    : "Dry-Run Preview — unconnected accounts simulate .example.com links. Enable Strict Live before real broadcasting."}
-                </span>
-              </div>
+          <div className="md:col-span-1 bg-white space-y-2 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
+              <span className="font-mono text-[10px] font-bold uppercase text-[#333333]">
+                {liveArmed ? "LIVE MODE ARMED" : "DRY-RUN PREVIEW"}
+              </span>
               <button
                 type="button"
                 onClick={() => setShowLiveGuide((v) => !v)}
-                className="border px-2.5 py-1 rounded bg-white text-[#333333] font-medium cursor-pointer border-[#cccccc] hover:font-bold"
+                className="border px-2 py-0.5 rounded bg-white text-[#333333] text-[11px] font-medium cursor-pointer border-[#cccccc] hover:font-bold"
               >
-                {showLiveGuide ? "Hide Guide" : "How to Post on Real Accounts?"}
+                {showLiveGuide ? "Hide Guide" : "How to Post Live?"}
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="ui-row-list">
               <button
                 type="button"
                 onClick={() => openConnectForPlatform()}
-                className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer text-left border-[#cccccc] bg-white hover:font-bold ${ hasAnyAccount ? "bg-white border-[#cccccc] text-[#333333] hover:bg-white" : "bg-white border-[#cccccc] text-[#333333] hover:bg-white" }`}
+                className="w-full border flex items-center justify-between cursor-pointer text-left border-[#cccccc] bg-white hover:font-bold text-[#333333]"
               >
                 <span>1. Accounts Connected</span>
                 <span className="font-mono text-[10px] font-bold">
                   {hasAnyAccount ? `${vaultAliases.length} Vault + API` : "ADD ACCOUNT +"}
                 </span>
               </button>
-              <div
-                className={`p-2 rounded-lg flex items-center justify-between ${ hasRealMedia ? "bg-white text-[#333333]" : "bg-white text-[#333333]" }`}
-              >
+              <div className="flex items-center justify-between bg-white text-[#333333]">
                 <span>2. Media Staged</span>
                 <span className="font-mono text-[10px] font-bold">
                   {probeInfo?.exists ? "VERIFIED" : hasRealMedia ? "PATH SET" : "STAGE BELOW"}
                 </span>
               </div>
               {requires2257 ? (
-                <div
-                  className={`p-2 rounded-lg flex items-center justify-between ${ complianceOk ? "bg-white text-[#333333]" : "bg-white text-[#333333]" }`}
-                >
+                <div className="flex items-center justify-between bg-white text-[#333333]">
                   <span>3. 2257 Compliance</span>
                   <span className="font-mono text-[10px] font-bold">
                     {complianceOk ? "CONFIRMED" : "CHECK BOX"}
                   </span>
                 </div>
               ) : (
-                <div className="p-2 rounded-lg bg-white flex items-center justify-between text-[#333333]">
+                <div className="flex items-center justify-between bg-white text-[#333333]">
                   <span>3. Multi-Account Pacing</span>
                   <span className="font-mono text-[10px] font-bold">
                     {staggerSec > 0 ? `${staggerSec}s STAGGER` : "AUTO JITTER"}
@@ -1505,7 +1495,7 @@ export default function DashboardPage() {
                 type="button"
                 disabled={simulationDisabled}
                 onClick={() => setStrictLive((v) => !v)}
-                className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer text-left border-[#cccccc] bg-white hover:font-bold ${ liveArmed ? "bg-white border-[#cccccc] text-[#333333]" : "bg-white border-[#cccccc] text-[#666666]" }`}
+                className={`w-full border flex items-center justify-between cursor-pointer text-left border-[#cccccc] bg-white hover:font-bold ${ liveArmed ? "text-[#333333]" : "text-[#666666]" }`}
               >
                 <span>4. Strict Live Gate</span>
                 <span className="font-mono text-[10px] font-bold">
@@ -1515,22 +1505,12 @@ export default function DashboardPage() {
             </div>
 
             {showLiveGuide && (
-              <div className="p-3 rounded-lg bg-white text-[#666666] space-y-1.5">
-                <p className="font-semibold text-[#333333]">Exact 4 Steps to Publish Live on Your Real Accounts:</p>
-                <p>
-                  <strong>Step 1 — Connect your accounts:</strong> Click <strong>1. Accounts Connected</strong> above (or open{" "}
-                  <a href="/vault" className="text-[#333333] font-medium no-underline hover:font-bold">Account Vault (/vault)</a>). For web portals (Pornhub, Fansly, OnlyFans, X, Instagram, YouTube, TikTok), use <strong>1. Chrome Login Window</strong> (then click <strong>Finish &amp; Save Cookies Now</strong> or close Chrome after signing in) OR <strong>2. Paste Cookies JSON</strong> from Chrome/Firefox&apos;s Cookie-Editor extension. For API/bot targets (Bluesky, Mastodon, Discord, Telegram, Reddit, e621, DeviantArt, Inkbunny), open <strong>3. API / Bot Keys</strong>, paste your keys, and click <strong>Save &amp; Test Live Connection</strong>.
-                </p>
-                <p>
-                  <strong>Step 2 — Stage your real video/image:</strong> Below under <em>Media Ingestion</em>, use{" "}
-                  <strong>Upload / Stage Local File</strong> to select a video/image from your computer (or paste its disk path) and click <strong>Inspect File</strong>.
-                </p>
-                <p>
-                  <strong>Step 3 — Select your connected alias &amp; check 2257:</strong> Set <em>Target Account Alias</em> to the same name you connected in Vault (e.g. <code className="font-mono text-[#333333]">main_creator</code>). If posting to adult sites, tick the amber <strong>18 U.S.C. 2257</strong> checkbox.
-                </p>
-                <p>
-                  <strong>Step 4 — Arm Strict Live Only &amp; Launch:</strong> Click <strong>Strict Live Only</strong> (Step 4 above or above Launch button) so unconnected targets show real errors instead of fake demo URLs, then click <strong>Launch</strong>!
-                </p>
+              <div className="ui-cell text-[#666666] space-y-1 text-[11px]">
+                <p className="font-semibold text-[#333333]">4 Steps to Publish Live:</p>
+                <p>1. Connect accounts in <a href="/vault" className="text-[#333333] font-medium no-underline hover:font-bold">/vault</a>.</p>
+                <p>2. Stage your real video/image below.</p>
+                <p>3. Match your Vault alias &amp; check 2257 if adult.</p>
+                <p>4. Enable Strict Live Only and click Launch.</p>
               </div>
             )}
           </div>
@@ -1539,8 +1519,8 @@ export default function DashboardPage() {
 
       {/* Centered Modal Overlay for Real-Time SSE Campaign Monitor */}
       {activeCampaign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-6 max-h-[90vh] overflow-y-auto shadow-[0_12px_36px_rgba(0,0,0,0.08)]">
+        <div data-modal-overlay="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white">
+          <div className="bg-white border border-[#cccccc] max-w-2xl w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4">
               <div className="flex items-center space-x-3">
                 <span className="relative flex h-3.5 w-3.5">
@@ -1777,12 +1757,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Active Platform Registry & Constraint Calculator */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-xl p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-[#333333]">Active Registry</h2>
+      {/* Row 3: Column 2 Active Platform Registry & Constraint Calculator (1 col) */}
+      <div className="md:col-span-1 ui-stack">
+        <div className="bg-white space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-[#333333]">Active Registry</h2>
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
@@ -1898,14 +1877,14 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="max-h-96 overflow-y-auto space-y-1.5 pr-2">
+            <div className="max-h-96 overflow-y-auto ui-row-list pr-1">
               {filteredPlatforms.map((pl) => {
                 const isSelected = selectedIds.includes(pl.id);
                 const conn = getPlatformConnectionState(pl);
                 return (
                   <div
                     key={pl.id}
-                    className={`flex items-center justify-between p-2 rounded text-xs transition-colors ${ isSelected ? "bg-white text-[#333333]" : "bg-white text-[#999999]" }`}
+                    className={`flex items-center justify-between !p-2 text-xs transition-colors ${ isSelected ? "bg-white text-[#333333]" : "bg-white text-[#999999]" }`}
                   >
                     <label className="flex items-center space-x-2 truncate cursor-pointer flex-1 min-w-0">
                       <input
@@ -1943,8 +1922,8 @@ export default function DashboardPage() {
           </div>
 
           {/* Reactive File-Size Engine Card */}
-          <div className="bg-white rounded-xl p-5 space-y-4">
-            <h2 className="text-lg font-semibold text-[#333333]">Reactive File-Size Engine</h2>
+          <div className="bg-white space-y-3">
+            <h2 className="text-sm font-bold text-[#333333]">Reactive File-Size Engine</h2>
 
             <div className="flex items-center space-x-2 text-xs">
               <button
@@ -2000,11 +1979,11 @@ export default function DashboardPage() {
 
             <div className="space-y-1">
               <span className="text-xs text-[#999999] font-medium">Waterfall Renditions:</span>
-              <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+              <div className="max-h-48 overflow-y-auto ui-row-list pr-1">
                 {waterfallPlan.map((item) => (
                   <div
                     key={item.platformId}
-                    className="p-1.5 rounded bg-white text-[11px] flex justify-between items-center"
+                    className="!p-1.5 bg-white text-[11px] flex justify-between items-center"
                   >
                     <span className="text-[#666666] font-medium">{item.platformId}</span>
                     <span
@@ -2019,11 +1998,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Column: Media Ingestion, AI Captions & Funnel Chaining */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Columns 3 & 4: Important Media Ingestion, AI Captions & Funnel Chaining (2 cols) */}
+        <div className="md:col-span-2 ui-stack">
           {/* Media Ingestion & Account Alias */}
-          <div className="bg-white rounded-xl p-5 space-y-4">
-            <h2 className="text-lg font-semibold text-[#333333]">Media Ingestion, File Probe & Target Vault Alias</h2>
+          <div className="bg-white space-y-3">
+            <h2 className="text-sm font-bold text-[#333333]">Media Ingestion, File Probe &amp; Target Vault Alias</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-xs text-[#999999] block">
@@ -2364,10 +2343,10 @@ export default function DashboardPage() {
           </div>
 
           {/* AI Caption Spinner */}
-          <div className="bg-white rounded-xl p-5 space-y-4">
+          <div className="bg-white space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-lg font-semibold text-[#333333]">AI Caption Spinner</h2>
+                <h2 className="text-sm font-bold text-[#333333]">AI Caption Spinner</h2>
                 <p className="text-[11px] text-[#999999]">
                   Calls local Ollama (`dolphin3`), OpenRouter, or Venice with strict SFW denylist &amp; sibling similarity guards.
                 </p>
@@ -2485,9 +2464,9 @@ export default function DashboardPage() {
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-[5px]">
                 {CAPTION_PROFILES.map((profile) => (
-                  <div key={profile} className="bg-white rounded-lg p-3 space-y-1">
+                  <div key={profile} className="ui-cell space-y-1">
                     <span className="text-[11px] font-mono uppercase text-[#333333] font-bold block">
                       {profile}
                     </span>
@@ -2673,9 +2652,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Automated Funnel-Link Chaining & 2257 Gate */}
-          <div className="bg-white rounded-xl p-5 space-y-4">
+          <div className="bg-white space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[#333333]">
+              <h2 className="text-sm font-bold text-[#333333]">
                 Automated Funnel-Link Chaining (BullMQ FlowProducer)
               </h2>
               <span className="text-xs px-2 py-0.5 rounded bg-white text-[#333333] font-mono">
@@ -2888,6 +2867,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

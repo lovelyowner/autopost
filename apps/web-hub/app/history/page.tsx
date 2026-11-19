@@ -172,93 +172,96 @@ export default function CampaignHistoryPage() {
   };
 
   return (
-    <div className="space-y-8 bg-white">
-      <div className="bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#333333] mb-1">Campaign Telemetry &amp; History Log</h1>
-          <p className="text-sm text-[#999999]">
-            Persisted to <code className="font-mono text-[#333333]">data/campaign-history.json</code> beyond Redis TTL, including live vs demo execution tags and failure DOM screenshots.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            disabled={history.length === 0}
-            className="px-3 py-1.5 rounded bg-white text-xs text-[#333333] border border-[#cccccc] cursor-pointer disabled:opacity-40"
-          >
-            Export CSV
-          </button>
-          <button
-            type="button"
-            onClick={handleExportJson}
-            disabled={history.length === 0}
-            className="px-3 py-1.5 rounded bg-white text-xs text-[#333333] border border-[#cccccc] cursor-pointer disabled:opacity-40"
-          >
-            Export JSON
-          </button>
-          <button
-            type="button"
-            onClick={() => void loadHistory()}
-            className="border border-[#cccccc] px-3 py-1.5 rounded bg-white text-xs text-[#333333] cursor-pointer"
-          >
-            Refresh
-          </button>
-          {summary.simulatedRuns > 0 && (
+    <div className="ui-grid-3">
+      <div className="md:col-span-2 bg-white space-y-1">
+        <h1 className="text-xl font-bold text-[#333333]">Campaign Telemetry &amp; History Log</h1>
+        <p className="text-xs text-[#999999]">
+          Persisted to <code className="font-mono text-[#333333]">data/campaign-history.json</code> beyond Redis TTL, including live vs demo execution tags and failure DOM screenshots.
+        </p>
+        {banner && (
+          <div className="bg-white pt-1 text-xs text-[#333333] flex items-center justify-between gap-3">
+            <span>{banner}</span>
             <button
               type="button"
-              onClick={() => void handleDeleteSimulated()}
-              className="px-3 py-1.5 rounded bg-white text-xs text-[#333333] border border-[#cccccc] cursor-pointer"
+              onClick={() => setBanner(null)}
+              className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
             >
-              Clear Simulated Only ({summary.simulatedRuns})
+              Dismiss
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => void handleDelete()}
-            disabled={history.length === 0}
-            className="px-3 py-1.5 rounded bg-white text-xs text-[#333333] border border-[#cccccc] cursor-pointer disabled:opacity-40"
-          >
-            Clear All
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
-      {banner && (
-        <div className="bg-white text-xs text-[#333333] flex items-center justify-between gap-3">
-          <span>{banner}</span>
+      <div className="md:col-span-1 bg-white flex flex-wrap items-center justify-end gap-1.5">
+        <button
+          type="button"
+          onClick={handleExportCsv}
+          disabled={history.length === 0}
+          className="px-2.5 py-1 rounded bg-white text-xs text-[#333333] border border-[#cccccc] cursor-pointer disabled:opacity-40"
+        >
+          Export CSV
+        </button>
+        <button
+          type="button"
+          onClick={handleExportJson}
+          disabled={history.length === 0}
+          className="px-2.5 py-1 rounded bg-white text-xs text-[#333333] border border-[#cccccc] cursor-pointer disabled:opacity-40"
+        >
+          Export JSON
+        </button>
+        <button
+          type="button"
+          onClick={() => void loadHistory()}
+          className="border border-[#cccccc] px-2.5 py-1 rounded bg-white text-xs text-[#333333] cursor-pointer"
+        >
+          Refresh
+        </button>
+        {summary.simulatedRuns > 0 && (
           <button
             type="button"
-            onClick={() => setBanner(null)}
-            className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
+            onClick={() => void handleDeleteSimulated()}
+            className="px-2.5 py-1 rounded bg-white text-xs text-[#333333] border border-[#cccccc] cursor-pointer"
           >
-            Dismiss
+            Clear Simulated ({summary.simulatedRuns})
           </button>
-        </div>
-      )}
+        )}
+        <button
+          type="button"
+          onClick={() => void handleDelete()}
+          disabled={history.length === 0}
+          className="px-2.5 py-1 rounded bg-white text-xs text-[#333333] border border-[#cccccc] cursor-pointer disabled:opacity-40"
+        >
+          Clear All
+        </button>
+      </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
-        <div className="bg-white">
+      {/* Row 2: 3 KPI Summary Columns across the 3 content columns */}
+      <div className="md:col-span-1 bg-white flex items-center justify-between text-xs">
+        <div>
           <span className="text-[#999999] block">Total Runs</span>
-          <span className="text-2xl font-bold text-[#333333] font-mono">{summary.total}</span>
+          <span className="text-xl font-bold text-[#333333] font-mono">{summary.total}</span>
         </div>
-        <div className="bg-white">
+        <div>
           <span className="text-[#999999] block">Completed</span>
-          <span className="text-2xl font-bold text-[#333333] font-mono">{summary.completed}</span>
+          <span className="text-xl font-bold text-[#333333] font-mono">{summary.completed}</span>
         </div>
-        <div className="bg-white">
-          <span className="text-[#999999] block">Failed / DLQ</span>
-          <span className="text-2xl font-bold text-[#333333] font-mono">{summary.failed}</span>
-        </div>
-        <div className="bg-white">
+      </div>
+      <div className="md:col-span-1 bg-white flex items-center justify-between text-xs">
+        <div>
           <span className="text-[#999999] block">Live Dispatches</span>
-          <span className="text-2xl font-bold text-[#333333] font-mono">{summary.liveRuns}</span>
+          <span className="text-xl font-bold text-[#333333] font-mono">{summary.liveRuns}</span>
         </div>
-        <div className="bg-white">
+        <div>
           <span className="text-[#999999] block">Demo / Simulated</span>
-          <span className="text-2xl font-bold text-[#333333] font-mono">{summary.simulatedRuns}</span>
+          <span className="text-xl font-bold text-[#333333] font-mono">{summary.simulatedRuns}</span>
         </div>
+      </div>
+      <div className="md:col-span-1 bg-white flex items-center justify-between text-xs">
+        <div>
+          <span className="text-[#999999] block">Failed / DLQ</span>
+          <span className="text-xl font-bold text-[#333333] font-mono">{summary.failed}</span>
+        </div>
+        <span className="text-[11px] text-[#999999] font-mono">data/campaign-history.json</span>
       </div>
 
       {previewScreenshot && (
@@ -284,16 +287,16 @@ export default function CampaignHistoryPage() {
       )}
 
       {loading ? (
-        <div className="py-8 text-center text-xs text-[#999999]">Loading campaign history...</div>
+        <div className="md:col-span-3 py-8 text-center text-xs text-[#999999]">Loading campaign history...</div>
       ) : history.length === 0 ? (
-        <div className="bg-white py-8 text-center text-xs text-[#999999] space-y-2">
+        <div className="md:col-span-3 bg-white py-8 text-center text-xs text-[#999999] space-y-2">
           <p className="text-[#333333] font-bold">No campaigns recorded yet.</p>
           <p>Launch a campaign from the Composer to inspect live telemetry, generated links, and failure diagnostics here.</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="md:col-span-3 space-y-[5px]">
           {/* Search & Status Filter Bar */}
-          <div className="bg-white flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          <div className="ui-cell flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
             <div className="flex flex-wrap items-center gap-1.5">
               {(
                 [
@@ -341,160 +344,162 @@ export default function CampaignHistoryPage() {
             </div>
           </div>
 
-          {history
-            .filter((item) => {
-              if (statusFilter === "completed" && item.step !== "completed") return false;
-              if (
-                statusFilter === "failed" &&
-                item.step !== "failed" &&
-                !item.teasers.some((t) => t.status === "failed")
-              ) {
-                return false;
-              }
-              if (statusFilter === "live" && item.masterSimulated !== false) return false;
-              if (statusFilter === "simulated" && item.masterSimulated !== true) return false;
+          <div className="ui-row-list">
+            {history
+              .filter((item) => {
+                if (statusFilter === "completed" && item.step !== "completed") return false;
+                if (
+                  statusFilter === "failed" &&
+                  item.step !== "failed" &&
+                  !item.teasers.some((t) => t.status === "failed")
+                ) {
+                  return false;
+                }
+                if (statusFilter === "live" && item.masterSimulated !== false) return false;
+                if (statusFilter === "simulated" && item.masterSimulated !== true) return false;
 
-              const q = searchQuery.trim().toLowerCase();
-              if (!q) return true;
-              const hay = [
-                item.campaignId,
-                item.topic,
-                item.masterPlatformId,
-                item.accountId,
-                item.liveMasterUrl,
-                ...item.teasers.flatMap((t) => [t.platformId, t.accountId, t.publishedUrl, t.error]),
-              ]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase();
-              return hay.includes(q);
-            })
-            .map((item) => (
-            <div key={item.campaignId} className="bg-white py-3 space-y-3 text-xs">
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
-                <div className="space-y-0.5">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-bold text-[#333333]">{item.topic}</span>
-                    <span className="font-mono text-[10px] uppercase text-[#666666]">
-                      {item.step}
-                    </span>
-                    {item.masterSimulated !== undefined && (
-                      <span className="font-mono text-[10px] text-[#999999]">
-                        {item.masterSimulated ? "SIMULATED" : "LIVE"}
+                const q = searchQuery.trim().toLowerCase();
+                if (!q) return true;
+                const hay = [
+                  item.campaignId,
+                  item.topic,
+                  item.masterPlatformId,
+                  item.accountId,
+                  item.liveMasterUrl,
+                  ...item.teasers.flatMap((t) => [t.platformId, t.accountId, t.publishedUrl, t.error]),
+                ]
+                  .filter(Boolean)
+                  .join(" ")
+                  .toLowerCase();
+                return hay.includes(q);
+              })
+              .map((item) => (
+              <div key={item.campaignId} className="bg-white space-y-2.5 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-bold text-[#333333]">{item.topic}</span>
+                      <span className="font-mono text-[10px] uppercase text-[#666666]">
+                        {item.step}
                       </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] font-mono text-[#999999]">
-                    ID: {item.campaignId} · Master: {item.masterPlatformId} · Account: {item.accountId} ·{" "}
-                    {new Date(item.updatedAt).toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  {(item.liveMasterUrl || item.teasers.some((t) => Boolean(t.publishedUrl))) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const urls = [
-                          item.liveMasterUrl,
-                          ...item.teasers.map((t) => t.publishedUrl),
-                        ]
-                          .filter(Boolean)
-                          .join("\n");
-                        if (urls) {
-                          void navigator.clipboard.writeText(urls);
-                          setBanner(`Copied ${urls.split("\n").length} published URL(s) from ${item.campaignId} to clipboard.`);
-                        }
-                      }}
-                      className="px-2.5 py-1 rounded bg-white border border-[#cccccc] text-[#333333] cursor-pointer"
-                    >
-                      Copy All URLs
-                    </button>
-                  )}
-                  {item.teasers.some((t) => t.status === "failed") && (
-                    <Link
-                      href={`/?rerun=${encodeURIComponent(item.campaignId)}&failedOnly=1`}
-                      className="px-2 py-1 text-[#333333] font-bold hover:font-bold"
-                    >
-                      Retry Failed Only
-                    </Link>
-                  )}
-                  <Link
-                    href={`/?rerun=${encodeURIComponent(item.campaignId)}`}
-                    className="px-2 py-1 text-[#333333] hover:font-bold"
-                  >
-                    Load in Composer
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(item.campaignId)}
-                    className="border border-[#cccccc] px-2.5 py-1 rounded bg-white text-[#666666] hover:font-bold hover:text-[#333333] cursor-pointer"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              {item.liveMasterUrl && (
-                <div className="bg-white font-mono text-[11px] break-all">
-                  <span className="text-[#666666]">Master URL: </span>
-                  <a href={item.liveMasterUrl} target="_blank" rel="noreferrer" className="text-[#333333] hover:font-bold">
-                    {item.liveMasterUrl}
-                  </a>
-                </div>
-              )}
-
-              {item.masterError && (
-                <div className="bg-white font-mono text-[11px] text-[#333333]">
-                  Master Error: {item.masterError}
-                </div>
-              )}
-
-              {item.teasers.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {item.teasers.map((t) => (
-                    <div
-                      key={t.jobId}
-                      className="bg-white flex items-center justify-between gap-2"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-bold text-[#333333]">{t.platformName || t.platformId}</span>
-                          <span
-                            className={`text-[10px] font-mono ${ t.status === "published" ? "text-[#333333]" : t.status === "failed" ? "text-[#333333]" : "text-[#999999]" }`}
-                          >
-                            {t.status}
-                          </span>
-                        </div>
-                        <p className="font-mono text-[10px] text-[#999999] truncate">
-                          {t.error
-                            ? t.error.split("\n")[0].slice(0, 110)
-                            : t.publishedUrl || t.injectedCaption}
-                        </p>
-                        {t.error && t.error.length > 110 && (
-                          <details className="text-[10px] text-[#666666] font-mono mt-0.5">
-                            <summary className="cursor-pointer hover:text-[#333333]">Show full error trace</summary>
-                            <pre className="whitespace-pre-wrap break-all mt-1 bg-white">
-                              {t.error}
-                            </pre>
-                          </details>
-                        )}
-                      </div>
-                      {t.failureScreenshot && (
-                        <button
-                          type="button"
-                          onClick={() => setPreviewScreenshot(t.failureScreenshot!)}
-                          className="border border-[#cccccc] px-2 py-1 rounded bg-white text-[#333333] text-[10px] whitespace-nowrap cursor-pointer"
-                        >
-                          View Error PNG
-                        </button>
+                      {item.masterSimulated !== undefined && (
+                        <span className="font-mono text-[10px] text-[#999999]">
+                          {item.masterSimulated ? "SIMULATED" : "LIVE"}
+                        </span>
                       )}
                     </div>
-                  ))}
+                    <p className="text-[11px] font-mono text-[#999999]">
+                      ID: {item.campaignId} · Master: {item.masterPlatformId} · Account: {item.accountId} ·{" "}
+                      {new Date(item.updatedAt).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    {(item.liveMasterUrl || item.teasers.some((t) => Boolean(t.publishedUrl))) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const urls = [
+                            item.liveMasterUrl,
+                            ...item.teasers.map((t) => t.publishedUrl),
+                          ]
+                            .filter(Boolean)
+                            .join("\n");
+                          if (urls) {
+                            void navigator.clipboard.writeText(urls);
+                            setBanner(`Copied ${urls.split("\n").length} published URL(s) from ${item.campaignId} to clipboard.`);
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded bg-white border border-[#cccccc] text-[#333333] cursor-pointer"
+                      >
+                        Copy All URLs
+                      </button>
+                    )}
+                    {item.teasers.some((t) => t.status === "failed") && (
+                      <Link
+                        href={`/?rerun=${encodeURIComponent(item.campaignId)}&failedOnly=1`}
+                        className="px-2 py-1 text-[#333333] font-bold hover:font-bold"
+                      >
+                        Retry Failed Only
+                      </Link>
+                    )}
+                    <Link
+                      href={`/?rerun=${encodeURIComponent(item.campaignId)}`}
+                      className="px-2 py-1 text-[#333333] hover:font-bold"
+                    >
+                      Load in Composer
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(item.campaignId)}
+                      className="border border-[#cccccc] px-2.5 py-1 rounded bg-white text-[#666666] hover:font-bold hover:text-[#333333] cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {item.liveMasterUrl && (
+                  <div className="bg-white font-mono text-[11px] break-all">
+                    <span className="text-[#666666]">Master URL: </span>
+                    <a href={item.liveMasterUrl} target="_blank" rel="noreferrer" className="text-[#333333] hover:font-bold">
+                      {item.liveMasterUrl}
+                    </a>
+                  </div>
+                )}
+
+                {item.masterError && (
+                  <div className="bg-white font-mono text-[11px] text-[#333333]">
+                    Master Error: {item.masterError}
+                  </div>
+                )}
+
+                {item.teasers.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-[5px]">
+                    {item.teasers.map((t) => (
+                      <div
+                        key={t.jobId}
+                        className="ui-cell flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-[#333333]">{t.platformName || t.platformId}</span>
+                            <span
+                              className={`text-[10px] font-mono ${ t.status === "published" ? "text-[#333333]" : t.status === "failed" ? "text-[#333333]" : "text-[#999999]" }`}
+                            >
+                              {t.status}
+                            </span>
+                          </div>
+                          <p className="font-mono text-[10px] text-[#999999] truncate">
+                            {t.error
+                              ? t.error.split("\n")[0].slice(0, 110)
+                              : t.publishedUrl || t.injectedCaption}
+                          </p>
+                          {t.error && t.error.length > 110 && (
+                            <details className="text-[10px] text-[#666666] font-mono mt-0.5">
+                              <summary className="cursor-pointer hover:text-[#333333]">Show full error trace</summary>
+                              <pre className="whitespace-pre-wrap break-all mt-1 bg-white">
+                                {t.error}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                        {t.failureScreenshot && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewScreenshot(t.failureScreenshot!)}
+                            className="border border-[#cccccc] px-2 py-1 rounded bg-white text-[#333333] text-[10px] whitespace-nowrap cursor-pointer"
+                          >
+                            View Error PNG
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
