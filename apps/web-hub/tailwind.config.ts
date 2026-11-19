@@ -8,6 +8,8 @@ const here = typeof __dirname !== "undefined"
 
 const config: Config = {
   content: [
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
     join(here, "app/**/*.{js,ts,jsx,tsx,mdx}"),
     join(here, "components/**/*.{js,ts,jsx,tsx,mdx}"),
   ],

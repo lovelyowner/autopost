@@ -103,12 +103,12 @@ export function SiteNav() {
           aria-keyshortcuts={shortcut}
           title={`${label} (${shortcut})`}
           aria-current={isCurrent ? "page" : undefined}
-          className="w-[80px] h-[80px] m-0 p-0 border-0 outline-none shadow-none flex items-center justify-center bg-white transition-transform duration-150 ease-out hover:scale-105 focus-visible:scale-105 active:scale-95"
+          className="w-[30px] h-[30px] m-0 p-0 border-0 outline-none shadow-none flex items-center justify-center bg-white transition-transform duration-150 ease-out hover:scale-110 focus-visible:scale-110 active:scale-95"
         >
           <Icon
             aria-hidden="true"
             strokeWidth={isCurrent ? 2.5 : 1.5}
-            className="w-[80px] h-[80px] block text-[#999999]"
+            className="w-[30px] h-[30px] block text-[#999999]"
           />
           <span className="sr-only">{label}</span>
         </Link>

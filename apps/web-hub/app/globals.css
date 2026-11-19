@@ -31,6 +31,23 @@ a:hover {
 }
 
 /* Left menu (Column 1 of 4): strictly no borders, outlines, rings, or shadows in any state */
+aside[aria-label="Sidebar"] {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  padding: 5px !important;
+}
+
+nav[aria-label="Primary"] a {
+  width: 30px !important;
+  height: 30px !important;
+}
+
+nav[aria-label="Primary"] svg {
+  width: 30px !important;
+  height: 30px !important;
+}
+
 aside[aria-label="Sidebar"],
 aside[aria-label="Sidebar"] *,
 aside[aria-label="Sidebar"] *:hover,
