@@ -272,3 +272,59 @@ export function autoFixPlatformCaption(
 
   return `${cleaned.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
 }
+
+/**
+ * Wraps a plain caption in profile-appropriate `{a|b|c|d}` spintax hooks
+ * so multi-account sibling posts produce 16+ unique permutations in 1 click.
+ */
+export function injectAntiSpamSpintax(caption: string, profile: CaptionProfile): string {
+  const trimmed = caption.trim();
+  if (!trimmed) return trimmed;
+  if (/(?<!\{)\{[^{}|]+\|[^{}]+\}(?!\})/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const openers: Record<CaptionProfile, string> = {
+    strict_sfw_clean: "{Behind the scenes|New studio session|Creative lighting test|Latest visual set}",
+    tube_seo: "{Full 4K release|New studio cut|Extended director cut|Fresh master upload}",
+    creator_store: "{New vault drop|Fresh exclusive set|Just unlocked|Full release live}",
+    microblog: "{Just dropped|Fresh out of the studio|New set live|Latest release}",
+    chat_community: "{Hey everyone|New drop alert|Fresh update for the room|Just went live}",
+  };
+
+  const closers: Record<CaptionProfile, string> = {
+    strict_sfw_clean: "{Let me know your thoughts|Shot in 4K|Full breakdown soon|More frames coming}",
+    tube_seo: "{Watch in full 4K|Full scene available|Stream the master cut|See the complete video}",
+    creator_store: "{Unlock the full set|Available on my wall|Grab it in the vault|Full length inside}",
+    microblog: "{Check it out|Full link here|See the full set|Watch now}",
+    chat_community: "{Check the link|Drop your thoughts below|Full post is up|Enjoy the new release}",
+  };
+
+  const opener = openers[profile] || openers.microblog;
+  const closer = closers[profile] || closers.microblog;
+
+  if (trimmed.includes("{{LIVE_MASTER_URL}}")) {
+    return trimmed.replace(
+      "\{\{LIVE_MASTER_URL\}\}",
+      `${closer} -> {{LIVE_MASTER_URL}}`,
+    ).replace(/^/, `${opener} — `);
+  }
+  return `${opener} — ${trimmed} (${closer})`;
+}
+
+export function formatResolvedCaptionSheet(
+  items: PlatformCaptionAudit[],
+  masterUrl?: string,
+): string {
+  const effectiveUrl = (masterUrl || "").trim() || SAMPLE_MASTER_URL_PLACEHOLDER;
+  return items
+    .map((item, idx) => {
+      const variant = resolveSpintaxVariant(item.rawCaption, idx).replace(
+        /\{\{LIVE_MASTER_URL\}\}/g,
+        effectiveUrl,
+      );
+      return `[${item.platformName} (${item.platformId}) · ${item.resolvedLength}/${item.maxChars} chars]\n${variant}`;
+    })
+    .join("\n\n");
+}
+

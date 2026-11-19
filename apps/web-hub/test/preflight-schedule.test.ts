@@ -4,9 +4,12 @@ import {
   analyzeSpintax,
   auditCampaignCaptions,
   autoFixPlatformCaption,
+  formatResolvedCaptionSheet,
+  injectAntiSpamSpintax,
   resolveSpintaxVariant,
   resolveWorstCaseCaptionLength,
 } from "../lib/caption-preflight";
+import { NAV_ITEMS } from "../components/SiteNav";
 import {
   addUtcMinutes,
   formatScheduleToCsv,
@@ -71,6 +74,54 @@ describe("caption preflight, strict-SFW scanner, and spintax uniqueness", () => 
     const fixedX = autoFixPlatformCaption(overlongX, x);
     expect(fixedX).toContain("{{LIVE_MASTER_URL}}");
     expect(resolveWorstCaseCaptionLength(fixedX)).toBeLessThanOrEqual(280);
+  });
+
+  it("injects 16+ anti-spam spintax permutations and formats a resolved caption sheet", () => {
+    const spun = injectAntiSpamSpintax(
+      "Exploring neon saturation in the studio. {{LIVE_MASTER_URL}}",
+      "microblog",
+    );
+    const analysis = analyzeSpintax(spun, 4);
+    expect(analysis.hasSpintax).toBe(true);
+    expect(analysis.permutations).toBeGreaterThanOrEqual(16);
+    expect(injectAntiSpamSpintax(spun, "microblog")).toBe(spun);
+
+    const audit = auditCampaignCaptions({
+      selectedPlatformIds: ["x", "bluesky"],
+      generatedCaptions: {
+        tube_seo: "Tube",
+        creator_store: "Store",
+        microblog: spun,
+        chat_community: "Chat",
+        strict_sfw_clean: "SFW",
+      },
+      existingMasterUrl: "https://example.org/master",
+    });
+    const sheet = formatResolvedCaptionSheet(audit.items, "https://example.org/master");
+    expect(sheet).toContain("https://example.org/master");
+    expect(sheet).toContain("(x)");
+    expect(sheet).toContain("(bluesky)");
+  });
+
+  it("defines 6 icon-only left menu navigation items with Alt+1..Alt+6 shortcuts", () => {
+    expect(NAV_ITEMS.map((item) => item.href)).toEqual([
+      "/",
+      "/vault",
+      "/presets",
+      "/calendar",
+      "/history",
+      "/plans",
+    ]);
+    expect(NAV_ITEMS.map((item) => item.shortcut)).toEqual([
+      "Alt+1",
+      "Alt+2",
+      "Alt+3",
+      "Alt+4",
+      "Alt+5",
+      "Alt+6",
+    ]);
+    expect(NAV_ITEMS.filter((i) => i.group === "primary").length).toBe(5);
+    expect(NAV_ITEMS.filter((i) => i.group === "bottom").length).toBe(1);
   });
 });
 

@@ -358,10 +358,10 @@ export default function CalendarPage() {
                         {post.status}
                       </span>
                       <Link
-                        href="/"
+                        href={`/?scheduledTitle=${encodeURIComponent(post.title)}&scheduledPlatforms=${encodeURIComponent(post.platforms.join(","))}&scheduledMaster=${encodeURIComponent(post.masterPlatformId || post.platforms[0] || "")}&scheduledAccount=${encodeURIComponent(post.accountId || accountId)}&scheduledMedia=${encodeURIComponent(post.mediaPath || "")}`}
                         className="text-[10px] text-[#666666] hover:font-bold hover:text-[#333333]"
                       >
-                        Composer
+                        Load in Composer
                       </Link>
                       <button
                         type="button"
@@ -523,6 +523,13 @@ export default function CalendarPage() {
               placeholder={`Title, Date, Time, Platforms...\nStudio Cyberpunk Shoot, 2026-11-20, 19:00 UTC, youtube, bluesky, fansly_vault\nBehind The Scenes Teaser, 2026-11-21, 21:00 UTC, pornhub_video, x, discord`}
               value={csvContent}
               onChange={(e) => setCsvContent(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                  e.preventDefault();
+                  void handleBulkCsvImport();
+                }
+              }}
               className="w-full bg-white border-0 border-b border-[#cccccc] p-1 text-xs text-[#333333] font-mono resize-none"
             />
 

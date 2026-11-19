@@ -28,6 +28,7 @@ import {
   probeMediaInBrowser,
 } from "../components/wasm-media-preprocessor";
 import {
+  addClientScheduledItems,
   deleteClientPreset,
   getClientCredentials,
   getClientHistory,
@@ -35,6 +36,7 @@ import {
   saveClientHistoryEntry,
   saveClientPreset,
 } from "@/lib/client-vault";
+import { formatUtcSlotFromMinutes } from "@/lib/schedule-utils";
 import {
   COMPANION_CHANGED_EVENT,
   CREDENTIALS_CHANGED_EVENT,
@@ -54,6 +56,8 @@ import {
   analyzeSpintax,
   auditCampaignCaptions,
   autoFixPlatformCaption,
+  formatResolvedCaptionSheet,
+  injectAntiSpamSpintax,
 } from "@/lib/caption-preflight";
 
 interface CampaignJob {
@@ -257,6 +261,76 @@ export default function DashboardPage() {
         kind: "ok",
         text: `Auto-fitted & cleaned captions for ${fixedCount} platform(s) into Per-Platform Caption Overrides.`,
       });
+    }
+  };
+
+  const [preflightCopyStatus, setPreflightCopyStatus] = useState("");
+  const [queuingToCalendar, setQueuingToCalendar] = useState(false);
+
+  const handleInjectSpintaxAllProfiles = () => {
+    const next: Record<CaptionProfile, string> = { ...generatedCaptions };
+    for (const prof of CAPTION_PROFILES) {
+      next[prof] = injectAntiSpamSpintax(next[prof] || "", prof);
+    }
+    setGeneratedCaptions(next);
+    setBanner({
+      kind: "ok",
+      text: "Injected 16+ anti-spam spintax permutations across all 5 caption profiles.",
+    });
+  };
+
+  const handleCopyCaptionSheet = async () => {
+    const sheet = formatResolvedCaptionSheet(captionPreflight.items, existingMasterUrl);
+    if (!sheet) return;
+    try {
+      await navigator.clipboard.writeText(sheet);
+      setPreflightCopyStatus(`Copied ${captionPreflight.items.length} platform captions`);
+    } catch {
+      setPreflightCopyStatus("Copy failed");
+    }
+    setTimeout(() => setPreflightCopyStatus(""), 2000);
+  };
+
+  const handleSaveToCalendarQueue = async () => {
+    if (selectedIds.length === 0) {
+      setBanner({ kind: "err", text: "Select at least one target platform before scheduling." });
+      return;
+    }
+    const offsetMin = delayMinutes > 0 ? delayMinutes : 60;
+    const targetMinutes = Math.floor((Date.now() + offsetMin * 60_000) / 60_000);
+    const slot = formatUtcSlotFromMinutes(targetMinutes);
+    const newItem = {
+      id: `sched_${Date.now()}_0`,
+      title: topic.trim() || "Scheduled PolyPost Drop",
+      date: slot.date,
+      time: slot.time,
+      platforms: selectedIds,
+      masterPlatformId: masterTargetId || selectedIds[0],
+      mediaPath: mediaPath.trim() || undefined,
+      accountId: accountId.trim() || "default",
+      status: "scheduled" as const,
+      createdAt: Date.now(),
+    };
+    setQueuingToCalendar(true);
+    try {
+      addClientScheduledItems([newItem]);
+      await fetch("/api/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [newItem],
+          enqueueInRedis: true,
+          confirmed2257Attestation,
+          recordsId2257,
+          strictLive,
+        }),
+      }).catch(() => {});
+      setBanner({
+        kind: "ok",
+        text: `Queued '${newItem.title}' for ${slot.date} at ${slot.time} across ${selectedIds.length} platform(s). View or stagger in Calendar (Alt+4).`,
+      });
+    } finally {
+      setQueuingToCalendar(false);
     }
   };
 
@@ -499,6 +573,26 @@ export default function DashboardPage() {
           }
         })
         .catch(() => {});
+    }
+
+    const scheduledTitle = params.get("scheduledTitle");
+    if (scheduledTitle) {
+      setTopic(scheduledTitle);
+      const sp = (params.get("scheduledPlatforms") || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (sp.length > 0) setSelectedIds(sp);
+      const sm = params.get("scheduledMaster");
+      if (sm) setMasterTargetId(sm);
+      const sa = params.get("scheduledAccount");
+      if (sa) setAccountId(sa);
+      const smedia = params.get("scheduledMedia");
+      if (smedia) setMediaPath(smedia);
+      setBanner({
+        kind: "info",
+        text: `Loaded scheduled campaign '${scheduledTitle}' from Calendar into Composer.`,
+      });
     }
 
     return () => {
@@ -2493,15 +2587,34 @@ export default function DashboardPage() {
                     </span>
                   )}
                 </div>
-                {(captionPreflight.overLimitCount > 0 || captionPreflight.strictViolationCount > 0) && (
+                <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={handleAutoFixCaptions}
-                    className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] font-bold text-[#333333] hover:font-bold cursor-pointer"
+                    onClick={handleInjectSpintaxAllProfiles}
+                    className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333] cursor-pointer"
                   >
-                    Auto-Fit Overlong &amp; Clean Strict-SFW
+                    + Inject Anti-Spam Spintax
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyCaptionSheet()}
+                    className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333] cursor-pointer"
+                  >
+                    Copy Caption Sheet
+                  </button>
+                  {(captionPreflight.overLimitCount > 0 || captionPreflight.strictViolationCount > 0) && (
+                    <button
+                      type="button"
+                      onClick={handleAutoFixCaptions}
+                      className="rounded border border-[#cccccc] bg-white px-2.5 py-1 text-[11px] font-bold text-[#333333] hover:font-bold cursor-pointer"
+                    >
+                      Auto-Fit Overlong &amp; Clean Strict-SFW
+                    </button>
+                  )}
+                  <span role="status" className="text-[11px] text-[#666666]">
+                    {preflightCopyStatus}
+                  </span>
+                </div>
               </div>
 
               <details className="bg-white text-[11px] text-[#666666]">
@@ -2748,17 +2861,30 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <button
-              onClick={handleLaunchCampaign}
-              disabled={isLaunching}
-              className="w-full py-3 rounded-lg bg-white text-[#333333] font-bold text-sm transition-all disabled:opacity-50 cursor-pointer border border-[#cccccc] hover:font-bold"
-            >
-              {isLaunching
-                ? "Submitting to FlowProducer..."
-                : fanOutSummary.isTeaserOnly
-                ? `Launch Teaser-Only Fast Campaign (${fanOutSummary.teaserJobs} Jobs across ${fanOutSummary.totalPlatforms} platforms & ${fanOutSummary.uniqueAccountsCount} account(s))`
-                : `${strictLive ? "Launch STRICT LIVE" : "Launch Multi-Engine"} Campaign (${fanOutSummary.masterJobs} Master + ${fanOutSummary.teaserJobs} Teaser Jobs · ${fanOutSummary.uniqueAccountsCount} account(s))`}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={handleLaunchCampaign}
+                disabled={isLaunching}
+                className="flex-1 py-3 rounded-lg bg-white text-[#333333] font-bold text-sm transition-all disabled:opacity-50 cursor-pointer border border-[#cccccc] hover:font-bold"
+              >
+                {isLaunching
+                  ? "Submitting to FlowProducer..."
+                  : fanOutSummary.isTeaserOnly
+                  ? `Launch Teaser-Only Fast Campaign (${fanOutSummary.teaserJobs} Jobs across ${fanOutSummary.totalPlatforms} platforms & ${fanOutSummary.uniqueAccountsCount} account(s))`
+                  : `${strictLive ? "Launch STRICT LIVE" : "Launch Multi-Engine"} Campaign (${fanOutSummary.masterJobs} Master + ${fanOutSummary.teaserJobs} Teaser Jobs · ${fanOutSummary.uniqueAccountsCount} account(s))`}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveToCalendarQueue()}
+                disabled={queuingToCalendar}
+                className="py-3 px-4 rounded-lg bg-white text-[#666666] hover:text-[#333333] text-xs cursor-pointer border border-[#cccccc] hover:font-bold whitespace-nowrap"
+              >
+                {queuingToCalendar
+                  ? "Saving..."
+                  : `Save to Calendar (+${delayMinutes > 0 ? `${delayMinutes}m` : "60m"} UTC)`}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -45,8 +45,16 @@ main a:focus-visible {
   outline-offset: 2px;
 }
 
+button:not(:disabled) {
+  transition: scale 150ms ease-out;
+}
+
 button:not(:disabled):hover {
   font-weight: 700;
+}
+
+button:not(:disabled):active {
+  scale: 0.98;
 }
 
 input,

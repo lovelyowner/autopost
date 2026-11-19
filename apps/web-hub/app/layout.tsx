@@ -19,7 +19,7 @@ export default function RootLayout({
         <div className="min-h-screen flex bg-white">
           <aside
             aria-label="Sidebar"
-            className="w-14 shrink-0 sticky top-0 h-screen bg-white flex flex-col items-center py-6"
+            className="w-14 shrink-0 sticky top-0 h-screen bg-white flex flex-col items-center py-6 select-none"
           >
             <SiteNav />
           </aside>
