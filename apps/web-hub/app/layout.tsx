@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SiteNav } from "../components/SiteNav";
 import { SystemStatusPill } from "../components/SystemStatusPill";
+import { UI_SETTINGS_INIT_SCRIPT } from "../lib/ui-settings";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="color-scheme" content="light dark" />
+        <script dangerouslySetInnerHTML={{ __html: UI_SETTINGS_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-dvh bg-white text-[#333333] font-sans antialiased">
         <div className="min-h-dvh flex bg-white">
           <aside

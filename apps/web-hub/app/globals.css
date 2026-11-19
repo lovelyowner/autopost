@@ -3,22 +3,128 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #333333;
-  --border-color: #cccccc;
-  --text-1: #999999;
-  --text-2: #666666;
-  --text-3: #333333;
+  --bg-light: #ffffff;
+  --bg-dark: #111111;
+  --border-light: #cccccc;
+  --border-dark: #595959;
+  --text-1-light: #999999;
+  --text-1-dark: #8c8c8c;
+  --text-2-light: #666666;
+  --text-2-dark: #b3b3b3;
+  --text-3-light: #333333;
+  --text-3-dark: #f0f0f0;
+  --backdrop-light: rgba(255, 255, 255, 0.92);
+  --backdrop-dark: rgba(17, 17, 17, 0.92);
+  --scrollbar-thumb-light: #999999;
+  --scrollbar-thumb-dark: #666666;
+  --scrollbar-track-light: #f2f2f2;
+  --scrollbar-track-dark: #1c1c1c;
+
+  --background: var(--bg-light);
+  --foreground: var(--text-3-light);
+  --border-color: var(--border-light);
+  --text-1: var(--text-1-light);
+  --text-2: var(--text-2-light);
+  --text-3: var(--text-3-light);
+  --backdrop-bg: var(--backdrop-light);
+  --scrollbar-thumb: var(--scrollbar-thumb-light);
+  --scrollbar-track: var(--scrollbar-track-light);
+
+  --grid-gap: 0px;
+  --grid-collapse: -1px;
+  --cell-padding: 12px;
+  --row-padding: 10px;
+
+  color-scheme: light dark;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) {
+    --background: var(--bg-dark);
+    --foreground: var(--text-3-dark);
+    --border-color: var(--border-dark);
+    --text-1: var(--text-1-dark);
+    --text-2: var(--text-2-dark);
+    --text-3: var(--text-3-dark);
+    --backdrop-bg: var(--backdrop-dark);
+    --scrollbar-thumb: var(--scrollbar-thumb-dark);
+    --scrollbar-track: var(--scrollbar-track-dark);
+  }
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
+  color-scheme: dark;
+  --background: var(--bg-dark);
+  --foreground: var(--text-3-dark);
+  --border-color: var(--border-dark);
+  --text-1: var(--text-1-dark);
+  --text-2: var(--text-2-dark);
+  --text-3: var(--text-3-dark);
+  --backdrop-bg: var(--backdrop-dark);
+  --scrollbar-thumb: var(--scrollbar-thumb-dark);
+  --scrollbar-track: var(--scrollbar-track-dark);
+}
+
+:root:has(> head > meta[name="color-scheme"][content="light"]) {
+  color-scheme: light;
+}
+
+@supports (color: light-dark(white, black)) {
+  :root {
+    --background: light-dark(var(--bg-light), var(--bg-dark));
+    --foreground: light-dark(var(--text-3-light), var(--text-3-dark));
+    --border-color: light-dark(var(--border-light), var(--border-dark));
+    --text-1: light-dark(var(--text-1-light), var(--text-1-dark));
+    --text-2: light-dark(var(--text-2-light), var(--text-2-dark));
+    --text-3: light-dark(var(--text-3-light), var(--text-3-dark));
+    --backdrop-bg: light-dark(var(--backdrop-light), var(--backdrop-dark));
+    --scrollbar-thumb: light-dark(var(--scrollbar-thumb-light), var(--scrollbar-thumb-dark));
+    --scrollbar-track: light-dark(var(--scrollbar-track-light), var(--scrollbar-track-dark));
+  }
+}
+
+@media (forced-colors: active) {
+  :root {
+    --background: Canvas;
+    --foreground: CanvasText;
+    --border-color: ButtonBorder;
+    --text-1: GrayText;
+    --text-2: CanvasText;
+    --text-3: CanvasText;
+  }
+}
+
+:root[data-grid-gap="5px"] {
+  --grid-gap: 5px;
+  --grid-collapse: 0px;
+}
+
+:root[data-ui-density="compact"] {
+  --cell-padding: 8px;
+  --row-padding: 6px;
+}
+
+:root[data-ui-density="comfortable"] {
+  --cell-padding: 16px;
+  --row-padding: 14px;
+}
+
+:root[data-reduce-motion="reduced"] *,
+:root[data-reduce-motion="reduced"] *::before,
+:root[data-reduce-motion="reduced"] *::after {
+  transition-duration: 0.001ms !important;
+  animation-duration: 0.001ms !important;
 }
 
 * {
-  border-color: #cccccc;
+  border-color: var(--border-color);
 }
 
 html,
 body {
-  background-color: #ffffff;
-  color: #333333;
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 a {
@@ -38,7 +144,8 @@ aside[aria-label="Sidebar"] {
   padding: 5px !important;
 }
 
-nav[aria-label="Primary"] a {
+nav[aria-label="Primary"] a,
+nav[aria-label="Primary"] button {
   width: 30px !important;
   height: 30px !important;
 }
@@ -59,7 +166,12 @@ nav[aria-label="Primary"] a,
 nav[aria-label="Primary"] a:hover,
 nav[aria-label="Primary"] a:focus,
 nav[aria-label="Primary"] a:focus-visible,
-nav[aria-label="Primary"] a:active {
+nav[aria-label="Primary"] a:active,
+nav[aria-label="Primary"] button,
+nav[aria-label="Primary"] button:hover,
+nav[aria-label="Primary"] button:focus,
+nav[aria-label="Primary"] button:focus-visible,
+nav[aria-label="Primary"] button:active {
   border: 0 none transparent !important;
   border-width: 0 !important;
   outline: 0 none transparent !important;
@@ -70,12 +182,12 @@ nav[aria-label="Primary"] a:active {
   font-weight: 400;
 }
 
-/* 3 content columns alongside Column 1 left menu = 4 columns total, 0 space between outlines, 1px #cccccc outline */
+/* 3 content columns alongside Column 1 left menu = 4 columns total, 0 space between outlines by default */
 .ui-grid-3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-  background-color: #ffffff;
+  gap: var(--grid-gap);
+  background-color: var(--background);
 }
 
 @media (min-width: 768px) {
@@ -86,14 +198,14 @@ nav[aria-label="Primary"] a:active {
 
 .ui-grid-3 > :not([data-modal-overlay="true"]),
 .ui-cell {
-  border: 1px solid #cccccc;
-  background-color: #ffffff;
-  padding: 12px;
+  border: 1px solid var(--border-color);
+  background-color: var(--background);
+  padding: var(--cell-padding);
 }
 
 .ui-grid-3 > :not([data-modal-overlay="true"]) {
-  margin-top: -1px;
-  margin-left: -1px;
+  margin-top: var(--grid-collapse);
+  margin-left: var(--grid-collapse);
 }
 
 .ui-grid-3 > .ui-stack {
@@ -102,45 +214,50 @@ nav[aria-label="Primary"] a:active {
   background-color: transparent;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  margin-top: -1px;
-  margin-left: -1px;
+  gap: var(--grid-gap);
+  margin-top: var(--grid-collapse);
+  margin-left: var(--grid-collapse);
 }
 
 .ui-stack > * {
-  border: 1px solid #cccccc;
-  background-color: #ffffff;
-  padding: 12px;
+  border: 1px solid var(--border-color);
+  background-color: var(--background);
+  padding: var(--cell-padding);
 }
 
 .ui-stack > * + * {
-  margin-top: -1px;
+  margin-top: var(--grid-collapse);
 }
 
 .ui-row-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: var(--grid-gap);
 }
 
 .ui-row-list > * {
-  border: 1px solid #cccccc;
-  background-color: #ffffff;
-  padding: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--background);
+  padding: var(--row-padding);
 }
 
 .ui-row-list > * + * {
-  margin-top: -1px;
+  margin-top: var(--grid-collapse);
 }
 
 .grid > .ui-cell {
-  margin-top: -1px;
-  margin-left: -1px;
+  margin-top: var(--grid-collapse);
+  margin-left: var(--grid-collapse);
+}
+
+:root[data-grid-gap="5px"] .grid:has(> .ui-cell),
+:root[data-grid-gap="5px"] .grid:has(> .ui-row-list) {
+  gap: 5px;
 }
 
 :where(button, input, select, textarea, summary, [tabindex]):focus-visible,
 main a:focus-visible {
-  outline: 1px solid #cccccc;
+  outline: 1px solid var(--border-color);
   outline-offset: 0;
 }
 
@@ -161,22 +278,25 @@ select,
 textarea,
 button,
 dialog {
-  background-color: #ffffff;
+  background-color: var(--background);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #999999;
+  color: var(--text-1);
 }
 
 svg {
-  color: #999999;
+  color: var(--text-1);
 }
 
 nav[aria-label="Primary"] a[aria-current="page"] svg,
 nav[aria-label="Primary"] a:hover svg,
-nav[aria-label="Primary"] a:focus-visible svg {
-  color: #333333;
+nav[aria-label="Primary"] a:focus-visible svg,
+nav[aria-label="Primary"] button[aria-expanded="true"] svg,
+nav[aria-label="Primary"] button:hover svg,
+nav[aria-label="Primary"] button:focus-visible svg {
+  color: var(--text-3);
   stroke-width: 2.5;
 }
 
@@ -187,5 +307,34 @@ dialog:modal {
 dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--backdrop-bg);
+}
+
+@layer utilities {
+  .bg-white,
+  .hover\:bg-white:hover,
+  .file\:bg-white::file-selector-button {
+    background-color: var(--background);
+  }
+
+  .text-\[\#333333\],
+  .hover\:text-\[\#333333\]:hover,
+  .file\:text-\[\#333333\]::file-selector-button {
+    color: var(--text-3);
+  }
+
+  .text-\[\#666666\],
+  .hover\:text-\[\#666666\]:hover {
+    color: var(--text-2);
+  }
+
+  .text-\[\#999999\] {
+    color: var(--text-1);
+  }
+
+  .border-\[\#cccccc\],
+  .file\:border-\[\#cccccc\]::file-selector-button,
+  .divide-\[\#cccccc\] > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--border-color);
+  }
 }
