@@ -148,11 +148,15 @@ nav[aria-label="Primary"] a,
 nav[aria-label="Primary"] button {
   width: 30px !important;
   height: 30px !important;
+  transform: none !important;
+  scale: none !important;
 }
 
 nav[aria-label="Primary"] svg {
   width: 30px !important;
   height: 30px !important;
+  transform: none !important;
+  scale: none !important;
 }
 
 aside[aria-label="Sidebar"],
