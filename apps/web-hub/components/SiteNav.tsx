@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Calendar,
-  CircleDollarSign,
   Clock,
   KeyRound,
   Layers,
@@ -13,7 +12,7 @@ import {
   Settings,
   SquarePen,
 } from "lucide-react";
-import { SettingsModal } from "./SettingsModal";
+import { applyUiSettings, readUiSettings } from "../lib/ui-settings";
 
 export interface NavItemSpec {
   href: string;
@@ -66,27 +65,26 @@ export const NAV_ITEMS: NavItemSpec[] = [
     Icon: Clock,
   },
   {
-    href: "/plans",
-    label: "Plans & Crypto",
+    href: "/settings",
+    label: "Settings & Plans",
     shortcut: "Alt+6",
     altDigit: "6",
     group: "bottom",
-    Icon: CircleDollarSign,
+    Icon: Settings,
   },
 ];
 
 export function SiteNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (event.isComposing || event.keyCode === 229) return;
-      if (event.key === "7" || event.key.toLowerCase() === "s") {
+      if (event.key.toLowerCase() === "s") {
         event.preventDefault();
-        setSettingsOpen((prev) => !prev);
+        router.push("/settings");
         return;
       }
       const hit = NAV_ITEMS.find((item) => item.altDigit === event.key);
@@ -94,8 +92,23 @@ export function SiteNav() {
       event.preventDefault();
       router.push(hit.href);
     };
+
+    const onStorage = (event: StorageEvent) => {
+      if (
+        event.key === null ||
+        event.key === "color-scheme" ||
+        event.key.startsWith("polypost:ui:")
+      ) {
+        applyUiSettings(readUiSettings(), false);
+      }
+    };
+
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("storage", onStorage);
+    };
   }, [router]);
 
   const primaryItems = NAV_ITEMS.filter((item) => item.group === "primary");
@@ -125,38 +138,16 @@ export function SiteNav() {
   };
 
   return (
-    <>
-      <nav
-        aria-label="Primary"
-        className="flex-1 flex flex-col items-center justify-between w-full m-0 p-0 bg-white"
-      >
-        <ul className="flex flex-col items-center gap-[5px] m-0 p-0 list-none bg-white">
-          {primaryItems.map(renderItem)}
-        </ul>
-        <ul className="flex flex-col items-center gap-[5px] m-0 p-0 pt-[5px] list-none bg-white">
-          {bottomItems.map(renderItem)}
-          <li className="m-0 p-0 flex items-center justify-center">
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
-              aria-label="Settings & Theme"
-              aria-keyshortcuts="Alt+7"
-              aria-expanded={settingsOpen}
-              aria-haspopup="dialog"
-              title="Settings & Theme (Alt+7)"
-              className="w-[30px] h-[30px] m-0 p-0 border-0 outline-none shadow-none flex items-center justify-center bg-white transition-transform duration-150 ease-out hover:scale-110 focus-visible:scale-110 active:scale-95 cursor-pointer"
-            >
-              <Settings
-                aria-hidden="true"
-                strokeWidth={settingsOpen ? 2.5 : 1.5}
-                className="w-[30px] h-[30px] block text-[#999999]"
-              />
-              <span className="sr-only">Settings &amp; Theme</span>
-            </button>
-          </li>
-        </ul>
-      </nav>
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-    </>
+    <nav
+      aria-label="Primary"
+      className="flex-1 flex flex-col items-center justify-between w-full m-0 p-0 bg-white"
+    >
+      <ul className="flex flex-col items-center gap-[5px] m-0 p-0 list-none bg-white">
+        {primaryItems.map(renderItem)}
+      </ul>
+      <ul className="flex flex-col items-center gap-[5px] m-0 p-0 pt-[5px] list-none bg-white">
+        {bottomItems.map(renderItem)}
+      </ul>
+    </nav>
   );
 }

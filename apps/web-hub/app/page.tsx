@@ -1388,7 +1388,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <Link
-          href="/plans"
+          href="/settings#plans"
           className="text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]"
         >
           {activeLicense ? "Manage Plan & Ecosystem Pass" : "Upgrade Plan ($3 Pro / $5 VIP / $8 Max / $10 Extra)"}

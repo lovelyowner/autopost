@@ -583,7 +583,7 @@ export default function AccountVaultPage() {
                   : `Up to ${activePlan.accountsPerPlatformCap} / platform`}
               </strong>
             </div>
-            <Link href="/plans" className="block text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]">
+            <Link href="/settings#plans" className="block text-[11px] text-[#666666] hover:font-bold hover:text-[#333333]">
               Upgrade Tier ($3 Pro / $5 VIP / $8 Max / $10 Extra)
             </Link>
           </div>

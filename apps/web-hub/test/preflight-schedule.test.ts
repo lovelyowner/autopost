@@ -110,7 +110,7 @@ describe("caption preflight, strict-SFW scanner, and spintax uniqueness", () => 
       "/presets",
       "/calendar",
       "/history",
-      "/plans",
+      "/settings",
     ]);
     expect(NAV_ITEMS.map((item) => item.shortcut)).toEqual([
       "Alt+1",

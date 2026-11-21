@@ -220,8 +220,8 @@ export async function POST(req: NextRequest, context: Ctx) {
         missingEnvHint: recipient
           ? null
           : rail.family === "solana"
-            ? "Set your receiving Solana address in Treasury Setup on /plans (or POLYPOST_TREASURY_SOL_ADDRESS in env)."
-            : "Set your receiving 0x EVM address in Treasury Setup on /plans (or POLYPOST_TREASURY_EVM_ADDRESS in env).",
+            ? "Set your receiving Solana address in Treasury Setup on /settings#plans (or POLYPOST_TREASURY_SOL_ADDRESS in env)."
+            : "Set your receiving 0x EVM address in Treasury Setup on /settings#plans (or POLYPOST_TREASURY_EVM_ADDRESS in env).",
         quote: {
           planId: plan.id,
           planName: plan.name,
