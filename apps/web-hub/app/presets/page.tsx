@@ -130,12 +130,12 @@ export default function PresetsPage() {
                 return (
                   <div
                     key={p.id}
-                    className="bg-white flex items-start justify-between gap-2 text-xs"
+                    className="bg-white !p-0 ui-btn-cols items-stretch text-xs"
                   >
                     <button
                       type="button"
                       onClick={() => setActivePreset(p)}
-                      className={`rounded border border-[#cccccc] bg-white px-2.5 py-1.5 text-left flex-1 ${
+                      className={`border-0 rounded-none bg-white px-2.5 py-2 text-left flex-1 cursor-pointer ${
                         selected
                           ? "font-bold text-[#333333]"
                           : "text-[#666666] hover:font-bold hover:text-[#333333]"
@@ -148,7 +148,7 @@ export default function PresetsPage() {
                       <button
                         type="button"
                         onClick={() => handleDelete(p.id)}
-                        className="rounded border border-[#cccccc] text-[10px] text-[#666666] hover:font-bold hover:text-[#333333] px-2 py-1 bg-white"
+                        className="border-0 rounded-none text-[10px] text-[#666666] hover:font-bold hover:text-[#333333] px-2.5 py-2 bg-white cursor-pointer"
                         title="Delete preset"
                       >
                         Del
@@ -175,7 +175,7 @@ export default function PresetsPage() {
                 setPresets([...presets, newP]);
                 setActivePreset(newP);
               }}
-              className="border border-[#cccccc] w-full py-2 rounded bg-white text-[#333333] text-xs font-bold"
+              className="ui-field-btn border-t border-[#cccccc] py-2 text-[#333333] text-xs font-bold cursor-pointer"
             >
               + Create New Preset
             </button>
@@ -287,7 +287,7 @@ export default function PresetsPage() {
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="border border-[#cccccc] w-full py-2.5 rounded bg-white text-[#333333] font-bold cursor-pointer"
+                  className="ui-field-btn border-t border-[#cccccc] py-2.5 text-[#333333] font-bold cursor-pointer"
                 >
                   Save &amp; Persist Preset
                 </button>

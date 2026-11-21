@@ -330,7 +330,7 @@ export function CryptoCheckoutDialog({
         }
         backdropDownRef.current = false;
       }}
-      className="m-auto w-[min(94vw,680px)] max-h-[90vh] overflow-y-auto rounded bg-white p-0 text-[#333333] shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
+      className="m-auto w-[min(94vw,680px)] max-h-[90vh] overflow-y-auto border border-[#cccccc] rounded-none bg-white p-0 text-[#333333] shadow-none"
     >
       {plan && (
         <div className="p-6 space-y-6 bg-white">
@@ -346,7 +346,7 @@ export function CryptoCheckoutDialog({
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-[#cccccc] bg-white px-3 py-1.5 text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
+              className="rounded-none border border-[#cccccc] bg-white px-3 py-1.5 text-xs text-[#666666] hover:font-bold hover:text-[#333333]"
             >
               Close
             </button>
@@ -356,7 +356,7 @@ export function CryptoCheckoutDialog({
             <h3 className="text-xs font-bold uppercase tracking-wide text-[#666666]">
               1. Choose Low-Fee Network &amp; Asset
             </h3>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-0">
               {CRYPTO_RAILS.map((rail) => {
                 const active = rail.id === railId;
                 return (
@@ -365,7 +365,7 @@ export function CryptoCheckoutDialog({
                     type="button"
                     onClick={() => setRailId(rail.id)}
                     aria-pressed={active}
-                    className={`text-left rounded border border-[#cccccc] bg-white p-2.5 ${
+                    className={`ui-cell text-left bg-white !p-2.5 cursor-pointer ${
                       active
                         ? "font-bold text-[#333333]"
                         : "text-[#666666] hover:font-bold hover:text-[#333333]"

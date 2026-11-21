@@ -32,8 +32,12 @@
 
   --grid-gap: 0px;
   --grid-collapse: -1px;
+  --grid-cols: 3;
   --cell-padding: 12px;
   --row-padding: 10px;
+  --ui-radius: 0px;
+  --nav-icon-size: 30px;
+  --nav-rail-width: 40px;
 
   color-scheme: light dark;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
@@ -100,6 +104,14 @@
   --grid-collapse: 0px;
 }
 
+:root[data-grid-cols="2"] {
+  --grid-cols: 2;
+}
+
+:root[data-grid-cols="1"] {
+  --grid-cols: 1;
+}
+
 :root[data-ui-density="compact"] {
   --cell-padding: 8px;
   --row-padding: 6px;
@@ -108,6 +120,28 @@
 :root[data-ui-density="comfortable"] {
   --cell-padding: 16px;
   --row-padding: 14px;
+}
+
+:root[data-ui-corners="rounded"] {
+  --ui-radius: 6px;
+}
+
+:root[data-nav-size="24px"] {
+  --nav-icon-size: 24px;
+  --nav-rail-width: 34px;
+}
+
+:root[data-nav-size="36px"] {
+  --nav-icon-size: 36px;
+  --nav-rail-width: 46px;
+}
+
+:root[data-font-scale="small"] {
+  font-size: 14px;
+}
+
+:root[data-font-scale="large"] {
+  font-size: 18px;
 }
 
 :root[data-reduce-motion="reduced"] *,
@@ -138,23 +172,23 @@ a:hover {
 
 /* Left menu (Column 1 of 4): strictly no borders, outlines, rings, or shadows in any state */
 aside[aria-label="Sidebar"] {
-  width: 40px !important;
-  min-width: 40px !important;
-  max-width: 40px !important;
+  width: var(--nav-rail-width) !important;
+  min-width: var(--nav-rail-width) !important;
+  max-width: var(--nav-rail-width) !important;
   padding: 5px !important;
 }
 
 nav[aria-label="Primary"] a,
 nav[aria-label="Primary"] button {
-  width: 30px !important;
-  height: 30px !important;
+  width: var(--nav-icon-size) !important;
+  height: var(--nav-icon-size) !important;
   transform: none !important;
   scale: none !important;
 }
 
 nav[aria-label="Primary"] svg {
-  width: 30px !important;
-  height: 30px !important;
+  width: var(--nav-icon-size) !important;
+  height: var(--nav-icon-size) !important;
   transform: none !important;
   scale: none !important;
 }
@@ -196,13 +230,22 @@ nav[aria-label="Primary"] button:active {
 
 @media (min-width: 768px) {
   .ui-grid-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--grid-cols), minmax(0, 1fr));
+  }
+
+  :root[data-grid-cols="2"] .ui-grid-3 > .md\:col-span-3 {
+    grid-column: 1 / -1;
+  }
+
+  :root[data-grid-cols="1"] .ui-grid-3 > * {
+    grid-column: 1 / -1;
   }
 }
 
 .ui-grid-3 > :not([data-modal-overlay="true"]),
 .ui-cell {
   border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
   background-color: var(--background);
   padding: var(--cell-padding);
 }
@@ -214,6 +257,7 @@ nav[aria-label="Primary"] button:active {
 
 .ui-grid-3 > .ui-stack {
   border: 0;
+  border-radius: 0;
   padding: 0;
   background-color: transparent;
   display: flex;
@@ -225,6 +269,7 @@ nav[aria-label="Primary"] button:active {
 
 .ui-stack > * {
   border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
   background-color: var(--background);
   padding: var(--cell-padding);
 }
@@ -241,6 +286,7 @@ nav[aria-label="Primary"] button:active {
 
 .ui-row-list > * {
   border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
   background-color: var(--background);
   padding: var(--row-padding);
 }
@@ -257,6 +303,63 @@ nav[aria-label="Primary"] button:active {
 :root[data-grid-gap="5px"] .grid:has(> .ui-cell),
 :root[data-grid-gap="5px"] .grid:has(> .ui-row-list) {
   gap: 5px;
+}
+
+/* Column-dividers-only UI mode: remove top/bottom card borders and keep only vertical column outlines */
+:root[data-outline-style="columns-only"] .ui-grid-3 > :not([data-modal-overlay="true"]),
+:root[data-outline-style="columns-only"] .ui-stack > *,
+:root[data-outline-style="columns-only"] .ui-cell {
+  border-top-width: 0;
+  border-bottom-width: 0;
+  margin-top: 0;
+}
+
+:root[data-outline-style="columns-only"] .ui-grid-3 > .ui-stack {
+  border-width: 0;
+  margin-top: 0;
+}
+
+:root[data-outline-style="columns-only"] .ui-row-list > * {
+  border-left-width: 0;
+  border-right-width: 0;
+}
+
+/* Full-field button rule: buttons filling their field have NO outer box outlines — ONLY 1px outlines between columns */
+.ui-field-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background-color: var(--background);
+}
+
+.ui-btn-cols {
+  display: flex;
+  width: 100%;
+  gap: 0;
+  border: 0;
+}
+
+.ui-btn-cols > * {
+  border: 0;
+  border-radius: 0;
+}
+
+.ui-btn-cols > * + * {
+  border-left: 1px solid var(--border-color);
+}
+
+@media (max-width: 639px) {
+  .ui-btn-cols.ui-btn-cols-stack-sm {
+    flex-direction: column;
+  }
+
+  .ui-btn-cols.ui-btn-cols-stack-sm > * + * {
+    border-left: 0;
+    border-top: 1px solid var(--border-color);
+  }
 }
 
 :where(button, input, select, textarea, summary, [tabindex]):focus-visible,

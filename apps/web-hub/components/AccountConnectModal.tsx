@@ -352,16 +352,17 @@ export function ApiCredentialsManager({
           No API providers matched &ldquo;{searchQuery || letterFilter}&rdquo;. Try another letter or clear the filter.
         </div>
       )}
-      {filteredProviders.map((p) => {
-        const isOpen = expandedId === p.id;
-        const msg = statusMsg?.providerId === p.id ? statusMsg : null;
-        return (
-          <div key={p.id} className="rounded-lg bg-white overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setExpandedId(isOpen ? null : p.id)}
-              className="border w-full px-4 py-3 flex items-center justify-between text-left cursor-pointer border-[#cccccc] rounded bg-white hover:font-bold"
-            >
+      <div className="ui-row-list">
+        {filteredProviders.map((p) => {
+          const isOpen = expandedId === p.id;
+          const msg = statusMsg?.providerId === p.id ? statusMsg : null;
+          return (
+            <div key={p.id} className="!p-0 bg-white overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setExpandedId(isOpen ? null : p.id)}
+                className="w-full border-0 rounded-none px-4 py-3 flex items-center justify-between text-left cursor-pointer bg-white hover:font-bold"
+              >
               <div>
                 <span className="text-sm font-semibold text-[#333333]">{p.name}</span>
                 <p className="text-[11px] text-[#999999]">{p.helpText}</p>
@@ -447,6 +448,7 @@ export function ApiCredentialsManager({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

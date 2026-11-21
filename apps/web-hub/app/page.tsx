@@ -1710,7 +1710,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="ui-btn-cols border-t border-[#cccccc]">
               {teaserStates.some((t: any) => t.status === "failed") && (
                 <button
                   type="button"
@@ -1741,14 +1741,14 @@ export default function DashboardPage() {
                       text: `Configured Composer to retry ONLY the ${failedList.length} failed target(s). Click Launch below when ready.`,
                     });
                   }}
-                  className="border flex-1 py-2.5 rounded-xl bg-white text-[#333333] font-bold text-xs cursor-pointer border-[#cccccc] hover:font-bold"
+                  className="flex-1 py-2.5 border-0 rounded-none bg-white text-[#333333] font-bold text-xs cursor-pointer hover:font-bold"
                 >
                   Load Only Failed Targets ({teaserStates.filter((t: any) => t.status === "failed").length}) for Retry
                 </button>
               )}
               <button
                 onClick={() => setActiveCampaign(null)}
-                className="border flex-1 py-2.5 rounded-xl bg-white text-[#333333] font-bold text-xs cursor-pointer border-[#cccccc] hover:font-bold"
+                className="flex-1 py-2.5 border-0 rounded-none bg-white text-[#333333] font-bold text-xs cursor-pointer hover:font-bold"
               >
                 Done / Close Monitor
               </button>
@@ -2842,12 +2842,12 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="ui-btn-cols ui-btn-cols-stack-sm border-t border-[#cccccc]">
               <button
                 type="button"
                 onClick={handleLaunchCampaign}
                 disabled={isLaunching}
-                className="flex-1 py-3 rounded-lg bg-white text-[#333333] font-bold text-sm transition-all disabled:opacity-50 cursor-pointer border border-[#cccccc] hover:font-bold"
+                className="flex-1 py-3 px-3 border-0 rounded-none bg-white text-[#333333] font-bold text-sm transition-all disabled:opacity-50 cursor-pointer hover:font-bold"
               >
                 {isLaunching
                   ? "Submitting to FlowProducer..."
@@ -2859,7 +2859,7 @@ export default function DashboardPage() {
                 type="button"
                 onClick={() => void handleSaveToCalendarQueue()}
                 disabled={queuingToCalendar}
-                className="py-3 px-4 rounded-lg bg-white text-[#666666] hover:text-[#333333] text-xs cursor-pointer border border-[#cccccc] hover:font-bold whitespace-nowrap"
+                className="py-3 px-4 border-0 rounded-none bg-white text-[#666666] hover:text-[#333333] text-xs cursor-pointer hover:font-bold whitespace-nowrap"
               >
                 {queuingToCalendar
                   ? "Saving..."

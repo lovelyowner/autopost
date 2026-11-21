@@ -29,7 +29,16 @@ function run(name, cmd, args, cwd = root, env = rootEnv) {
 const redisBin = resolve(root, ".tools/redis-7.4.1/src/redis-server");
 if (existsSync(redisBin)) {
   console.log("[PolyPost] Launching local Redis daemon...");
-  run("redis", redisBin, ["--port", "6379", "--daemonize", "no"]);
+  run("redis", redisBin, [
+    "--port",
+    "6379",
+    "--daemonize",
+    "no",
+    "--stop-writes-on-bgsave-error",
+    "no",
+    "--save",
+    "",
+  ]);
 }
 
 console.log("[PolyPost] Launching Stealth Browser Worker (FastAPI on :8001)...");
@@ -55,6 +64,7 @@ if (existsSync(viteNodeCli)) {
 }
 
 console.log("[PolyPost] Launching Next.js Web Hub (on :3000)...");
+console.log("[PolyPost] Open App -> http://localhost:3000 (Settings & Plans -> http://localhost:3000/settings)");
 const npxBin = existsSync(resolve(localNodeDir, "npx"))
   ? resolve(localNodeDir, "npx")
   : "npx";

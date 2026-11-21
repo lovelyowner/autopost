@@ -372,7 +372,7 @@ export function PlansBillingSection() {
                 <button
                   type="button"
                   disabled
-                  className="w-full rounded border border-[#cccccc] bg-white px-3 py-2 text-xs text-[#999999]"
+                  className="ui-field-btn border-t border-[#cccccc] px-3 py-2 text-xs text-[#999999]"
                 >
                   {isCurrent ? "Current Default Tier" : "Included Always"}
                 </button>
@@ -380,7 +380,7 @@ export function PlansBillingSection() {
                 <button
                   type="button"
                   onClick={() => setSelectedPlan(plan)}
-                  className="w-full rounded border border-[#cccccc] bg-white px-3 py-2 text-xs font-bold text-[#333333] hover:font-bold"
+                  className="ui-field-btn border-t border-[#cccccc] px-3 py-2 text-xs font-bold text-[#333333] hover:font-bold cursor-pointer"
                 >
                   {isCurrent
                     ? `Pay $${plan.priceUsd} · Extend ${plan.name}`
@@ -504,7 +504,7 @@ export function PlansBillingSection() {
           <button
             type="submit"
             disabled={!pasteToken.trim()}
-            className="w-full rounded border border-[#cccccc] bg-white px-3 py-1.5 text-xs font-bold text-[#333333] hover:font-bold disabled:opacity-50"
+            className="ui-field-btn border-t border-[#cccccc] px-3 py-1.5 text-xs font-bold text-[#333333] hover:font-bold disabled:opacity-50 cursor-pointer"
           >
             Validate Token
           </button>

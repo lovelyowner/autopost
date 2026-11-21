@@ -590,7 +590,7 @@ export default function CalendarPage() {
             <button
               type="button"
               onClick={handleBulkCsvImport}
-              className="border border-[#cccccc] w-full py-2.5 rounded bg-white text-[#333333] font-bold text-xs cursor-pointer"
+              className="ui-field-btn border-t border-[#cccccc] py-2.5 text-[#333333] font-bold text-xs cursor-pointer"
             >
               Import and Queue CSV Batch
             </button>
