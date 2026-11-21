@@ -24,7 +24,7 @@ interface HealthResponse {
   apiProvidersConfigured: number;
 }
 
-export function SystemStatusPill() {
+export function SystemStatusPill({ embedded = false }: { embedded?: boolean }) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [companionProfilesCount, setCompanionProfilesCount] = useState<number | null>(null);
   const [clientApiCount, setClientApiCount] = useState(0);
@@ -125,9 +125,14 @@ export function SystemStatusPill() {
             : "Vercel hosts stateless Direct Cloud APIs & browser-isolated credentials. Connect your Companion Worker (:8001) in Vault for Chrome browser automation."
           : "Click to re-check Redis, Stealth Browser Worker, and FFmpeg health"
       }
-      className="text-[11px] px-2.5 py-1 rounded border border-[#cccccc] bg-white text-[#666666] hover:font-bold hover:text-[#333333] font-mono cursor-pointer whitespace-nowrap shrink-0"
+      className={
+        embedded
+          ? "ui-field-btn pt-2 text-[11px] text-[#666666] hover:font-bold hover:text-[#333333] font-mono cursor-pointer text-left !justify-between"
+          : "text-[11px] px-2.5 py-1 rounded border border-[#cccccc] bg-white text-[#666666] hover:font-bold hover:text-[#333333] font-mono cursor-pointer whitespace-nowrap shrink-0"
+      }
     >
-      {checking ? "Refreshing..." : label}
+      <span className="truncate">{checking ? "Refreshing..." : label}</span>
+      {embedded && <span className="text-[10px] text-[#999999] shrink-0 ml-2">Refresh</span>}
     </button>
   );
 }

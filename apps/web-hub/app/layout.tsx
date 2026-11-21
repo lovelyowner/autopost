@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { SiteNav } from "../components/SiteNav";
-import { SystemStatusPill } from "../components/SystemStatusPill";
 import { UI_SETTINGS_INIT_SCRIPT } from "../lib/ui-settings";
 import "./globals.css";
 
@@ -29,9 +28,6 @@ export default function RootLayout({
             <SiteNav />
           </aside>
           <main className="flex-1 min-w-0 bg-white space-y-0 p-0">
-            <div className="flex justify-end p-1.5 border-b border-[#cccccc] bg-white">
-              <SystemStatusPill />
-            </div>
             {children}
           </main>
         </div>

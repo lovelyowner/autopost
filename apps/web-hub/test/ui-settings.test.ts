@@ -18,6 +18,7 @@ describe("UI Settings & Change UI Presets", () => {
       corners: "sharp",
       navIconSize: "30px",
       fontScale: "default",
+      navDragScroll: true,
     });
     expect(detectActiveUiPreset(DEFAULT_UI_SETTINGS)).toBe("minimal-flush");
   });

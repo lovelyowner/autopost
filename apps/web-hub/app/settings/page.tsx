@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Monitor, Moon, RotateCcw, Sun } from "lucide-react";
 import { PlansBillingSection } from "@/components/PlansBillingSection";
+import { SystemStatusPill } from "@/components/SystemStatusPill";
 import {
   type CornerStylePreference,
   DEFAULT_UI_SETTINGS,
@@ -130,10 +131,10 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="md:col-span-1 bg-white text-xs space-y-1 flex flex-col justify-between">
+      <section className="md:col-span-1 bg-white text-xs space-y-2 flex flex-col justify-between">
         <div>
           <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#999999]">
-            Active Interface State
+            Active Interface &amp; Stack Status
           </h2>
           <div className="mt-1.5 space-y-1 text-[#666666]">
             <div className="flex items-center justify-between">
@@ -159,10 +160,13 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <span>Left Menu:</span>
               <strong className="font-mono text-[#333333]">
-                {settings.navIconSize} icons · {parseInt(settings.navIconSize, 10) + 10}px rail
+                {settings.navIconSize} · Drag {settings.navDragScroll ? "On" : "Off"}
               </strong>
             </div>
           </div>
+        </div>
+        <div className="border-t border-[#cccccc] pt-1">
+          <SystemStatusPill embedded />
         </div>
       </section>
 
@@ -485,6 +489,46 @@ export default function SettingsPage() {
                     className="sr-only peer"
                   />
                   <label htmlFor={inputId} className={colRadioLabelClass(settings.navIconSize === id)}>
+                    <span>{label}</span>
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <fieldset className="border-0 p-0 m-0 space-y-2">
+          <legend className="text-xs font-bold uppercase tracking-wider text-[#333333] p-0">
+            Left Menu — Free-Field Drag Scroll
+          </legend>
+          <p className="text-[11px] text-[#666666]">
+            Drag up/down with mouse or touch (or scroll wheel) on the empty space in the left menu to scroll between icons.
+          </p>
+          <div className="ui-btn-cols">
+            {(
+              [
+                { id: "on", value: true, label: "Drag Scroll On" },
+                { id: "off", value: false, label: "Off" },
+              ] as const
+            ).map(({ id, value, label }) => {
+              const inputId = `settings-nav-drag-${id}`;
+              return (
+                <div key={id} className="flex flex-1 min-w-0">
+                  <input
+                    id={inputId}
+                    type="radio"
+                    name="ui-nav-drag-scroll"
+                    value={id}
+                    checked={settings.navDragScroll === value}
+                    onChange={() =>
+                      updateSettings(
+                        { navDragScroll: value },
+                        `Left menu free-field drag scroll ${value ? "enabled" : "disabled"}.`,
+                      )
+                    }
+                    className="sr-only peer"
+                  />
+                  <label htmlFor={inputId} className={colRadioLabelClass(settings.navDragScroll === value)}>
                     <span>{label}</span>
                   </label>
                 </div>

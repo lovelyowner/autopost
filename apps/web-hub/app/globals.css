@@ -178,8 +178,8 @@ aside[aria-label="Sidebar"] {
   padding: 5px !important;
 }
 
-nav[aria-label="Primary"] a,
-nav[aria-label="Primary"] button {
+nav[aria-label="Primary"] li a,
+nav[aria-label="Primary"] li button {
   width: var(--nav-icon-size) !important;
   height: var(--nav-icon-size) !important;
   transform: none !important;
@@ -191,6 +191,23 @@ nav[aria-label="Primary"] svg {
   height: var(--nav-icon-size) !important;
   transform: none !important;
   scale: none !important;
+}
+
+/* Free-field vertical drag/touch scrubber in Column 1 left menu */
+[data-nav-scrubber="true"] {
+  flex: 1 1 0%;
+  width: 100%;
+  min-height: 24px;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transform: none !important;
+  scale: none !important;
+}
+
+[data-nav-scrubber="true"][data-dragging="true"] {
+  cursor: grabbing;
 }
 
 aside[aria-label="Sidebar"],
@@ -398,6 +415,7 @@ svg {
 }
 
 nav[aria-label="Primary"] a[aria-current="page"] svg,
+nav[aria-label="Primary"] a[data-scrub-target="true"] svg,
 nav[aria-label="Primary"] a:hover svg,
 nav[aria-label="Primary"] a:focus-visible svg,
 nav[aria-label="Primary"] button[aria-expanded="true"] svg,

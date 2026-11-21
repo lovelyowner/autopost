@@ -26,6 +26,7 @@ export interface UiSettings {
   corners: CornerStylePreference;
   navIconSize: NavIconSizePreference;
   fontScale: FontScalePreference;
+  navDragScroll: boolean;
 }
 
 export const THEME_STORAGE_KEY = "color-scheme";
@@ -37,6 +38,8 @@ export const OUTLINE_STYLE_STORAGE_KEY = "polypost:ui:outline-style";
 export const CORNERS_STORAGE_KEY = "polypost:ui:corners";
 export const NAV_ICON_SIZE_STORAGE_KEY = "polypost:ui:nav-icon-size";
 export const FONT_SCALE_STORAGE_KEY = "polypost:ui:font-scale";
+export const NAV_DRAG_SCROLL_STORAGE_KEY = "polypost:ui:nav-drag-scroll";
+export const UI_SETTINGS_CHANGED_EVENT = "polypost:ui-settings-changed";
 
 export const DEFAULT_UI_SETTINGS: UiSettings = {
   theme: "system",
@@ -48,13 +51,14 @@ export const DEFAULT_UI_SETTINGS: UiSettings = {
   corners: "sharp",
   navIconSize: "30px",
   fontScale: "default",
+  navDragScroll: true,
 };
 
 export interface UiPresetSpec {
   id: Exclude<UiPresetId, "custom">;
   label: string;
   summary: string;
-  patch: Omit<UiSettings, "theme" | "motion">;
+  patch: Omit<UiSettings, "theme" | "motion" | "navDragScroll">;
 }
 
 export const UI_PRESETS: UiPresetSpec[] = [
@@ -190,6 +194,9 @@ export function readUiSettings(): UiSettings {
   const fontScale: FontScalePreference =
     storedFontScale === "small" || storedFontScale === "large" ? storedFontScale : "default";
 
+  const storedNavDragScroll = readStorage(NAV_DRAG_SCROLL_STORAGE_KEY);
+  const navDragScroll = storedNavDragScroll !== "off";
+
   return {
     theme,
     gridGap,
@@ -200,6 +207,7 @@ export function readUiSettings(): UiSettings {
     corners,
     navIconSize,
     fontScale,
+    navDragScroll,
   };
 }
 
@@ -234,6 +242,7 @@ export function applyUiSettings(settings: UiSettings, persist = true): void {
       settings.navIconSize === "30px" ? null : settings.navIconSize,
     );
     writeStorage(FONT_SCALE_STORAGE_KEY, settings.fontScale === "default" ? null : settings.fontScale);
+    writeStorage(NAV_DRAG_SCROLL_STORAGE_KEY, settings.navDragScroll ? null : "off");
   }
 
   const root = document.documentElement;
@@ -256,6 +265,10 @@ export function applyUiSettings(settings: UiSettings, persist = true): void {
   setOrDelete("uiCorners", settings.corners === "rounded" ? "rounded" : null);
   setOrDelete("navSize", settings.navIconSize === "30px" ? null : settings.navIconSize);
   setOrDelete("fontScale", settings.fontScale === "default" ? null : settings.fontScale);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(UI_SETTINGS_CHANGED_EVENT, { detail: settings }));
+  }
 }
 
 /**
